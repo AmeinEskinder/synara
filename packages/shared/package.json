@@ -52,6 +52,10 @@
       "types": "./src/kanban.ts",
       "import": "./src/kanban.ts"
     },
+    "./account": {
+      "types": "./src/account.ts",
+      "import": "./src/account.ts"
+    },
     "./githubAvatar": {
       "types": "./src/githubAvatar.ts",
       "import": "./src/githubAvatar.ts"
