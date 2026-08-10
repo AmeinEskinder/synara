@@ -52,6 +52,7 @@ import { Headers, HttpRouter, HttpServerRequest, HttpServerResponse } from "effe
 import { RpcMiddleware, RpcSchema, RpcSerialization, RpcServer } from "effect/unstable/rpc";
 
 import { createAccountSession } from "./accountSession";
+import { AccountApiError } from "@synara/shared/account";
 import { AutomationService } from "./automation/Services/AutomationService";
 import { TodoService } from "./todo/Services/TodoService";
 import { isServerBetaFeatureEnabled } from "./betaFeatureGate";
@@ -1197,6 +1198,34 @@ const makeWsRpcHandlersLayer = () =>
         });
       const whenTasksEnabled = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
         tasksEnabled ? effect : Effect.fail(tasksUnavailableError());
+
+      /**
+       * `rpcEffect` for handlers whose request carried a password.
+       *
+       * Same shape, minus the `cause`: the ordinary path attaches the original
+       * error, which for a failed password call is an object graph built from a
+       * request that contained the password — a fetch error can quote the
+       * request, and anything attached here is serialized to the client and may
+       * be logged on the way. The account service has already turned the real
+       * reason into a message (`invalid_credentials`, `email_taken`, ...), so
+       * that message is all that is worth keeping.
+       */
+      const passwordRpcEffect = <A, E, R>(
+        effect: Effect.Effect<A, E, R>,
+        fallbackMessage: string,
+      ) =>
+        effect.pipe(
+          Effect.mapError((cause) => {
+            if (Schema.is(WsRpcError)(cause)) {
+              return new WsRpcError({ message: cause.message });
+            }
+            const message =
+              cause instanceof AccountApiError && cause.message.length > 0
+                ? cause.message
+                : fallbackMessage;
+            return new WsRpcError({ message });
+          }),
+        );
 
       const toProjectProvisionRpcError = (cause: unknown) =>
         cause instanceof GitHubProjectProvisioningError
@@ -2636,6 +2665,20 @@ const makeWsRpcHandlersLayer = () =>
           rpcEffect(
             Effect.promise(() => accountSession.status()),
             "Failed to read the account session",
+          ),
+        // The payloads of the next two carry a password, so they go through
+        // passwordRpcEffect rather than rpcEffect: the failure is reduced to a
+        // message and the cause is dropped, so no object graph derived from the
+        // request can reach the wire or a log.
+        [WS_METHODS.accountSignInWithPassword]: (input) =>
+          passwordRpcEffect(
+            Effect.tryPromise(() => accountSession.signInWithPassword(input)),
+            "Could not sign in. Check your email and password, then try again.",
+          ),
+        [WS_METHODS.accountSignUpWithPassword]: (input) =>
+          passwordRpcEffect(
+            Effect.tryPromise(() => accountSession.signUpWithPassword(input)),
+            "Could not create your account. Try again.",
           ),
         [WS_METHODS.accountBeginSignIn]: () =>
           rpcEffect(
