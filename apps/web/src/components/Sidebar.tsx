@@ -468,6 +468,7 @@ import {
   SIDEBAR_ROW_LABEL_TEXT_CLASS_NAME,
   SIDEBAR_SECTION_LABEL_CLASS_NAME,
 } from "../sidebarRowStyles";
+import { AccountFooterControl } from "./account/AccountFooterControl";
 import { SettingsSidebarNav } from "./SettingsSidebarNav";
 import {
   ComposerPickerMenuPopup,
@@ -7482,6 +7483,7 @@ export default function Sidebar() {
             <SidebarMenu>
               <SidebarMenuItem>
                 <div className="flex flex-col gap-1">
+                  {!isOnSettings && <AccountFooterControl />}
                   {DebugFeatureFlagsMenu && showDebugFeatureFlagsMenu && !isOnSettings ? (
                     <Suspense fallback={null}>
                       <DebugFeatureFlagsMenu />

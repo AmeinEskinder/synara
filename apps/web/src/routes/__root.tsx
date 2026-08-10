@@ -50,6 +50,7 @@ import { useProjectImportDialogStore } from "../projectImport/projectImportDialo
 import { FeatureTourDialog } from "../components/FeatureTourDialog";
 import { SafariAccessOnboarding } from "../components/SafariAccessOnboarding";
 import { QueuedComposerDrainCoordinator } from "../components/QueuedComposerDrainCoordinator";
+import { GlobalAccountDialogs } from "../components/account/GlobalAccountDialogs";
 import { FeedbackDialog } from "../components/FeedbackDialog";
 import { SETTINGS_TARGETS } from "../settingsNavigation";
 import ShortcutsDialog from "../components/ShortcutsDialog";
@@ -65,6 +66,7 @@ import { useFeatureFlags } from "../featureFlags";
 import { useFocusedChatContext } from "../focusedChatContext";
 import { useFeedbackDialogStore } from "../feedbackDialogStore";
 import type { FeedbackThreadContext } from "../feedback";
+import { invalidateAccountStatus } from "../lib/accountReactQuery";
 import { isTerminalFocused } from "../lib/terminalFocus";
 import {
   invalidateProviderUsageQueries,
@@ -364,6 +366,7 @@ function RootRouteView() {
           <GlobalShortcutsDialog />
           <BrowserVaultDialog />
           <GlobalFeedbackDialog />
+          <GlobalAccountDialogs />
           <GlobalWhatsNewSurface />
           <TaskCompletionNotifications />
           <QueuedComposerDrainCoordinator />
@@ -2732,6 +2735,9 @@ function EventRouter() {
         // Reopening the socket is a projection boundary. React Query otherwise
         // keeps the previous infinite-stale config and can strand "Checking".
         void refreshServerConfigAfterTransportOpen(queryClient).catch(() => undefined);
+        // A completeSignIn cut off by the dropped socket still persisted
+        // credentials server-side; re-reading status recovers that result.
+        void invalidateAccountStatus(queryClient).catch(() => undefined);
       },
       { replayCurrent: true },
     );
