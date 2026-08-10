@@ -9,6 +9,14 @@ import type {
 } from "./projectImport";
 
 import type {
+  AccountBeginSignInResult,
+  AccountCompleteSignInInput,
+  AccountMe,
+  AccountOpenVerificationUrlInput,
+  AccountStatus,
+  AccountUpdateProfileInput,
+} from "./account";
+import type {
   AuthBearerBootstrapResult,
   AuthBootstrapInput,
   AuthBootstrapResult,
@@ -1457,6 +1465,34 @@ export interface NativeApi {
     subscribe: (input: { projectId: string }) => Promise<void>;
     unsubscribe: (input: { projectId: string }) => Promise<void>;
     onEvent: (callback: (event: ProjectAgentStreamEvent) => void) => () => void;
+  };
+  /**
+   * The Synara account session for this machine. The server owns the stored
+   * credentials and every WorkOS round trip; the app only ever sees the state.
+   */
+  account: {
+    /**
+     * The current session, refreshing the access token if it has expired. A
+     * refresh token that can no longer be redeemed reports `signed-out` rather
+     * than failing — an expired session is a state, not an error.
+     */
+    status: () => Promise<AccountStatus>;
+    beginSignIn: () => Promise<AccountBeginSignInResult>;
+    /**
+     * Waits for the user to finish on the hosted page, then persists the
+     * session. Runs for as long as the device code lives, so it is issued
+     * without an RPC timeout; if the socket drops mid-flight the credentials
+     * are still persisted server-side and `status()` recovers the result.
+     */
+    completeSignIn: (
+      input: AccountCompleteSignInInput,
+      options?: { readonly signal?: AbortSignal },
+    ) => Promise<AccountStatus>;
+    /** Writes the profile, and renames the workspace when `workspaceName` differs. */
+    updateProfile: (input: AccountUpdateProfileInput) => Promise<AccountMe>;
+    signOut: () => Promise<void>;
+    /** Opens the device-verification page in the system browser. */
+    openVerificationUrl: (input: AccountOpenVerificationUrlInput) => Promise<void>;
   };
   automation: {
     list: (input?: AutomationListInput) => Promise<AutomationListResult>;
