@@ -7,10 +7,11 @@ import {
 import { NonNegativeInt, ProjectId, ThreadId, TrimmedNonEmptyString } from "./baseSchemas";
 
 import {
+  AccountAuthenticateOtpInput,
   AccountCompleteSignInInput,
   AccountOpenVerificationUrlInput,
-  AccountPasswordSignInInput,
   AccountResendVerificationEmailInput,
+  AccountSendOtpInput,
   AccountUpdateProfileInput,
   AccountVerifyEmailInput,
 } from "./account";
@@ -362,8 +363,8 @@ export const WS_METHODS = {
 
   // Account (Synara account session brokered by the server)
   accountStatus: "account.status",
-  accountSignInWithPassword: "account.signInWithPassword",
-  accountSignUpWithPassword: "account.signUpWithPassword",
+  accountSendOtp: "account.sendOtp",
+  accountAuthenticateOtp: "account.authenticateOtp",
   accountVerifyEmail: "account.verifyEmail",
   accountResendVerificationEmail: "account.resendVerificationEmail",
   accountBeginSignIn: "account.beginSignIn",
@@ -647,8 +648,8 @@ const WebSocketRequestBody = Schema.Union([
 
   // Account
   tagRequestBody(WS_METHODS.accountStatus, Schema.Struct({})),
-  tagRequestBody(WS_METHODS.accountSignInWithPassword, AccountPasswordSignInInput),
-  tagRequestBody(WS_METHODS.accountSignUpWithPassword, AccountPasswordSignInInput),
+  tagRequestBody(WS_METHODS.accountSendOtp, AccountSendOtpInput),
+  tagRequestBody(WS_METHODS.accountAuthenticateOtp, AccountAuthenticateOtpInput),
   tagRequestBody(WS_METHODS.accountVerifyEmail, AccountVerifyEmailInput),
   tagRequestBody(WS_METHODS.accountResendVerificationEmail, AccountResendVerificationEmailInput),
   tagRequestBody(WS_METHODS.accountBeginSignIn, Schema.Struct({})),
