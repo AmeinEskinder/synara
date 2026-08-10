@@ -9,6 +9,7 @@ import { NonNegativeInt, ProjectId, ThreadId, TrimmedNonEmptyString } from "./ba
 import {
   AccountCompleteSignInInput,
   AccountOpenVerificationUrlInput,
+  AccountPasswordSignInInput,
   AccountUpdateProfileInput,
 } from "./account";
 import {
@@ -359,6 +360,8 @@ export const WS_METHODS = {
 
   // Account (Synara account session brokered by the server)
   accountStatus: "account.status",
+  accountSignInWithPassword: "account.signInWithPassword",
+  accountSignUpWithPassword: "account.signUpWithPassword",
   accountBeginSignIn: "account.beginSignIn",
   accountCompleteSignIn: "account.completeSignIn",
   accountUpdateProfile: "account.updateProfile",
@@ -640,6 +643,8 @@ const WebSocketRequestBody = Schema.Union([
 
   // Account
   tagRequestBody(WS_METHODS.accountStatus, Schema.Struct({})),
+  tagRequestBody(WS_METHODS.accountSignInWithPassword, AccountPasswordSignInInput),
+  tagRequestBody(WS_METHODS.accountSignUpWithPassword, AccountPasswordSignInInput),
   tagRequestBody(WS_METHODS.accountBeginSignIn, Schema.Struct({})),
   tagRequestBody(WS_METHODS.accountCompleteSignIn, AccountCompleteSignInInput),
   tagRequestBody(WS_METHODS.accountUpdateProfile, AccountUpdateProfileInput),
