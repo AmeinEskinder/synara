@@ -3,7 +3,7 @@
 // Layer: Shared app loading presentation
 
 import { RouteInsetSurface } from "~/components/RouteInsetSurface";
-import { SynaraLogo } from "~/components/SynaraLogo";
+import { SynaraLogo } from "@synara/profile-ui/logo";
 
 export function SplashScreen({
   errorMessage,

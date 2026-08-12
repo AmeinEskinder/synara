@@ -8,11 +8,11 @@
 import { forwardRef, type ReactNode } from "react";
 import type { ProfileStats, ProfileTokenStats } from "@synara/contracts";
 import { ProviderIcon } from "~/components/ProviderIcon";
-import { SynaraLogo } from "~/components/SynaraLogo";
-import { ActivityHeatmap, CARD_HEATMAP_INTENSITY_CLASSES } from "./ActivityHeatmap";
-import { ProfileAvatar } from "./ProfileAvatar";
+import { SynaraLogo } from "@synara/profile-ui/logo";
+import { ActivityHeatmap, CARD_HEATMAP_INTENSITY_CLASSES } from "@synara/profile-ui/heatmap";
+import { ProfileAvatar } from "@synara/profile-ui/avatar";
+import { formatCompact, formatDays, formatProfileUsageBasis } from "@synara/profile-ui/formatting";
 import { ProfileUsageCoverage } from "./ProfileUsageCoverage";
-import { formatCompact, formatDays, formatProfileUsageBasis } from "./profileFormatting";
 import { selectProfileHeatmap, selectProfileTopProvider } from "./profileSelectors";
 
 export const SHARE_CARD_WIDTH = 860;

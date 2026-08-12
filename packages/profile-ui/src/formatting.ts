@@ -1,6 +1,7 @@
-// FILE: profileFormatting.ts
-// Purpose: Pure display formatters shared by the Profile page and the shareable card.
-// Layer: web profile feature (no I/O, safe to use during html-to-image render).
+// FILE: formatting.ts
+// Purpose: Pure display formatters shared by the Profile page, the shareable card,
+// and the public profile page (no I/O, safe to use during html-to-image render).
+// Layer: profile-ui shared utilities.
 
 import type { ProviderKind } from "@synara/contracts";
 
