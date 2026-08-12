@@ -106,6 +106,15 @@ export function formatProfileUsageBasis(metric: "tokens" | "turns"): string {
   return metric === "tokens" ? "tracked tokens" : "turns";
 }
 
+// 13 → "1 PM" — the hour label used by "Most active hour" on the profile panel,
+// the shareable card, and the public profile page.
+export function formatHourLabel(hour: number): string {
+  const normalized = ((hour % 24) + 24) % 24;
+  if (normalized === 0) return "12 AM";
+  if (normalized === 12) return "12 PM";
+  return normalized < 12 ? `${normalized} AM` : `${normalized - 12} PM`;
+}
+
 const WHOLE_NUMBER_FORMATTER = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
 // formatShortDate turns a day key into UTC midnight, so format in UTC or viewers
 // west of UTC see the previous day.

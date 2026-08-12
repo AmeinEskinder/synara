@@ -24,6 +24,7 @@ import { Skeleton } from "~/components/ui/skeleton";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "~/components/ui/tooltip";
 import { ActivityHeatmap, heatmapTooltipText } from "@synara/profile-ui/heatmap";
 import { InsightRow, ModelUsageRow, StatTileGrid } from "@synara/profile-ui/sections";
+import { providerLabel } from "@synara/profile-ui/provider-icon";
 import {
   selectProfileHeatmap,
   selectProfileModelUsage,
@@ -37,6 +38,7 @@ import { ProfileAvatar } from "@synara/profile-ui/avatar";
 import {
   formatCompact,
   formatDays,
+  formatHourLabel,
   formatNumber,
   formatProviderLabel,
   formatProfileUsageBasis,
@@ -233,7 +235,7 @@ function DeviceStatsBody({
             {
               label: "Most used provider",
               value: topProvider.provider
-                ? `${formatProviderLabel(topProvider.provider)}${
+                ? `${providerLabel(topProvider.provider)}${
                     topProvider.percent !== null ? ` · ${topProvider.percent}%` : ""
                   }`
                 : "—",
@@ -320,7 +322,7 @@ function AccountStatsBody() {
             {
               label: "Most used provider",
               value: view.topProvider.provider
-                ? `${formatProviderLabel(view.topProvider.provider)}${
+                ? `${providerLabel(view.topProvider.provider)}${
                     view.topProvider.percent !== null ? ` · ${view.topProvider.percent}%` : ""
                   }`
                 : "—",
@@ -493,15 +495,8 @@ function ModelUsageSection({
 
 // ── Small pieces ───────────────────────────────────────────────────────
 
-function formatHour(hour: number): string {
-  const normalized = ((hour % 24) + 24) % 24;
-  if (normalized === 0) return "12 AM";
-  if (normalized === 12) return "12 PM";
-  return normalized < 12 ? `${normalized} AM` : `${normalized - 12} PM`;
-}
-
 function formatPeakHourLabel(startHour: number | null): string {
-  return startHour === null ? "—" : formatHour(startHour);
+  return startHour === null ? "—" : formatHourLabel(startHour);
 }
 
 function formatMostWorkedProjectLabel(project: ProfileStats["mostWorkedProject"]): string {
