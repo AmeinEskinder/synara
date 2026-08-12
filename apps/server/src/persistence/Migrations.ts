@@ -1,3 +1,5 @@
+import Migration0135 from "./Migrations/135_AccountUsageSync.ts";
+import Migration0136 from "./Migrations/136_AccountUsageSyncIdentity.ts";
 /**
  * MigrationsLive - Migration runner with inline loader
  *
@@ -150,7 +152,6 @@ import Migration0131 from "./Migrations/131_ProjectSourceFolders.ts";
 import Migration0132 from "./Migrations/132_ExternalMcpTurnCapacityRecovery.ts";
 import Migration0133 from "./Migrations/133_ProjectionTurnsWorkspaceInitialization.ts";
 import Migration0134 from "./Migrations/134_ProjectionThreadsForkSourceMessage.ts";
-import AccountUsageMigration0090 from "./Migrations/090_AccountUsageSync.ts";
 
 /**
  * Migration loader with all migrations defined inline.
@@ -301,7 +302,8 @@ export const migrationEntries = [
   [132, "ExternalMcpTurnCapacityRecovery", Migration0132],
   [133, "ProjectionTurnsWorkspaceInitialization", Migration0133],
   [134, "ProjectionThreadsForkSourceMessage", Migration0134],
-  [90, "AccountUsageSync", AccountUsageMigration0090],
+  [135, "AccountUsageSync", Migration0135],
+  [136, "AccountUsageSyncIdentity", Migration0136],
 ] as const;
 
 export const makeMigrationLoader = (throughId?: number) =>

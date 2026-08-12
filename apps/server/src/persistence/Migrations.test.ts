@@ -681,6 +681,8 @@ managedAttachmentsLegacyLayer("managed attachment migration after private migrat
         [132, "ExternalMcpTurnCapacityRecovery"],
         [133, "ProjectionTurnsWorkspaceInitialization"],
         [134, "ProjectionThreadsForkSourceMessage"],
+        [135, "AccountUsageSync"],
+        [136, "AccountUsageSyncIdentity"],
       ]);
 
       const tracker = yield* trackerRows(sql);
@@ -933,6 +935,8 @@ agentGatewayRetentionLegacyLayer(
           [132, "ExternalMcpTurnCapacityRecovery"],
           [133, "ProjectionTurnsWorkspaceInitialization"],
           [134, "ProjectionThreadsForkSourceMessage"],
+          [135, "AccountUsageSync"],
+          [136, "AccountUsageSyncIdentity"],
         ]);
 
         const columns = yield* sql<{ readonly name: string }>`
@@ -1062,6 +1066,8 @@ spacesMigrationCollisionLayer("Spaces migration after the private migration 70 c
         [132, "ExternalMcpTurnCapacityRecovery"],
         [133, "ProjectionTurnsWorkspaceInitialization"],
         [134, "ProjectionThreadsForkSourceMessage"],
+        [135, "AccountUsageSync"],
+        [136, "AccountUsageSyncIdentity"],
       ]);
 
       const tracker = yield* trackerRows(sql);
@@ -1132,6 +1138,8 @@ spacesMigrationCollisionLayer("Spaces migration after the private migration 70 c
           [132, "ExternalMcpTurnCapacityRecovery"],
           [133, "ProjectionTurnsWorkspaceInitialization"],
           [134, "ProjectionThreadsForkSourceMessage"],
+          [135, "AccountUsageSync"],
+          [136, "AccountUsageSyncIdentity"],
         ],
       );
 
@@ -1256,6 +1264,8 @@ spacesMigrationCollisionLayer("Spaces migration after the private migration 70 c
         [132, "ExternalMcpTurnCapacityRecovery"],
         [133, "ProjectionTurnsWorkspaceInitialization"],
         [134, "ProjectionThreadsForkSourceMessage"],
+        [135, "AccountUsageSync"],
+        [136, "AccountUsageSyncIdentity"],
       ]);
 
       const tracker = yield* trackerRows(sql);
@@ -1322,6 +1332,8 @@ spacesMigrationCollisionLayer("Spaces migration after the private migration 70 c
           [132, "ExternalMcpTurnCapacityRecovery"],
           [133, "ProjectionTurnsWorkspaceInitialization"],
           [134, "ProjectionThreadsForkSourceMessage"],
+          [135, "AccountUsageSync"],
+          [136, "AccountUsageSyncIdentity"],
         ],
       );
       const preservedSpaces = yield* sql<{ readonly spaceId: string }>`
