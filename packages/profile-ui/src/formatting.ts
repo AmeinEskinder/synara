@@ -123,3 +123,18 @@ const MONTH_DAY_FORMATTER = new Intl.DateTimeFormat(undefined, {
   day: "numeric",
   timeZone: "UTC",
 });
+
+
+/**
+ * Up-to-two initials from a display name — "Dylan" → "DY", "Ada Lovelace" →
+ * "AL". The canonical algorithm (mirrored from the server's profile-stats
+ * identity derivation) so every avatar surface renders the same glyphs.
+ */
+export function deriveInitials(name: string): string {
+  const parts = name.split(/[\s._-]+/u).filter((part) => part.length > 0);
+  if (parts.length >= 2) {
+    return `${parts[0]?.[0] ?? ""}${parts[1]?.[0] ?? ""}`.toUpperCase() || "SY";
+  }
+  const single = parts[0] ?? name;
+  return (single.slice(0, 2) || "SY").toUpperCase();
+}
