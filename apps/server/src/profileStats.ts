@@ -638,7 +638,11 @@ export function turnModelSelectionCte(sql: SqlClient.SqlClient, scope?: TokenSta
         json_extract(e.payload_json, '$.modelSelection.instanceId'),
         json_extract(e.payload_json, '$.modelSelection.provider')
       )) AS instanceId,
-      MAX(json_extract(e.payload_json, '$.modelSelection.model')) AS model
+      MAX(json_extract(e.payload_json, '$.modelSelection.model')) AS model,
+      MAX(COALESCE(
+        json_extract(e.payload_json, '$.modelSelection.options.reasoningEffort'),
+        json_extract(e.payload_json, '$.modelSelection.options.effort')
+      )) AS reasoning
     FROM orchestration_events e
     JOIN projection_turns pt
       ON pt.thread_id = ${turnThreadMatch}
