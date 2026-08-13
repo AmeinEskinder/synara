@@ -447,6 +447,18 @@
     "./keybindingRules": {
       "types": "./src/keybindingRules.ts",
       "import": "./src/keybindingRules.ts"
+    },
+    "./deviceKey": {
+      "types": "./src/deviceKey.ts",
+      "import": "./src/deviceKey.ts"
+    },
+    "./transportRace": {
+      "types": "./src/transportRace.ts",
+      "import": "./src/transportRace.ts"
+    },
+    "./hostSecrets": {
+      "types": "./src/hostSecrets.ts",
+      "import": "./src/hostSecrets.ts"
     }
   },
   "scripts": {
@@ -458,7 +470,8 @@
   },
   "dependencies": {
     "@synara/contracts": "workspace:*",
-    "effect": "catalog:"
+    "effect": "catalog:",
+    "jose": "^6.1.0"
   },
   "devDependencies": {
     "@effect/language-service": "catalog:",
