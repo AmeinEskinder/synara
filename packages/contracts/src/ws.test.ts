@@ -50,6 +50,30 @@ it.effect("trims websocket request id and nested orchestration ids", () =>
   }),
 );
 
+it.effect("accepts every hosts namespace request", () =>
+  Effect.gen(function* () {
+    const requests = [
+      [WS_METHODS.hostsList, {}],
+      [WS_METHODS.hostsUpdate, { hostId: "host_1", discoverable: false, name: "Ada's Mac" }],
+      [WS_METHODS.hostsDelete, { hostId: "host_1" }],
+      [WS_METHODS.hostsListDevices, {}],
+      [WS_METHODS.hostsRevokeDevice, { deviceId: "00000000-0000-4000-8000-000000000001" }],
+      [WS_METHODS.hostsApproveDeviceLink, { userCode: "ABCDEFGH" }],
+      [WS_METHODS.hostsRequestGrant, { hostId: "host_1" }],
+      [WS_METHODS.hostsEnrollment, {}],
+      [WS_METHODS.hostsUnlinkLocalHost, {}],
+    ] as const;
+
+    for (const [method, input] of requests) {
+      const parsed = yield* decode(WebSocketRequest, {
+        id: `req-${method}`,
+        body: { _tag: method, ...input },
+      });
+      assert.strictEqual(parsed.body._tag, method);
+    }
+  }),
+);
+
 it.effect("accepts typed websocket push envelopes with sequence", () =>
   Effect.gen(function* () {
     const parsed = yield* decode(WsResponse, {

@@ -3,6 +3,7 @@ import * as Rpc from "effect/unstable/rpc/Rpc";
 import * as RpcGroup from "effect/unstable/rpc/RpcGroup";
 
 import {
+  AccountHost,
   AccountAuthenticateOtpInput,
   AccountBeginSsoInput,
   AccountBeginSsoResult,
@@ -15,6 +16,7 @@ import {
   AccountUpdateProfileInput,
   AccountUploadAvatarInput,
 } from "./account";
+import { GrantResponse, ListDevicesResponse } from "./hostAuth";
 import { AccountUsageSummaryInput, UsageSummary } from "./accountUsage";
 import {
   AutomationCancelRunInput,
@@ -375,7 +377,15 @@ import {
   StatsGetRecapInput,
   StatsGetRecapResult,
 } from "./stats";
-import { WS_METHODS } from "./ws";
+import {
+  HostsEnrollmentResult,
+  HostsHostInput,
+  HostsRevokeDeviceInput,
+  HostsUpdateInput,
+  WS_METHODS,
+} from "./ws";
+import { LinkDeviceApproveRequest } from "./hostAuth";
+import { ListHostsResponse } from "./account";
 import {
   WS_BOOTSTRAP_METHOD,
   WsBootstrapNegotiateInput,
@@ -1708,6 +1718,60 @@ export const WsAccountOpenVerificationUrlRpc = Rpc.make(WS_METHODS.accountOpenVe
   error: WsRpcError,
 });
 
+export const WsHostsListRpc = Rpc.make(WS_METHODS.hostsList, {
+  payload: Schema.Struct({}),
+  success: ListHostsResponse,
+  error: WsRpcError,
+});
+
+export const WsHostsUpdateRpc = Rpc.make(WS_METHODS.hostsUpdate, {
+  payload: HostsUpdateInput,
+  success: AccountHost,
+  error: WsRpcError,
+});
+
+export const WsHostsDeleteRpc = Rpc.make(WS_METHODS.hostsDelete, {
+  payload: HostsHostInput,
+  success: Schema.Void,
+  error: WsRpcError,
+});
+
+export const WsHostsListDevicesRpc = Rpc.make(WS_METHODS.hostsListDevices, {
+  payload: Schema.Struct({}),
+  success: ListDevicesResponse,
+  error: WsRpcError,
+});
+
+export const WsHostsRevokeDeviceRpc = Rpc.make(WS_METHODS.hostsRevokeDevice, {
+  payload: HostsRevokeDeviceInput,
+  success: Schema.Void,
+  error: WsRpcError,
+});
+
+export const WsHostsApproveDeviceLinkRpc = Rpc.make(WS_METHODS.hostsApproveDeviceLink, {
+  payload: LinkDeviceApproveRequest,
+  success: Schema.Void,
+  error: WsRpcError,
+});
+
+export const WsHostsRequestGrantRpc = Rpc.make(WS_METHODS.hostsRequestGrant, {
+  payload: HostsHostInput,
+  success: GrantResponse,
+  error: WsRpcError,
+});
+
+export const WsHostsEnrollmentRpc = Rpc.make(WS_METHODS.hostsEnrollment, {
+  payload: Schema.Struct({}),
+  success: HostsEnrollmentResult,
+  error: WsRpcError,
+});
+
+export const WsHostsUnlinkLocalHostRpc = Rpc.make(WS_METHODS.hostsUnlinkLocalHost, {
+  payload: Schema.Struct({}),
+  success: Schema.Void,
+  error: WsRpcError,
+});
+
 export const WsAutomationListRpc = Rpc.make(WS_METHODS.automationList, {
   payload: AutomationListInput,
   success: AutomationListResult,
@@ -2149,6 +2213,15 @@ export const WsFeatureRpcGroup = RpcGroup.make(
   WsAccountDeleteAvatarRpc,
   WsAccountSignOutRpc,
   WsAccountOpenVerificationUrlRpc,
+  WsHostsListRpc,
+  WsHostsUpdateRpc,
+  WsHostsDeleteRpc,
+  WsHostsListDevicesRpc,
+  WsHostsRevokeDeviceRpc,
+  WsHostsApproveDeviceLinkRpc,
+  WsHostsRequestGrantRpc,
+  WsHostsEnrollmentRpc,
+  WsHostsUnlinkLocalHostRpc,
   WsAutomationListRpc,
   WsAutomationGetMemoryRpc,
   WsAutomationCreateRpc,
