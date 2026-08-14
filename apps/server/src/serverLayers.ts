@@ -75,6 +75,7 @@ import { PullRequestAutoFixServiceLive } from "./pullRequestAutoFix/Layers/PullR
 import { GitHubInboxServiceLive } from "./githubInbox/Layers/GitHubInboxService";
 import { ProviderHealthLive } from "./provider/Layers/ProviderHealth";
 import { makeServerProviderLayer } from "./provider/runtimeLayer";
+import { RemoteSessionRegistryLive } from "./remoteSessions/sessionRegistry";
 
 export { makeServerProviderLayer } from "./provider/runtimeLayer";
 
@@ -334,6 +335,7 @@ export function makeServerRuntimeServicesLayer(
     ServerRuntimeStartupLive,
     WorkspaceLayerLive,
     ProjectFaviconResolverLive,
+    RemoteSessionRegistryLive,
   ).pipe(Layer.provideMerge(serverSettingsLayer), Layer.provideMerge(NodeServices.layer));
 }
 

@@ -72,6 +72,7 @@ import { ServerLoggerLive } from "./serverLogger";
 import { ServerSettingsService } from "./serverSettings";
 import { formatHostForUrl, isLoopbackHost, isWildcardHost } from "./startupAccess";
 import { startHostConnectivity } from "./hostConnectivity";
+import { RemoteSessionRegistryService } from "./remoteSessions/sessionRegistry";
 import { OrchestrationEngineService } from "./orchestration/Services/OrchestrationEngine";
 import { startThreadRetentionJob } from "./threadRetention";
 import {
@@ -458,6 +459,7 @@ const makeServerProgram = (input: CliInput) =>
     const serverAuth = yield* ServerAuth;
     const localSessions = yield* SessionCredentialService;
     const serverSettings = yield* ServerSettingsService;
+    const remoteSessions = yield* RemoteSessionRegistryService;
     yield* cliConfig.fixPath;
 
     const config = yield* ServerConfig;
@@ -474,7 +476,7 @@ const makeServerProgram = (input: CliInput) =>
 
     yield* start;
     const stopHostConnectivity = yield* Effect.tryPromise(() =>
-      startHostConnectivity({ config, listeningPort: config.port, localSessions }),
+      startHostConnectivity({ config, listeningPort: config.port, localSessions, remoteSessions }),
     ).pipe(
       Effect.catch((cause) =>
         Effect.logWarning("Host connectivity did not start.", { cause: String(cause) }).pipe(
