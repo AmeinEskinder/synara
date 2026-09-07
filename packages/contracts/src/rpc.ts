@@ -387,6 +387,12 @@ import {
 import { LinkDeviceApproveRequest } from "./hostAuth";
 import { EndHostSessionInput, ListHostSessionsResponse } from "./hostSessions";
 import {
+  HostConnection,
+  HostsConnectInput,
+  HostsDisconnectInput,
+  ListHostConnectionsResponse,
+} from "./hostConnection";
+import {
   ConfirmSyncKeyPairingRequest,
   SyncKeyPairingCode,
   SyncKeyPairingRequest,
@@ -1816,6 +1822,24 @@ export const WsHostsConfirmSyncKeyRpc = Rpc.make(WS_METHODS.hostsConfirmSyncKey,
   error: WsRpcError,
 });
 
+export const WsHostsConnectRpc = Rpc.make(WS_METHODS.hostsConnect, {
+  payload: HostsConnectInput,
+  success: HostConnection,
+  error: WsRpcError,
+});
+
+export const WsHostsDisconnectRpc = Rpc.make(WS_METHODS.hostsDisconnect, {
+  payload: HostsDisconnectInput,
+  success: Schema.Void,
+  error: WsRpcError,
+});
+
+export const WsHostsListConnectionsRpc = Rpc.make(WS_METHODS.hostsListConnections, {
+  payload: Schema.Struct({}),
+  success: ListHostConnectionsResponse,
+  error: WsRpcError,
+});
+
 export const WsAutomationListRpc = Rpc.make(WS_METHODS.automationList, {
   payload: AutomationListInput,
   success: AutomationListResult,
@@ -2272,6 +2296,9 @@ export const WsFeatureRpcGroup = RpcGroup.make(
   WsHostsOfferSyncKeyRpc,
   WsHostsReceiveSyncKeyRpc,
   WsHostsConfirmSyncKeyRpc,
+  WsHostsConnectRpc,
+  WsHostsDisconnectRpc,
+  WsHostsListConnectionsRpc,
   WsAutomationListRpc,
   WsAutomationGetMemoryRpc,
   WsAutomationCreateRpc,

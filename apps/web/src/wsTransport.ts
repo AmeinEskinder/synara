@@ -99,6 +99,7 @@ import {
 } from "./threadDetailResumeCursors";
 import { adoptVerifiedThreadCacheIdentity } from "./threadDetailCacheIdentity";
 import { trackWsTurnSettlement, type WsTransportState } from "./wsTransportEvents";
+import { readActiveHostSocketPrefix } from "./lib/hosts/activeHost";
 
 type PushListener<C extends WsPushChannel> = (message: WsPushMessage<C>) => void;
 
@@ -279,7 +280,10 @@ function delayMs(ms: number, signal: AbortSignal | undefined): Promise<void> {
 
 function resolveRpcUrl(rawUrl: string, path: string): string {
   const url = new URL(rawUrl);
-  url.pathname = path;
+  // A window working on another host speaks to the shell's bridge for that
+  // host, which mounts the ordinary socket paths under a per-host prefix.
+  const prefix = readActiveHostSocketPrefix();
+  url.pathname = prefix ? `${prefix}${path}` : path;
   return url.toString();
 }
 

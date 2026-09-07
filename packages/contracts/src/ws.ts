@@ -19,6 +19,7 @@ import {
 } from "./account";
 import { LinkDeviceApproveRequest } from "./hostAuth";
 import { EndHostSessionInput } from "./hostSessions";
+import { HostsConnectInput, HostsDisconnectInput } from "./hostConnection";
 import { ConfirmSyncKeyPairingRequest, SyncKeyPairingRequest } from "./hostSecrets";
 import { AccountUsageSummaryInput } from "./accountUsage";
 import {
@@ -419,6 +420,9 @@ export const WS_METHODS = {
   hostsOfferSyncKey: "hosts.offerSyncKey",
   hostsReceiveSyncKey: "hosts.receiveSyncKey",
   hostsConfirmSyncKey: "hosts.confirmSyncKey",
+  hostsConnect: "hosts.connect",
+  hostsDisconnect: "hosts.disconnect",
+  hostsListConnections: "hosts.listConnections",
 
   // Automation methods
   automationList: "automation.list",
@@ -723,6 +727,9 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.hostsOfferSyncKey, SyncKeyPairingRequest),
   tagRequestBody(WS_METHODS.hostsReceiveSyncKey, Schema.Struct({})),
   tagRequestBody(WS_METHODS.hostsConfirmSyncKey, ConfirmSyncKeyPairingRequest),
+  tagRequestBody(WS_METHODS.hostsConnect, HostsConnectInput),
+  tagRequestBody(WS_METHODS.hostsDisconnect, HostsDisconnectInput),
+  tagRequestBody(WS_METHODS.hostsListConnections, Schema.Struct({})),
 
   // Automation methods
   tagRequestBody(WS_METHODS.automationList, AutomationListInput),
