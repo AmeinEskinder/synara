@@ -1,4 +1,7 @@
 import {
+  RemoteTunnelResponse,
+  RemotePairingBundle,
+  RemotePairingCodeResult,
   AccountErrorCode as AccountErrorCodeSchema,
   type AccountErrorCode,
   AccountErrorBody,
@@ -245,6 +248,10 @@ export interface AccountClient {
   registerDevice(token: string, proof: string): Promise<RegisterDeviceResponse>;
   listDevices(token: string): Promise<ListDevicesResponse>;
   revokeDevice(token: string, deviceId: string): Promise<void>;
+  revokeDeviceAccountSessions(
+    token: string,
+    deviceId: string,
+  ): Promise<{ confirmed: number; pending: number }>;
   startHostLink(token: string, request: LinkStartRequest): Promise<LinkStartResponse>;
   completeHostLink(request: LinkCompleteRequest): Promise<LinkCompleteResponse>;
   startDeviceHostLink(): Promise<LinkDeviceStartResponse>;
@@ -256,8 +263,35 @@ export interface AccountClient {
     hostId: string,
     endpoints: readonly AccountHostEndpoint[],
   ): Promise<AccountHost>;
+  publishRemotePairingCode(
+    hostProof: string,
+    hostId: string,
+    bundle: RemotePairingBundle,
+  ): Promise<typeof RemotePairingCodeResult.Type>;
+  cancelRemotePairingCode(hostProof: string, hostId: string, inviteId: string): Promise<void>;
+  redeemRemotePairingCode(
+    token: string,
+    input: { code: string; deviceJkt: string; proof: string },
+  ): Promise<RemotePairingBundle>;
+  provisionRemoteTunnel(
+    hostProof: string,
+    hostId: string,
+    originPort: number,
+    signal?: AbortSignal,
+  ): Promise<RemoteTunnelResponse>;
+  disableRemoteTunnel(hostProof: string, hostId: string, tunnelId?: string): Promise<void>;
   requestRelayTicket(hostProof: string, hostId: string): Promise<RelayTicketResponse>;
-  getHostAuthorization(hostProof: string, hostId: string): Promise<HostAuthorizationSnapshot>;
+  getHostAuthorization(
+    hostProof: string,
+    hostId: string,
+    signal?: AbortSignal,
+  ): Promise<HostAuthorizationSnapshot>;
+  acknowledgeDeviceRevocations(
+    hostProof: string,
+    hostId: string,
+    deviceJkts: readonly string[],
+    signal?: AbortSignal,
+  ): Promise<void>;
   unlinkHost(hostProof: string, hostId: string): Promise<AccountHost>;
   updateHost(token: string, hostId: string, request: UpdateHostRequest): Promise<AccountHost>;
   deleteHost(token: string, hostId: string): Promise<void>;
@@ -382,7 +416,9 @@ export function createAccountClient(options: CreateAccountClientOptions): Accoun
     try {
       return await fetchFn(`${baseUrl}${path}`, {
         ...init,
-        signal: AbortSignal.timeout(timeoutMs),
+        signal: init.signal
+          ? AbortSignal.any([init.signal, AbortSignal.timeout(timeoutMs)])
+          : AbortSignal.timeout(timeoutMs),
       });
     } catch (error) {
       if (
@@ -574,6 +610,17 @@ export function createAccountClient(options: CreateAccountClientOptions): Accoun
       );
     },
 
+    async revokeDeviceAccountSessions(token, deviceId) {
+      return requestJson(
+        `/api/v1/devices/${encodeURIComponent(deviceId)}/account-sessions`,
+        { method: "DELETE", headers: authHeaders(token) },
+        Schema.Struct({
+          confirmed: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+          pending: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+        }),
+      );
+    },
+
     async revokeDevice(token, deviceId) {
       await requestEmpty(`/api/v1/devices/${encodeURIComponent(deviceId)}`, {
         method: "DELETE",
@@ -650,6 +697,54 @@ export function createAccountClient(options: CreateAccountClientOptions): Accoun
       return decoded.host;
     },
 
+    async publishRemotePairingCode(hostProof, hostId, bundle) {
+      return requestJson(
+        `/api/v1/hosts/${encodeURIComponent(hostId)}/pairing-codes`,
+        {
+          method: "POST",
+          headers: { ...hostProofHeaders(hostProof), "content-type": "application/json" },
+          body: JSON.stringify(bundle),
+        },
+        RemotePairingCodeResult,
+      );
+    },
+    async cancelRemotePairingCode(hostProof, hostId, inviteId) {
+      await requestEmpty(
+        `/api/v1/hosts/${encodeURIComponent(hostId)}/pairing-codes/${encodeURIComponent(inviteId)}`,
+        { method: "DELETE", headers: hostProofHeaders(hostProof) },
+      );
+    },
+    async redeemRemotePairingCode(token, input) {
+      return requestJson(
+        "/api/v1/remote/pairing-codes/redeem",
+        {
+          method: "POST",
+          headers: { ...authHeaders(token), "content-type": "application/json" },
+          body: JSON.stringify(input),
+        },
+        RemotePairingBundle,
+      );
+    },
+    async provisionRemoteTunnel(hostProof, hostId, originPort, signal) {
+      return requestJson(
+        `/api/v1/hosts/${encodeURIComponent(hostId)}/tunnel`,
+        {
+          method: "POST",
+          headers: { ...hostProofHeaders(hostProof), "content-type": "application/json" },
+          body: JSON.stringify({ originPort }),
+          ...(signal ? { signal } : {}),
+        },
+        RemoteTunnelResponse,
+        90_000,
+      );
+    },
+    async disableRemoteTunnel(hostProof, hostId, tunnelId) {
+      await requestEmpty(`/api/v1/hosts/${encodeURIComponent(hostId)}/tunnel`, {
+        method: "DELETE",
+        headers: { ...hostProofHeaders(hostProof), "content-type": "application/json" },
+        body: JSON.stringify(tunnelId ? { tunnelId } : {}),
+      });
+    },
     async requestRelayTicket(hostProof, hostId) {
       return requestJson(
         `/api/v1/hosts/${encodeURIComponent(hostId)}/relay-ticket`,
@@ -658,10 +753,19 @@ export function createAccountClient(options: CreateAccountClientOptions): Accoun
       );
     },
 
-    async getHostAuthorization(hostProof, hostId) {
+    async acknowledgeDeviceRevocations(hostProof, hostId, deviceJkts, signal) {
+      await requestEmpty(`/api/v1/hosts/${encodeURIComponent(hostId)}/device-revocations/ack`, {
+        method: "POST",
+        headers: { ...hostProofHeaders(hostProof), "content-type": "application/json" },
+        body: JSON.stringify({ deviceJkts }),
+        ...(signal ? { signal } : {}),
+      });
+    },
+
+    async getHostAuthorization(hostProof, hostId, signal) {
       return requestJson(
         `/api/v1/hosts/${encodeURIComponent(hostId)}/authorization`,
-        { method: "GET", headers: hostProofHeaders(hostProof) },
+        { method: "GET", headers: hostProofHeaders(hostProof), ...(signal ? { signal } : {}) },
         HostAuthorizationSnapshotSchema,
       );
     },

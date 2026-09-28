@@ -402,3 +402,27 @@ index b467655804c6e36eac4f7454ef4c6f0444193219..a1fea6e09d57f50050ec093fdaa48fde
 +      }))
 +    )
 +  })
+diff --git a/dist/NodeRuntime.js b/dist/NodeRuntime.js
+--- a/dist/NodeRuntime.js
++++ b/dist/NodeRuntime.js
+@@ -22,5 +22,6 @@
+   function onSigint() {
++    // Retain ownership while async finalizers run: signal-exit may otherwise
++    // re-raise this same signal after seeing our listener disappear.
++    if (receivedSignal) process.exit(130);
+     receivedSignal = true;
+-    process.removeListener("SIGINT", onSigint);
+-    process.removeListener("SIGTERM", onSigint);
+     fiber.interruptUnsafe(fiber.id);
+diff --git a/src/NodeRuntime.ts b/src/NodeRuntime.ts
+--- a/src/NodeRuntime.ts
++++ b/src/NodeRuntime.ts
+@@ -51,5 +51,6 @@
+   function onSigint() {
++    // Retain ownership while async finalizers run: signal-exit may otherwise
++    // re-raise this same signal after seeing our listener disappear.
++    if (receivedSignal) process.exit(130)
+     receivedSignal = true
+-    process.removeListener("SIGINT", onSigint)
+-    process.removeListener("SIGTERM", onSigint)
+     fiber.interruptUnsafe(fiber.id)

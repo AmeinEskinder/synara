@@ -1215,6 +1215,71 @@ const makeWsRpcHandlersLayer = () =>
         openBrowser: (url) => open.openBrowser(url),
       });
       const hostConnectionRegistry = yield* HostConnectionRegistryService;
+      const hostTrust = yield* RemoteHostTrustRepository;
+      const deviceTrust = yield* RemoteDeviceTrustRepository;
+      const authControlPlane = yield* AuthControlPlane;
+      const readRemoteAccountBinding = async () => {
+        const credentials = await readAccountCredentials(
+          accountStateDirectory(config.baseDir, config.devUrl),
+        );
+        if (!credentials?.userId) return undefined;
+        const local = await Effect.runPromise(serverEnvironment.getDescriptor);
+        return {
+          controllerEnvironmentId: local.environmentId,
+          accountAuthority: accountApiIssuer(credentials.accountUrl),
+          userId: credentials.userId,
+          organizationId: credentials.organizationId,
+        };
+      };
+      const hostConnections = makeHostConnectionsPort({
+        accountSession,
+        registry: hostConnectionRegistry,
+        setDesired: async (hostId, desired) => {
+          const binding = await readRemoteAccountBinding();
+          if (binding) await Effect.runPromise(hostTrust.setDesired(binding, hostId, desired));
+        },
+        listDesired: async () => {
+          const binding = await readRemoteAccountBinding();
+          if (!binding) return [];
+          return (await Effect.runPromise(hostTrust.listDesired(binding))).map(
+            ({ hostId, environmentId, label }) => ({ hostId, environmentId, label }),
+          );
+        },
+        readTrust: async (host) => {
+          const credentials = await readAccountCredentials(
+            accountStateDirectory(config.baseDir, config.devUrl),
+          );
+          if (!credentials?.userId) return undefined;
+          const local = await Effect.runPromise(serverEnvironment.getDescriptor);
+          const trusted = await Effect.runPromise(
+            hostTrust.get(
+              {
+                controllerEnvironmentId: local.environmentId,
+                accountAuthority: accountApiIssuer(credentials.accountUrl),
+                userId: credentials.userId,
+                organizationId: credentials.organizationId,
+              },
+              host.environmentId,
+            ),
+          );
+          return trusted?.pairedAt && trusted.hostId === host.id
+            ? {
+                ...trusted,
+                executionScope: {
+                  environmentId: trusted.environmentId,
+                  channel: trusted.channel,
+                  accountAuthority: accountApiIssuer(credentials.accountUrl),
+                  userId: credentials.userId,
+                  organizationId: credentials.organizationId,
+                },
+              }
+            : undefined;
+        },
+      });
+      if (!remoteConnectionsUnavailableReason(config.stateDir)) {
+        const stopConnections = superviseHostConnections(hostConnections, hostConnectionRegistry);
+        yield* Effect.addFinalizer(() => Effect.sync(stopConnections));
+      }
       const hostsRpcHandlers = makeHostsRpcHandlers({
         accountSession,
         remoteSessions,

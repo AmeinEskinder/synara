@@ -12,7 +12,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { Schema } from "effect";
 import { Hono } from "hono";
 import { exportJWK, generateKeyPair, SignJWT, type GenerateKeyPairResult } from "jose";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WorkosApiConfig } from "../config";
 import { createDb } from "../db";
 import { runMigrations } from "../db/migrate";
@@ -40,10 +40,12 @@ const authHeaders = (token: string) => ({
 
 describe.skipIf(!TEST_DATABASE_URL)("Slice A host account API", () => {
   const databaseUrl = TEST_DATABASE_URL as string;
+  let database: ReturnType<typeof createDb>;
   let pool: ReturnType<typeof createDb>["pool"];
   let workos: FakeWorkos;
   let config: WorkosApiConfig;
   let signing: ApiSigningService;
+  const remoteTestUserIds: string[] = [];
 
   async function signIn(existing?: { userId: string; orgId: string }): Promise<Session> {
     const user = existing ? workos.addUser({ id: existing.userId }) : workos.addUser({});
@@ -51,6 +53,7 @@ describe.skipIf(!TEST_DATABASE_URL)("Slice A host account API", () => {
       ? workos.addOrganization({ id: existing.orgId })
       : workos.addOrganization({ name: `Workspace ${user.id}` });
     workos.addMembership(org.id, user.id);
+    remoteTestUserIds.push(user.id);
     return {
       userId: user.id,
       orgId: org.id,
@@ -61,6 +64,7 @@ describe.skipIf(!TEST_DATABASE_URL)("Slice A host account API", () => {
   async function teammate(owner: Session): Promise<Session> {
     const user = workos.addUser({});
     workos.addMembership(owner.orgId, user.id);
+    remoteTestUserIds.push(user.id);
     return {
       userId: user.id,
       orgId: owner.orgId,
@@ -72,14 +76,16 @@ describe.skipIf(!TEST_DATABASE_URL)("Slice A host account API", () => {
     };
   }
 
-  function buildApp() {
-    const { db } = createDb(databaseUrl);
+  function buildApp(tunnels?: Parameters<typeof createV1Routes>[0]["tunnels"]) {
+    const { db } = database;
     const { verifier, grants } = createWorkosIdentityProvider(config);
     const app = new Hono();
     const revocations = createRevocationLog(db);
     app.route(
       "/api/v1",
       createV1Routes({
+        remoteTestUserIds,
+        ...(tunnels ? { tunnels } : {}),
         verifier,
         grants,
         signing,
@@ -92,14 +98,17 @@ describe.skipIf(!TEST_DATABASE_URL)("Slice A host account API", () => {
         hostGrants: createHostGrantIssuer(signing),
         hostSecrets: createHostSecretStore(db),
         accountBaseUrl: config.baseUrl,
-        relayServiceToken: config.relayServiceToken,
+        ...(config.relayServiceToken ? { relayServiceToken: config.relayServiceToken } : {}),
         db,
         trustedProxyHops: 1,
       }),
     );
     app.route(
       "/internal",
-      createInternalRoutes({ revocations, relayServiceToken: config.relayServiceToken }),
+      createInternalRoutes({
+        revocations,
+        ...(config.relayServiceToken ? { relayServiceToken: config.relayServiceToken } : {}),
+      }),
     );
     return { app, db };
   }
@@ -269,12 +278,13 @@ describe.skipIf(!TEST_DATABASE_URL)("Slice A host account API", () => {
       issuer: config.apiPublicUrl,
       seed: config.apiSigningKey,
     });
-    pool = createDb(databaseUrl).pool;
+    database = createDb(databaseUrl);
+    pool = database.pool;
   });
 
   afterAll(async () => {
-    await pool.end();
-    await workos.close();
+    await pool?.end();
+    await workos?.close();
   });
 
   beforeEach(() => clearOrgCache());
@@ -718,7 +728,7 @@ describe.skipIf(!TEST_DATABASE_URL)("Slice A host account API", () => {
       ).toBe(204);
     });
 
-    it("requires PoP, scopes identical jkt per user, and permits re-register after revoke", async () => {
+    it("requires PoP, scopes identical jkt per user, and refuses re-register after revoke", async () => {
       const { app } = buildApp();
       const a = await signIn();
       const b = await signIn();
@@ -764,9 +774,46 @@ describe.skipIf(!TEST_DATABASE_URL)("Slice A host account API", () => {
           })
         ).status,
       ).toBe(204);
-      const replacement = await registerDevice(app, a, key);
-      expect(replacement.id).not.toBe(first.id);
-      expect(replacement.jkt).toBe(first.jkt);
+      const replacement = await app.request("/api/v1/devices", {
+        method: "POST",
+        headers: authHeaders(a.token),
+        body: JSON.stringify({ proof: await deviceProof(key, a.userId) }),
+      });
+      expect(replacement.status).toBe(403);
+      expect(await replacement.json()).toMatchObject({ error: "device_not_registered" });
+    });
+
+    it("binds verified sessions and independently revokes account access with retryable provider delivery", async () => {
+      const { app, db } = buildApp();
+      const owner = await signIn();
+      const other = await signIn(owner);
+      const outsider = await signIn();
+      const device = await registerDevice(app, owner);
+      const path = `/api/v1/devices/${device.id}/account-sessions`;
+      expect(
+        (await app.request(path, { method: "DELETE", headers: authHeaders(outsider.token) }))
+          .status,
+      ).toBe(404);
+      // Local tombstone is committed even when the provider is unavailable.
+      workos.failNextSessionRevocation();
+      const pending = await app.request(path, {
+        method: "DELETE",
+        headers: authHeaders(other.token),
+      });
+      expect(pending.status).toBe(202);
+      expect(await pending.json()).toEqual({ confirmed: 0, pending: 1 });
+      expect(
+        (await app.request("/api/v1/devices", { headers: authHeaders(owner.token) })).status,
+      ).toBe(401);
+      const retried = await app.request(path, {
+        method: "DELETE",
+        headers: authHeaders(other.token),
+      });
+      expect(retried.status).toBe(200);
+      expect(await retried.json()).toEqual({ confirmed: 1, pending: 0 });
+      expect(
+        (await db.select().from(devices).where(eq(devices.id, device.id)))[0]?.revokedAt,
+      ).toBeNull();
     });
 
     it("revocation over-notifies every host in the user's organizations", async () => {
@@ -793,10 +840,79 @@ describe.skipIf(!TEST_DATABASE_URL)("Slice A host account API", () => {
         new Set([ownHost.id, mateHost.id]),
       );
     });
+
+    it("reports host revocation as pending until that host proves durable delivery", async () => {
+      const { app } = buildApp();
+      const owner = await signIn();
+      const first = await linkHost(app, owner, { environmentId: randomUUID() });
+      const second = await linkHost(app, owner, { environmentId: randomUUID() });
+      const device = await registerDevice(app, owner);
+      expect(
+        (
+          await app.request(`/api/v1/devices/${device.id}`, {
+            method: "DELETE",
+            headers: authHeaders(owner.token),
+          })
+        ).status,
+      ).toBe(204);
+      const read = async () => {
+        const response = await app.request("/api/v1/devices", {
+          headers: authHeaders(owner.token),
+        });
+        const body = (await response.json()) as {
+          devices: Array<{
+            id: string;
+            revocationDeliveries: Array<{ hostId: string; confirmedAt: string | null }>;
+          }>;
+        };
+        return body.devices.find((entry) => entry.id === device.id)!.revocationDeliveries;
+      };
+      expect(await read()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ hostId: first.id, confirmedAt: null }),
+          expect.objectContaining({ hostId: second.id, confirmedAt: null }),
+        ]),
+      );
+      const endpoint = `/api/v1/hosts/${first.id}/device-revocations/ack`;
+      const body = JSON.stringify({ deviceJkts: [device.jkt] });
+      expect(
+        (await app.request(endpoint, { method: "POST", headers: authHeaders(owner.token), body }))
+          .status,
+      ).toBe(401);
+      expect(
+        (
+          await app.request(endpoint, {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              authorization: `HostProof ${await hostProof(second.key, second)}`,
+            },
+            body,
+          })
+        ).status,
+      ).not.toBe(204);
+      expect(
+        (
+          await app.request(endpoint, {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              authorization: `HostProof ${await hostProof(first.key, first)}`,
+            },
+            body,
+          })
+        ).status,
+      ).toBe(204);
+      const delivered = await read();
+      expect(delivered.find((entry) => entry.hostId === first.id)!.confirmedAt).toEqual(
+        expect.any(String),
+      );
+      expect(delivered.find((entry) => entry.hostId === second.id)!.confirmedAt).toBeNull();
+    });
   });
 
   describe("5. grants", () => {
-    it("issues owner and discoverable-member grants carrying the device cnf", async () => {
+    it("issues owner grants with device binding and denies discoverable members", async () => {
       const { app } = buildApp();
       const owner = await signIn();
       const member = await teammate(owner);
@@ -808,6 +924,11 @@ describe.skipIf(!TEST_DATABASE_URL)("Slice A host account API", () => {
           headers: authHeaders(session.token),
           body: JSON.stringify({ deviceJkt: device.jkt }),
         });
+        if (session === member) {
+          expect(response.status).toBe(403);
+          expect(await response.json()).toMatchObject({ error: "not_host_owner" });
+          continue;
+        }
         expect(response.status).toBe(200);
         const { grant } = (await response.json()) as { grant: string };
         const payload = await signing.verify(grant, {
@@ -906,30 +1027,6 @@ describe.skipIf(!TEST_DATABASE_URL)("Slice A host account API", () => {
       ).toBe(409);
     });
 
-    it("refuses a departed owner and lazily emits org_departure", async () => {
-      const { app, db } = buildApp();
-      const owner = await signIn();
-      const member = await teammate(owner);
-      const host = await linkSharedHost(app, owner, { environmentId: randomUUID() });
-      const device = await registerDevice(app, member);
-      workos.removeMembership(owner.orgId, owner.userId);
-      clearOrgCache();
-      const response = await app.request(`/api/v1/hosts/${host.id}/grant`, {
-        method: "POST",
-        headers: authHeaders(member.token),
-        body: JSON.stringify({ deviceJkt: device.jkt }),
-      });
-      expect(response.status).toBe(403);
-      expect(
-        await db
-          .select()
-          .from(revocationEvents)
-          .where(
-            and(eq(revocationEvents.hostId, host.id), eq(revocationEvents.kind, "org_departure")),
-          ),
-      ).not.toHaveLength(0);
-    });
-
     it("does not mint across a concurrent device revoke or host unlink", async () => {
       const { app } = buildApp();
       const owner = await signIn();
@@ -955,7 +1052,7 @@ describe.skipIf(!TEST_DATABASE_URL)("Slice A host account API", () => {
         revoking.release();
       }
 
-      const replacement = await registerDevice(app, owner, device.key);
+      const replacement = await registerDevice(app, owner);
       const unlinking = await pool.connect();
       try {
         await unlinking.query("BEGIN");
@@ -1260,6 +1357,92 @@ describe.skipIf(!TEST_DATABASE_URL)("Slice A host account API", () => {
     });
   });
 
+  describe("managed remote token isolation", () => {
+    it("delivers connector credentials only to the current host proof and publishes only the URL", async () => {
+      const provision = vi.fn(async () => ({
+        hostname: "managed.example.test",
+        tunnelId: randomUUID(),
+        connectorToken: "fixture-private-connector-token",
+      }));
+      const { app } = buildApp({
+        provision,
+        disable: async () => {},
+        cleanup: async () => {},
+        endpoints: async (ids) => new Map(ids.map((id) => [id, "https://managed.example.test"])),
+      });
+      const owner = await signIn();
+      const host = await linkHost(app, owner);
+      const path = `/api/v1/hosts/${host.id}/tunnel`;
+      const denied = await app.request(path, {
+        method: "POST",
+        headers: authHeaders(owner.token),
+        body: JSON.stringify({ originPort: 34567 }),
+      });
+      expect(denied.status).toBe(401);
+      expect(provision).not.toHaveBeenCalled();
+      const accepted = await app.request(path, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `HostProof ${await hostProof(host.key, host)}`,
+        },
+        body: JSON.stringify({ originPort: 34567 }),
+      });
+      expect(accepted.status).toBe(200);
+      expect(accepted.headers.get("cache-control")).toBe("no-store");
+      expect(await accepted.json()).toHaveProperty(
+        "connectorToken",
+        "fixture-private-connector-token",
+      );
+      const directory = await app.request("/api/v1/hosts", { headers: authHeaders(owner.token) });
+      const text = await directory.text();
+      expect(text).toContain("managed.example.test");
+      expect(text).not.toContain("connector-token");
+      const injection = await app.request(`/api/v1/hosts/${host.id}`, {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+          authorization: `HostProof ${await hostProof(host.key, host)}`,
+        },
+        body: JSON.stringify({
+          endpoints: [{ transport: "cloudflare", url: "https://attacker.invalid" }],
+        }),
+      });
+      expect(injection.status).toBe(400);
+      workos.removeMembership(owner.orgId, owner.userId);
+      const removed = await app.request(path, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `HostProof ${await hostProof(host.key, host)}`,
+        },
+        body: JSON.stringify({ originPort: 34567 }),
+      });
+      expect(removed.status).toBe(403);
+      expect(provision).toHaveBeenCalledTimes(1);
+      const snapshot = await app.request(`/api/v1/hosts/${host.id}/authorization`, {
+        headers: { authorization: `HostProof ${await hostProof(host.key, host)}` },
+      });
+      expect(await snapshot.json()).toMatchObject({ ownerInOrg: false });
+    });
+    it("refuses grants and authorization snapshots when the account loses the explicit test entitlement", async () => {
+      const { app } = buildApp();
+      const owner = await signIn();
+      const host = await linkHost(app, owner);
+      remoteTestUserIds.splice(remoteTestUserIds.indexOf(owner.userId), 1);
+      const grant = await app.request(`/api/v1/hosts/${host.id}/grant`, {
+        method: "POST",
+        headers: authHeaders(owner.token),
+        body: "{}",
+      });
+      expect(grant.status).toBe(403);
+      const authorization = await app.request(`/api/v1/hosts/${host.id}/authorization`, {
+        headers: { authorization: `HostProof ${await hostProof(host.key, host)}` },
+      });
+      expect(authorization.status).toBe(403);
+    });
+  });
+
   describe("8. JWKS", () => {
     it("serves a stable current kid and the configured previous key publicly", async () => {
       const { db } = buildApp();
@@ -1273,6 +1456,7 @@ describe.skipIf(!TEST_DATABASE_URL)("Slice A host account API", () => {
       app.route(
         "/api/v1",
         createV1Routes({
+          remoteTestUserIds,
           verifier,
           grants,
           signing: rotated,
@@ -1285,7 +1469,7 @@ describe.skipIf(!TEST_DATABASE_URL)("Slice A host account API", () => {
           hostGrants: createHostGrantIssuer(rotated),
           hostSecrets: createHostSecretStore(db),
           accountBaseUrl: config.baseUrl,
-          relayServiceToken: config.relayServiceToken,
+          ...(config.relayServiceToken ? { relayServiceToken: config.relayServiceToken } : {}),
           db,
         }),
       );

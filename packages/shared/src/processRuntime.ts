@@ -26,8 +26,8 @@ import {
 } from "./platformProcess";
 import { resolveWindowsComSpec } from "./platformEnvironment";
 
-import { trackProcessSpawn } from "./processSpawnOutcome";
-export { didProcessFailToSpawn } from "./processSpawnOutcome";
+import { trackProcessSpawn } from "./processSpawnOutcome.ts";
+export { didProcessFailToSpawn } from "./processSpawnOutcome.ts";
 
 type ProcessPlanningOptions = Pick<ProcessLaunchInput, "platform" | "requireExecutable">;
 

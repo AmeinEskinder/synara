@@ -78,6 +78,34 @@
       "when": 1786657633307,
       "tag": "0010_host_secrets_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790540014725,
+      "tag": "0011_device_account_sessions",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790545768148,
+      "tag": "0012_device_revocation_deliveries",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790586029908,
+      "tag": "0013_remote_tunnels",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790586379104,
+      "tag": "0014_remote_pairing_codes",
+      "breakpoints": true
     }
   ]
 }
