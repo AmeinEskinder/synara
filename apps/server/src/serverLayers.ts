@@ -252,6 +252,8 @@ export function makeServerRuntimeServicesLayer(
     Layer.provideMerge(HubWorkRepositoryLive),
     Layer.provideMerge(ProjectAgentRepositoryLive),
     Layer.provideMerge(ManagedAttachmentRepositoryLive),
+    Layer.provideMerge(ServerEnvironmentLive),
+    Layer.provideMerge(HostConnectionRegistryLive),
     Layer.provideMerge(agentGatewayCredentialsLayer),
     Layer.provideMerge(automationServiceLayer),
     Layer.provideMerge(projectAgentServiceLayer),

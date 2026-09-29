@@ -1,3 +1,5 @@
+import { RemoteAgentCall, RemoteAgentResult } from "./remoteAgentGateway";
+import { RemoteAccessInput, RemoteAccessResult } from "./remotePairing";
 import { Schema } from "effect";
 import * as Rpc from "effect/unstable/rpc/Rpc";
 import * as RpcGroup from "effect/unstable/rpc/RpcGroup";
@@ -2138,7 +2140,14 @@ export const WsSubscribeProjectAgentEventsRpc = Rpc.make(WS_METHODS.subscribePro
 
 export const WsBootstrapRpcGroup = RpcGroup.make(WsBootstrapNegotiateRpc);
 
+export const WsAgentGatewayCallRpc = Rpc.make(WS_METHODS.agentGatewayCall, {
+  payload: RemoteAgentCall,
+  success: RemoteAgentResult,
+  error: WsRpcError,
+});
+
 export const WsFeatureRpcGroup = RpcGroup.make(
+  WsAgentGatewayCallRpc,
   WsOrchestrationDispatchCommandRpc,
   WsOrchestrationSettleTurnDispatchRpc,
   WsOrchestrationImportThreadRpc,

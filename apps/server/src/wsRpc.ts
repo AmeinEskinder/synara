@@ -1,5 +1,20 @@
 import { readEventLoopStatus } from "./eventLoopMonitor";
 import { makeGitActionRunner } from "./git/gitActionRunner";
+import { AgentGateway } from "./agentGateway/Services/AgentGateway";
+import { RemoteAgentResult } from "@synara/contracts";
+import { parseComputerInvocation } from "@synara/shared/computerInvocation";
+import { superviseHostConnections } from "./hostConnections/supervisor";
+import { remoteConnectionsUnavailableReason } from "./remoteFeaturePolicy";
+import { accountStateDirectory } from "./accountAuth";
+import {
+  remoteMethodUnavailable,
+  REMOTE_NATIVE_UNAVAILABLE,
+} from "@synara/shared/remoteCapabilities";
+import { AuthControlPlane } from "./auth/Services/AuthControlPlane";
+import { RemoteDeviceTrustRepository } from "./persistence/Services/RemoteDeviceTrust";
+import { makeRemoteAccessManagement } from "./remotePairing/management";
+import { RemoteHostTrustRepository } from "./persistence/Services/RemoteHostTrust";
+import { readAccountCredentials, accountApiIssuer } from "./accountAuth";
 import { AgentGatewaySessionRegistry } from "./agentGateway/Services/AgentGatewaySessionRegistry";
 import { execFile } from "node:child_process";
 
@@ -533,6 +548,7 @@ const makeWsRpcHandlersLayer = () =>
       const lifecycleEvents = yield* ServerLifecycleEvents;
       const runtimeStartup = yield* ServerRuntimeStartup;
       const serverEnvironment = yield* ServerEnvironment;
+      const agentGateway = Option.getOrUndefined(yield* Effect.serviceOption(AgentGateway));
       const serverSettings = yield* ServerSettingsService;
       const keepAwake = yield* KeepAwakeService;
       const terminalManager = yield* TerminalManager;
@@ -1421,6 +1437,19 @@ const makeWsRpcHandlersLayer = () =>
                 );
             }),
             "Failed to resolve the original message delivery.",
+          ),
+        [WS_METHODS.agentGatewayCall]: (call) =>
+          rpcEffect(
+            Effect.gen(function* () {
+              const principal = yield* CurrentManagedAttachmentPrincipal;
+              if (!agentGateway?.handleRemoteTool)
+                return yield* Effect.fail(
+                  new WsRpcError({ message: "Remote agent tools require an updated server." }),
+                );
+              const result = yield* agentGateway.handleRemoteTool(call, principal.ownerId);
+              return yield* Schema.decodeUnknownEffect(RemoteAgentResult)(result);
+            }),
+            "Remote agent tool failed",
           ),
         [ORCHESTRATION_WS_METHODS.dispatchCommand]: (command) =>
           rpcEffect(
