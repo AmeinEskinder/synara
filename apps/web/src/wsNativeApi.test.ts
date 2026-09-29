@@ -6,7 +6,9 @@
 import {
   ApprovalRequestId,
   CommandId,
+  COMPUTER_WS_CHANNELS,
   type ContextMenuItem,
+  DEVICE_WS_CHANNELS,
   EventId,
   ORCHESTRATION_WS_CHANNELS,
   ORCHESTRATION_WS_METHODS,
@@ -179,6 +181,15 @@ describe("wsNativeApi", () => {
     unsubscribe();
     reportShellFailure!(failure);
     expect(listener).toHaveBeenCalledOnce();
+  });
+
+  it("keeps device and computer events subscribed for local execution", async () => {
+    const { createWsNativeApi } = await import("./wsNativeApi");
+    createWsNativeApi();
+
+    expect(transportInstances).toHaveLength(1);
+    expect(transportInstances[0]!.subscriptions).toContain(DEVICE_WS_CHANNELS.event);
+    expect(transportInstances[0]!.subscriptions).toContain(COMPUTER_WS_CHANNELS.event);
   });
 
   it("gives a slow provider refresh a bounded deadline beyond the generic RPC timeout", async () => {

@@ -3579,6 +3579,8 @@ export const websocketRpcRouteLayer = Layer.mergeAll(
   // The registry must be provided here so the upgrade route and the RPC
   // middleware (built from the same source effect) share one instance.
   makeWebsocketRpcRouteLayer(makeRpcWebSocketHttpEffect).pipe(
+    // Handler resources, including the remote supervisor, live until server shutdown.
+    Layer.provide(makeWsRpcLayer().pipe(Layer.provideMerge(RpcSerialization.layerJson))),
     Layer.provide(WsConnectionSessionsLive),
   ),
 );
