@@ -158,6 +158,7 @@ beforeEach(() => {
   latestPushByChannel.clear();
   nextPushSequence = 1;
   Reflect.deleteProperty(getWindowForTest(), "desktopBridge");
+  Reflect.deleteProperty(getWindowForTest(), "frameElement");
 });
 
 afterEach(() => {

@@ -1,5 +1,7 @@
 import { hydrateCachedThreadDetail, startThreadDetailCachePersistence } from "../threadDetailCache";
 import { ServerBusyIndicator } from "../components/ServerBusyIndicator";
+import { readWorkspaceFrame } from "../lib/hosts/workspaceFrame";
+import { onControllerStateChange } from "../lib/hosts/connectionClients";
 import { EditorDirtyRouteGuard } from "../components/EditorDirtyRouteGuard";
 import {
   ORCHESTRATION_STREAM_OVERFLOW_CODE,
@@ -370,10 +372,11 @@ function RootRouteView() {
           <GlobalAccountDialogs />
           {/* Mounted globally because the host it asks about registers itself
               at sign-in, wherever the user happens to be in the app. */}
-          <HostDiscoverabilityPrompt />
-          <GlobalWhatsNewSurface />
+          {!readWorkspaceFrame() && <HostDiscoverabilityPrompt />}
+          {!readWorkspaceFrame() && <GlobalWhatsNewSurface />}
           <TaskCompletionNotifications />
           <QueuedComposerDrainCoordinator />
+          {!readWorkspaceFrame() && <>
           {/* Beta welcome must resolve the first-run gate even while Safari is queued. */}
           <BetaWelcomeDialog />
           <SafariAccessOnboarding startup>
@@ -383,6 +386,7 @@ function RootRouteView() {
           </SafariAccessOnboarding>
           <GlobalOnboardingDialog />
           <ProjectImportAnnouncementDialog />
+          </>}
           <GlobalProjectImportDialog />
           <AppSnapCoordinator />
           <DesktopProjectBootstrap />
