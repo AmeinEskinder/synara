@@ -12,6 +12,7 @@ export function ProjectSourceSegmentedPicker(props: {
   readonly value: ProjectSource;
   readonly disabled: boolean;
   readonly githubAvailable: boolean;
+  readonly githubUnavailableReason?: string;
   readonly onValueChange: (value: ProjectSource) => void;
   readonly className?: string;
 }) {

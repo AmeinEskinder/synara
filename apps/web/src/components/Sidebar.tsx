@@ -1,3 +1,4 @@
+import { OPEN_CREATE_PROJECT_EVENT } from "../lib/hosts/workspaceFrame";
 import { WorkspaceProjects } from "./hosts/WorkspaceProjects";
 import { CATALOG_OPEN_EVENT, takePendingCatalogCheckout } from "~/lib/projectCatalog/navigation";
 import { readExecutionContext } from "~/lib/hosts/executionContext";
@@ -1576,6 +1577,11 @@ export default function Sidebar() {
   // The open flag lives in a module store now, so it outlives this sidebar: close the
   // dialog with it, or a remounted sidebar would reopen a stale modal over everything.
   useEffect(() => () => setCreateProjectDialogOpen(false), [setCreateProjectDialogOpen]);
+  useEffect(() => {
+    const open = () => setCreateProjectDialogOpen(true);
+    window.addEventListener(OPEN_CREATE_PROJECT_EVENT, open);
+    return () => window.removeEventListener(OPEN_CREATE_PROJECT_EVENT, open);
+  }, [setCreateProjectDialogOpen]);
   const [createProjectSpaceId, setCreateProjectSpaceId] = useState<SpaceId | null | undefined>();
   const [searchPaletteOpen, setSearchPaletteOpen] = useState(false);
   const [automationCreateOpen, setAutomationCreateOpen] = useState(false);
@@ -2629,6 +2635,7 @@ export default function Sidebar() {
     async (
       rawCwd: string,
       options: {
+        name?: string;
         createIfMissing?: boolean;
         spaceId?: SpaceId | null;
         additionalFolders?: ReadonlyArray<string>;
@@ -2673,6 +2680,7 @@ export default function Sidebar() {
           api,
           workspaceRoot: cwd,
           ...(additionalFolders.length > 0 ? { additionalFolders } : {}),
+          ...(options.name ? { name: options.name } : {}),
           ...(options.createIfMissing === undefined
             ? {}
             : { createIfMissing: options.createIfMissing }),
@@ -4008,6 +4016,7 @@ export default function Sidebar() {
         } else {
           handleSelectSpaceForIncomingProject(destinationSpaceId);
           await addProjectFromPath(value.workspaceRoot, {
+            name: value.name,
             createIfMissing: value.createIfMissing,
             spaceId: value.spaceId,
             additionalFolders: value.additionalFolders,

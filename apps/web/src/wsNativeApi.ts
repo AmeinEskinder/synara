@@ -556,6 +556,14 @@ export function createWsNativeApi(): NativeApi {
   const api: NativeApi & { hosts: HostsApi } = {
     dialogs: {
       pickFolder: async () => {
+        const context = readExecutionContext();
+        if (context?.remote || !window.desktopBridge) {
+          const { showExecutionFolderPicker } = await import("./lib/hosts/ExecutionFolderPicker");
+          return showExecutionFolderPicker({
+            label: context?.execution.label ?? "this computer",
+            browse: (input) => executionRequest(WS_METHODS.filesystemBrowse, input),
+          });
+        }
         if (!window.desktopBridge) return null;
         return window.desktopBridge.pickFolder();
       },
