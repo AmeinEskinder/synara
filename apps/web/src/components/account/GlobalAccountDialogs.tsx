@@ -20,7 +20,8 @@ export function GlobalAccountDialogs() {
 
   // A signed-in session without a profile means onboarding never finished —
   // whether the sign-in just happened here or was recovered on reconnect.
-  const needsOnboarding = account.me !== null && (account.me.profile ?? null) === null;
+  const needsOnboarding =
+    account.profileSyncEnabled && account.me !== null && (account.me.profile ?? null) === null;
   useEffect(() => {
     if (needsOnboarding && view !== "onboarding") openOnboarding();
   }, [needsOnboarding, view, openOnboarding]);
@@ -37,12 +38,12 @@ export function GlobalAccountDialogs() {
   const signedInProfile = account.me === null ? undefined : (account.me.profile ?? null);
   useEffect(() => {
     if (view !== "sign-in" || signedInProfile === undefined) return;
-    if (signedInProfile === null) {
+    if (account.profileSyncEnabled && signedInProfile === null) {
       openOnboarding();
     } else {
       close();
     }
-  }, [view, signedInProfile, openOnboarding, close]);
+  }, [view, signedInProfile, openOnboarding, close, account.profileSyncEnabled]);
 
   return (
     <>
@@ -52,14 +53,18 @@ export function GlobalAccountDialogs() {
           if (!open) close();
         }}
         onSignedIn={(status) => {
-          if (status.state === "signed-in" && (status.me.profile ?? null) === null) {
+          if (
+            account.profileSyncEnabled &&
+            status.state === "signed-in" &&
+            (status.me.profile ?? null) === null
+          ) {
             openOnboarding();
           } else {
             close();
           }
         }}
       />
-      {account.me ? (
+      {account.profileSyncEnabled && account.me ? (
         <OnboardingDialog open={view === "onboarding"} me={account.me} onFinished={close} />
       ) : null}
     </>

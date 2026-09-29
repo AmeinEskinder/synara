@@ -22,6 +22,8 @@ import {
   removeAccountScopedQueries,
 } from "~/lib/accountReactQuery";
 import { ensureNativeApi } from "~/nativeApi";
+import { isBetaFeatureOn } from "~/betaFeatures";
+import { readExecutionContext } from "~/lib/hosts/executionContext";
 
 export function useAccount() {
   const queryClient = useQueryClient();
@@ -167,6 +169,9 @@ export function useAccount() {
 
   return {
     status,
+    profileSyncEnabled:
+      isBetaFeatureOn("accountProfileSync") &&
+      readExecutionContext()?.controller.capabilities.accountProfileSync === true,
     me: status?.state === "signed-in" ? status.me : null,
     statusQuery,
     sendOtp,

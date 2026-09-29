@@ -42,7 +42,9 @@ export function useProfileIdentity(defaults: { name: string; handle: string }) {
 
   // A signed-in user without a profile hasn't onboarded yet — treat exactly
   // like signed out (local identity) until onboarding writes the profile.
-  const accountProfile: AccountProfile | null = account.me?.profile ?? null;
+  const accountProfile: AccountProfile | null = account.profileSyncEnabled
+    ? (account.me?.profile ?? null)
+    : null;
 
   const name = accountProfile?.displayName ?? localName;
   // Placeholder-avatar initials from the RESOLVED name — the account display

@@ -284,7 +284,7 @@ To put a feature behind the list:
 
 Promote a feature to Stable by deleting its entry; every gate resolves itself.
 
-The list currently contains `groups` (Hubs), gated off in Stable.
+The list currently contains `groups` (Hubs), `remoteConnections`, and `accountProfileSync`, gated off in Stable.
 Tasks, Inbox, and Auto-fix CI are available in both apps.
 Oh My Pi, the rail sidebar layout, and message trail
 sound are available in both Stable and Beta.
@@ -321,6 +321,12 @@ the microphone, or both. The desktop IPC handler refuses other platforms,
 and the web hides the selector on hosts without a supported desktop bridge.
 Only loudness levels are sent to the trail, and the reader stops when the
 visible trail no longer subscribes. First use can request macOS audio access.
+
+Account profiles additionally require the server opt-in
+`SYNARA_ACCOUNT_PROFILE_SYNC=1`; it activates historical aggregate usage sync
+for the signed-in account. The UI reads the server capability, and publication
+remains a separate explicit choice. See the [profiles trial guide](apps/profiles/README.md).
+
 
 ## Diagnostics
 

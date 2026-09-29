@@ -184,7 +184,7 @@ External IP addresses remain redacted and external ports remain distinct.
 ## Transport and storage
 
 Events are buffered to `~/.synara-beta/diagnostics/events.jsonl` and flushed in
-batches as NDJSON over HTTPS to `https://synara-beta-diagnostics.kartik-9f9.workers.dev`
+batches as NDJSON over HTTPS to `https://synara-beta-diagnostics.synara-orgs.workers.dev`
 (override with `SYNARA_BETA_DIAGNOSTICS_URL` for local development; only `https://`
 or loopback targets are accepted). Events land in a Cloudflare D1 database and
 are kept with no expiry date, so crash and error trends can be compared across
@@ -205,3 +205,7 @@ If the endpoint is unreachable the queue stays on disk and retries on the next
 flush; if it grows past 1 MiB the client trims it to the newest 512 KiB of
 events rather than letting it grow. Diagnostics never blocks the app: every
 failure is swallowed.
+
+Previously shipped Beta builds still use `https://synara-beta-diagnostics.kartik-9f9.workers.dev`;
+that endpoint forwards ingestion to the new service. The migration preserves
+existing diagnostics and does not change collection or retention.

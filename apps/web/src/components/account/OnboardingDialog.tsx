@@ -86,7 +86,7 @@ function OnboardingDialogContent({ me, onFinished }: Omit<OnboardingDialogProps,
       toastManager.add({
         type: "success",
         title: "You're all set",
-        description: `Your public profile is ${publicProfileDisplayUrl(handle)}.`,
+        description: "Your profile is private. You can publish it from Edit profile.",
       });
       onFinished();
     } catch (cause) {
@@ -178,11 +178,8 @@ function OnboardingDialogContent({ me, onFinished }: Omit<OnboardingDialogProps,
               {formatError}
             </span>
           ) : (
-            <span
-              id={handleHelpId}
-              className="text-[length:var(--app-font-size-ui-sm,11px)] leading-snug text-muted-foreground"
-            >
-              Your public profile: {publicProfileDisplayUrl(handle || "handle")}
+            <span id={handleHelpId} className="text-ui-sm leading-snug text-muted-foreground">
+              Your profile link, when published: {publicProfileDisplayUrl(handle || "handle")}
             </span>
           )}
         </label>

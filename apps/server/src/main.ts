@@ -1,3 +1,13 @@
+import { requestLocalRemoteAccess, saveRemoteInvitation } from "./remotePairing/cli";
+import { accountStateDirectory } from "./accountAuth";
+import { HostConnectionRegistryService } from "./hostConnections/registry";
+import { observeControllerAccount } from "./hostConnections/accountObserver";
+import { RemoteDeviceTrustRepository } from "./persistence/Services/RemoteDeviceTrust";
+import { AuthControlPlane } from "./auth/Services/AuthControlPlane";
+import {
+  accountProfileSyncUnavailableReason,
+  remoteConnectionsUnavailableReason,
+} from "./remoteFeaturePolicy";
 /**
  * CliConfig - CLI/runtime bootstrap service definitions.
  *
@@ -533,6 +543,33 @@ const makeServerProgram = (input: CliInput) =>
     // Start the retention loop after the server is live so startup can serve
     // existing history first, then hide inactive threads from the app in the background.
     yield* startThreadRetentionJob(orchestrationEngine, projectionSnapshotQuery);
+    // Event-driven account usage sync: every committed usage-relevant domain
+    // event nudges the reporter, which debounces, recomputes recent per-minute
+    // buckets from the local projections, and pushes absolute values to the
+    // account. Best-effort and fully inert while signed out — like the host
+    // registration above, it must never delay or fail a boot.
+    if (!accountProfileSyncUnavailableReason()) {
+      const usageReporterSql = yield* SqlClient.SqlClient;
+      const accountUsageReporter = createAccountUsageReporter({
+        sql: usageReporterSql,
+        baseDir: config.baseDir,
+        ...(config.devUrl ? { devUrl: config.devUrl } : {}),
+      });
+      registerAccountUsageReporterNudge(() => void accountUsageReporter.flushNow());
+      yield* Effect.addFinalizer(() =>
+        Effect.sync(() => {
+          registerAccountUsageReporterNudge(undefined);
+          accountUsageReporter.stop();
+        }),
+      );
+      yield* Effect.forkChild(
+        Stream.runForEach(orchestrationEngine.streamDomainEvents, (event) =>
+          isAccountUsageRelevantEventType(event.type)
+            ? Effect.sync(() => accountUsageReporter.notifyActivity())
+            : Effect.void,
+        ),
+      );
+    }
     // Beta only: anonymous 24h usage snapshot for diagnostics. Same gate as the
     // stable→beta import; failures are logged inside and never break startup.
     if (process.env[SYNARA_DESKTOP_BUNDLE_ID_ENV] === SYNARA_BETA_BUNDLE_ID) {

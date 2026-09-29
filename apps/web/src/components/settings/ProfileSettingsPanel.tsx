@@ -67,7 +67,7 @@ const SCOPE_OPTIONS = [
 export function ProfileSettingsPanel() {
   const coreQuery = useQuery(serverProfileStatsQueryOptions());
   const tokenQuery = useQuery(serverProfileTokenStatsQueryOptions());
-  const { me } = useAccount();
+  const { me, profileSyncEnabled } = useAccount();
   // Account-first for signed-in users: the synced cross-device view is the
   // primary one; the device view is the drill-down. Signed out there is no
   // account, so the state is moot (the render below pins "device").
@@ -96,8 +96,8 @@ export function ProfileSettingsPanel() {
       tokensPending={tokenQuery.isPending}
       userId={me?.id ?? null}
       // Signed out: no toggle, the device view is the whole panel.
-      scope={me ? scope : "device"}
-      onScopeChange={me ? setScope : null}
+      scope={profileSyncEnabled && me ? scope : "device"}
+      onScopeChange={profileSyncEnabled && me ? setScope : null}
     />
   );
 }
