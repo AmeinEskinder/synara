@@ -151,13 +151,15 @@ function renderSubagentLabel(input: {
 function SidebarSubagentLabel({
   thread,
   roleClassName,
+  relatedThreads,
 }: {
   thread: SidebarThreadSummary;
   roleClassName?: string | undefined;
+  relatedThreads?: readonly SidebarThreadSummary[] | undefined;
 }) {
   const selectParentThread = useMemo(
-    () => createThreadSelector(thread.parentThreadId ?? null),
-    [thread.parentThreadId],
+    () => createThreadSelector(relatedThreads ? null : (thread.parentThreadId ?? null)),
+    [relatedThreads, thread.parentThreadId],
   );
   const parentThread = useStore(selectParentThread);
   // Only an unnamed child can fall back to its position ("Subagent N").
@@ -176,7 +178,7 @@ function SidebarSubagentLabel({
 
   return renderSubagentLabel({
     thread,
-    threads,
+    threads: relatedThreads ?? (parentThread ? [parentThread] : undefined),
     roleClassName,
   });
 }
@@ -191,6 +193,7 @@ export function SidebarThreadRowContent({
   subagentIndentPx: subagentIndentPxProp,
   pendingStatusColorClass,
   suffix,
+  relatedThreads,
 }: {
   thread: SidebarThreadSummary;
   terminalEntryPoint: boolean;
@@ -201,6 +204,7 @@ export function SidebarThreadRowContent({
   subagentIndentPx?: number;
   pendingStatusColorClass?: string | null | undefined;
   suffix?: ReactNode;
+  relatedThreads?: readonly SidebarThreadSummary[] | undefined;
 }) {
   const subagentIndentPx = subagentIndentPxProp ?? 0;
   const isSubagentThread = Boolean(thread.parentThreadId);
@@ -266,6 +270,7 @@ export function SidebarThreadRowContent({
           {isSubagentThread ? (
             <SidebarSubagentLabel
               thread={thread}
+              relatedThreads={relatedThreads}
               roleClassName={variant === "standard" ? "text-muted-foreground/42" : undefined}
             />
           ) : (

@@ -116,6 +116,7 @@ function stopRowActivation(event: MouseEvent) {
 export function ActivityThreadRow({
   thread,
   project,
+  external,
   isActive,
   isSettled,
   isPinned,
@@ -137,6 +138,7 @@ export function ActivityThreadRow({
 }: {
   thread: SidebarThreadSummary;
   project: Project | undefined;
+  external?: { hostName: string; onOpen: () => void; status: ThreadStatusPill | null } | undefined;
   isActive: boolean;
   isSettled: boolean;
   isPinned: boolean;
@@ -179,25 +181,34 @@ export function ActivityThreadRow({
   // Rename/context-menu gestures live on the row wrapper (not the title button) so
   // they also fire over the trailing status and hover-action cluster, which are
   // absolutely positioned siblings of the button.
-  const rowGestures = createSidebarThreadRowGestures({
-    threadId: thread.id,
-    onRename,
-    onRenamePointerUp,
-    onContextMenu,
-  });
+  const rowGestures = external
+    ? undefined
+    : createSidebarThreadRowGestures({
+        threadId: thread.id,
+        onRename,
+        onRenamePointerUp,
+        onContextMenu,
+      });
 
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        {...SIDEBAR_HOVER_CARD_TRIGGER_PROPS}
-        render={
-          <div
-            data-thread-hover-anchor={hoverAnchorId}
-            className="group/activity-row relative"
-            data-thread-item
-            {...rowGestures}
-          />
-        }
+  const rowContent = (
+    <>
+      <button
+        type="button"
+        onClick={onOpen}
+        title={external ? `${thread.title} — ${external.hostName}` : undefined}
+        aria-label={external ? `${thread.title}, ${external.hostName}` : undefined}
+        // Same native drag as the classic thread rows: drop on a chat pane to
+        // split, or on a composer to @mention the chat.
+        draggable={!external}
+        onDragStart={external ? undefined : (event) => beginThreadDrag(event, thread.id)}
+        onDragEnd={external ? undefined : endThreadDrag}
+        data-testid={`activity-thread-${thread.id}`}
+        className={cn(
+          "flex w-full min-w-0 cursor-pointer flex-col gap-1 rounded-lg px-2.5 py-2 text-left select-none",
+          SIDEBAR_ROW_FOCUS_CLASS_NAME,
+          isActive ? SIDEBAR_ROW_ACTIVE_CLASS_NAME : SIDEBAR_ROW_HOVER_CLASS_NAME,
+          isSettled && "opacity-55 transition-opacity hover:opacity-85",
+        )}
       >
         <button
           ref={rowRef}
@@ -220,6 +231,13 @@ export function ActivityThreadRow({
             status?.label === "Reminder" && !isActive && SIDEBAR_ROW_SNOOZE_REMINDER_CLASS_NAME,
           )}
         >
+          <ProviderIcon
+            provider={provider}
+            className="size-3 shrink-0"
+            fallback={
+              <span className="size-3 shrink-0 rounded-full border border-dashed border-muted-foreground/40" />
+            }
+          />
           <span
             className={cn(
               "flex min-w-0 items-center gap-1.5 overflow-hidden transition-[padding] duration-150 ease-out",
@@ -318,7 +336,20 @@ export function ActivityThreadRow({
           >
             <SidebarStatusTrailingGlyph status={trailingStatus} />
           </span>
-        ) : null}
+        </span>
+      </button>
+      {trailingStatus ? (
+        <span
+          data-slot="activity-completion-status"
+          className={cn(
+            "pointer-events-none absolute top-1 right-1 inline-flex size-5 items-center justify-center",
+            sidebarHoverRevealHideClassName("activity-row"),
+          )}
+        >
+          <SidebarStatusTrailingGlyph status={trailingStatus} />
+        </span>
+      ) : null}
+      {!external ? (
         <span
           className="absolute top-1 right-1 inline-flex items-center gap-1 opacity-0 transition-opacity group-hover/activity-row:opacity-100 group-focus-within/activity-row:opacity-100"
           // Double-clicking an action button toggles it twice; it must not also open
@@ -355,6 +386,30 @@ export function ActivityThreadRow({
             }}
           />
         </span>
+      ) : null}
+    </>
+  );
+  if (external) {
+    return (
+      <div className="group/activity-row relative" data-thread-item>
+        {rowContent}
+      </div>
+    );
+  }
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        {...SIDEBAR_HOVER_CARD_TRIGGER_PROPS}
+        render={
+          <div
+            data-thread-hover-anchor={hoverAnchorId}
+            className="group/activity-row relative"
+            data-thread-item
+            {...rowGestures}
+          />
+        }
+      >
+        {rowContent}
       </TooltipTrigger>
       {renderHoverCard(hoverAnchorId)}
     </Tooltip>
@@ -557,6 +612,7 @@ function ActivityFilterMenu({
 export function SidebarActivityView({
   threads,
   projectById,
+  externalRows,
   activeThreadId,
   pinnedThreadIdSet,
   settledOverrideByThreadId,
@@ -584,6 +640,12 @@ export function SidebarActivityView({
 }: {
   threads: readonly SidebarThreadSummary[];
   projectById: ReadonlyMap<ProjectId, Project>;
+  externalRows?:
+    | ReadonlyMap<
+        ThreadId,
+        { hostName: string; onOpen: () => void; status: ThreadStatusPill | null }
+      >
+    | undefined;
   activeThreadId: ThreadId | null;
   pinnedThreadIdSet: ReadonlySet<ThreadId>;
   settledOverrideByThreadId: ReadonlyMap<ThreadId, boolean>;
@@ -837,8 +899,8 @@ export function SidebarActivityView({
   const visibleThreadIdsRef = useRef(visibleThreadIds);
   visibleThreadIdsRef.current = visibleThreadIds;
   useEffect(() => {
-    onVisibleThreadIdsChange(visibleThreadIdsRef.current);
-  }, [onVisibleThreadIdsChange, visibleThreadIdsFingerprint]);
+    onVisibleThreadIdsChange(visibleThreadIdsRef.current.filter((id) => !externalRows?.has(id)));
+  }, [externalRows, onVisibleThreadIdsChange, visibleThreadIdsFingerprint]);
   useEffect(
     () => () => {
       onVisibleThreadIdsChange([]);
@@ -962,7 +1024,7 @@ export function SidebarActivityView({
         <ActivityFilterMenu
           groupMode={groupMode}
           onChangeGroupMode={setGroupMode}
-          markAllReadDisabled={unreadThreads.length === 0}
+          markAllReadDisabled={!unreadThreads.some((thread) => !externalRows?.has(thread.id))}
           onMarkAllRead={markAllRead}
         />
       </div>
@@ -980,7 +1042,8 @@ export function SidebarActivityView({
                   ? "Synara"
                   : resolveThreadProjectLabel(projectById.get(group.projectId))
               }
-              {...(group.kind === "project"
+              {...(group.kind === "project" &&
+              !group.threads.some((thread) => externalRows?.has(thread.id))
                 ? {
                     onContextMenu: (position: SidebarRowContextMenuPosition) =>
                       onProjectContextMenu(group.projectId, position),

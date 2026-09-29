@@ -1,3 +1,4 @@
+import { ChatComputerLabel } from "../hosts/ComputerPicker";
 // FILE: ChatHeader.tsx
 // Purpose: Renders the chat top bar with project actions and panel toggles.
 // Layer: Chat shell header
@@ -680,6 +681,7 @@ export function ChatHeader({
                   >
                     {activeThreadTitle}
                   </h2>
+                  <ChatComputerLabel />
                   {showSidechatTitleChip && !isSplitPane && onCloseThreadPane ? (
                     <IconButton
                       variant="chrome"

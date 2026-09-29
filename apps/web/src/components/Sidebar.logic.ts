@@ -1029,12 +1029,12 @@ export function buildProjectThreadTree<T extends SidebarTreeThread>(input: {
 
 export function getVisibleSidebarEntriesForPreview<
   T extends {
-    rowId: Thread["id"];
-    rootRowId: Thread["id"];
+    rowId: string;
+    rootRowId: string;
   },
 >(input: {
   entries: readonly T[];
-  activeEntryId: Thread["id"] | undefined;
+  activeEntryId: string | undefined;
   previewLimit: number;
 }): {
   hasHiddenEntries: boolean;
