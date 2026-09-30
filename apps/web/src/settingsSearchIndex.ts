@@ -620,7 +620,7 @@ export const SETTINGS_SEARCH_ENTRIES: readonly SettingsSearchEntry[] = [
     keywords:
       "Pair Codex Claude and other local MCP clients with scoped project access. revoke credential task create wait read worktree approval",
   },
-  // ── Hosts & devices ───────────────────────────────────────────────────────
+  // ── Connections ───────────────────────────────────────────────────────
   {
     id: "connections:hosts",
     section: "connections",
