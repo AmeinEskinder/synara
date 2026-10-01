@@ -64,3 +64,4 @@ export * from "./remotePairing";
 export * from "./remoteResources";
 
 export * from "./remoteAgentGateway";
+export * from "./inboxRecaps";

@@ -1,6 +1,36 @@
 # Remote connections — punto di ripartenza
 
-Aggiornato il 30 settembre 2026. Questo è il riepilogo corrente tra desktop e iOS; i documenti precedenti contengono anche stati storici ormai superati. Il ridisegno della UI e dei chip è in pausa. Successivamente l'utente ha richiesto soltanto nome “Connections” e globo Central Icons su desktop e iOS: applicati alle voci di accesso e ai titoli, senza cambiare il comportamento delle connessioni.
+Aggiornato il 1 ottobre 2026. Questo è il riepilogo corrente tra desktop e iOS; i documenti precedenti contengono anche stati storici ormai superati. Il ridisegno della UI e dei chip è in pausa. Successivamente l'utente ha richiesto soltanto nome “Connections” e globo Central Icons su desktop e iOS: applicati alle voci di accesso e ai titoli, senza cambiare il comportamento delle connessioni.
+
+## Inbox privata e MVP mobile — 1 ottobre 2026
+
+Aggiunto lo storico privato dei recap, distinto dal profilo pubblico. Desktop e mobile riutilizzano `StatsGetRecapResult`; un’azione esplicita **Save privately / Save recap** salva la fotografia del giorno nell’account. Include nomi dei progetti, metriche per modello, token e attività degli agenti; nessun caricamento retroattivo automatico. Le quote live non vengono congelate nello storico. I dati già pubblicati sul profilo restano gestiti dal loro percorso esistente.
+
+L’API `/api/v1/inbox/recaps` consente salvataggio idempotente, lettura paginata, dettaglio ed eliminazione. Il proprietario è l’utente nel workspace autenticato; la rimozione del computer non elimina i recap. Membership verificata, risposte private/no-store, payload limitato e RLS senza accesso diretto per `anon`/`authenticated`. Migrazione PostgreSQL additiva `0016_private_inbox_recaps.sql`; nessuna modifica ai database di produzione durante lo sviluppo.
+
+Su iPhone/iPad: Inbox nativa con metriche e fasce orarie, cronologia account leggibile senza computer online, Hubs/Tasks aggiornati mentre visibili e Tasks → Start with Agent tramite il picker modelli esistente. Il primo turno passa dalla coda persistente soltanto dopo il collegamento condizionale della task. Corretto anche un crash mobile di reconnect: le copie in cache mantengono gli ID qualificati per computer quando il cursore viene invalidato.
+
+Verifiche desktop del delta: formato, lint, tipi e lineage passati; suite completa **15.470 test passati, 38 saltati, 10 package riusciti**, inclusi 338 test API su PostgreSQL isolato. Tre test browser mirati passati per gate Stable, salvataggio esplicito e cambio account. Probe SQL isolato: `anon` e `authenticated` non leggono/modificano/eliminano record e non possono inserirli, anche con permessi tabella concessi.
+
+**Deploy ancora da eseguire:** applicare la migrazione e pubblicare l’API prima di usare Saved Inbox sull’account reale. Pubblicare i client aggiornati dopo l’API. Il test con login sintetico e database isolato non equivale a una migrazione o a un rilascio di produzione. Vedere il recap mobile per compilazioni, prove nel simulatore e limiti.
+
+## Integrazione di main — 1 ottobre 2026
+
+Integrato `origin/main` a `4f204aef7d9a38e19baff915c58aec0a5498524f` nel branch desktop `codex/cloudflare-remote-mvp`. Il lavoro locale preesistente (119 percorsi) è stato prima salvato nel commit `ee36a79`, conservato anche dal branch `codex/remote-before-main-20261001`. La descrizione del delta non committato e i checkpoint del 30 settembre più sotto sono **storici**, non lo stato corrente. Nessuna modifica alla repo iOS o all'infrastruttura Cloudflare in questo passaggio.
+
+Risolti 30 conflitti Git, oltre alle incompatibilità che un merge testuale non individua:
+
+- **Database:** `main` occupa le migrazioni 109–126; quelle account/remote del branch diventano 127–130. La recovery riconosce esattamente la vecchia sequenza privata fino a 112, prepara il backup tramite il percorso esistente e conserva trust, certificati e connessioni desiderate. Sequenze sconosciute continuano a essere rifiutate. Non modificati database dell'utente.
+- **Stato per computer:** le nuove tab aperte, i pin degli agenti Hub e lo stato di chiusura dei pannelli usano lo storage già isolato per ambiente. Stessi identificativi su due computer non condividono più questi valori.
+- **Statistiche account:** riutilizzata la query canonica di `main` per i delta per provider e i risultati verificati di Claude. Conservata la dimensione reasoning per l'account e adattata l'attribuzione ai nuovi provider instance. Le istanze duplicate non generano chiavi React uguali nel riepilogo profilo.
+- **Permessi Hub/MCP:** i nuovi coordinatori e worker gestiti non possono usare la delega remota per aggirare i vincoli di proprietà dell'Hub locale. I normali thread utente mantengono gli strumenti remoti; i chiamanti remoti non acquisiscono un'identità di coordinatore locale.
+- **Integrazione UI/runtime:** Hub remoti nella superficie Hub esistente, Activity e ricerca con identità host, route rigenerate, risorse HTTP instradate sul computer corretto, provider instance conservata per la trascrizione. Packaging mantiene sia cloudflared sia il nuovo addon macOS di `main`; conservate le correzioni Windows di `main`.
+
+Regressioni riprodotte prima dei fix per migrazioni, isolamento storage, conteggio token e autorizzazione dei worker. Dopo i fix: 224 test server mirati e 47 test web mirati passati. Avvio server reale con home temporanea e porta 51275: `/health` segnala startup, subscription e proiezioni sane; processo arrestato e porta liberata dopo la prova. I controlli della lineage hanno verificato 91 tag di release. Le prove su due Mac, iOS fisico, provider live e pacchetti firmati restano distinte da questa verifica d'integrazione.
+
+Verifica complessiva: `bun run test` completato con 10 package riusciti, 15.247 test passati e 246 saltati secondo le condizioni delle suite. Dopo l’ultima precisazione del guard dei ruoli, rieseguiti i 134 test del gateway/MCP: chat ordinarie e membri semplici degli Hub possono delegare, coordinatori e worker no. In Chromium passati 40 test su sei superfici: Activity, ricerca, Hub, tab aperte, creazione progetto e icone. Passati anche formato, lint (warning presenti, zero errori), tipi e controllo dei confini Windows; quest’ultimo è statico e non certifica il pacchetto Windows.
+
+Per riprendere: usare il branch desktop aggiornato e il recap iOS; non riapplicare il vecchio delta dei 119 percorsi. Prima di aggiornare runtime esistenti conservare le rispettive home e seguire il normale backup delle migrazioni. Rimangono valide le prove di qualificazione elencate in “Cosa manca davvero”; questo merge non costituisce un rilascio.
 
 ## Aggiornamento account/profile — 30 settembre 2026
 

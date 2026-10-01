@@ -327,6 +327,8 @@ Account profiles additionally require the server opt-in
 for the signed-in account. The UI reads the server capability, and publication
 remains a separate explicit choice. See the [profiles trial guide](apps/profiles/README.md).
 
+Saved Inbox history is private and account-owned, separate from public profile publication.
+
 
 ## Diagnostics
 

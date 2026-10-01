@@ -988,6 +988,9 @@ export function createWsNativeApi(): NativeApi {
         }),
       cancelSso: (input) => transport.request(WS_METHODS.accountCancelSso, input),
       usageSummary: (input) => transport.request(WS_METHODS.accountUsageSummary, input),
+      saveInboxRecap: (input) => transport.request(WS_METHODS.accountSaveInboxRecap, input),
+      listInboxRecaps: (input) => transport.request(WS_METHODS.accountListInboxRecaps, input),
+      deleteInboxRecap: (input) => transport.request(WS_METHODS.accountDeleteInboxRecap, input),
       updateProfile: (input) => transport.request(WS_METHODS.accountUpdateProfile, input),
       uploadAvatar: (input) => transport.request(WS_METHODS.accountUploadAvatar, input),
       deleteAvatar: () => transport.request(WS_METHODS.accountDeleteAvatar),
@@ -996,6 +999,7 @@ export function createWsNativeApi(): NativeApi {
         transport.request(WS_METHODS.accountOpenVerificationUrl, input),
     },
     hosts: {
+      remoteAccess: (input) => transport.request(WS_METHODS.hostsRemoteAccess, { request: input }, { timeoutMs: 11 * 60_000 }),
       listHosts: () => transport.request(WS_METHODS.hostsList),
       updateHost: (input) => transport.request(WS_METHODS.hostsUpdate, input),
       deleteHost: (input) => transport.request(WS_METHODS.hostsDelete, input),
