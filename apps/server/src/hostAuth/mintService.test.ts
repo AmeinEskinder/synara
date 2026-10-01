@@ -126,22 +126,14 @@ describe("HostMintService", () => {
 
   function service(overrides: Partial<ConstructorParameters<typeof HostMintService>[0]> = {}) {
     return new HostMintService({
+      authorizeDevice: async () => 1,
       identity: hostIdentity,
       apiIssuer: API_ISSUER,
       environmentId: ENVIRONMENT_ID,
       hostId: HOST_ID,
       keyGeneration: 4,
-      // The default fixture is the ORG-MEMBER path: the connecting user is
-      // not the link-time owner, so the live authorization call still runs.
-      ownerUserId: "owner_1",
+      ownerUserId: USER_ID,
       getApiJwks: async () => jwks,
-      getAuthorization: async () => ({
-        discoverable: true,
-        ownerUserId: "owner_1",
-        orgId: "org_1",
-        revokedDeviceJkts: [],
-        ownerInOrg: true,
-      }),
       nowSeconds: () => NOW,
       ...overrides,
     });
@@ -193,25 +185,6 @@ describe("HostMintService", () => {
         await mintRequest(await grant({ subject: "victim" }), { subject: "attacker" }),
       ),
     ).rejects.toThrow(/not bound to this host, user, and device key/);
-  });
-
-  it.each([
-    ["discoverability was turned off", { discoverable: false, ownerInOrg: true }],
-    ["the owner left the org", { discoverable: true, ownerInOrg: false }],
-  ])("refuses an org member after %s", async (_label, policy) => {
-    // Either failure alone must refuse — sessionRegistry.reverify uses the
-    // OR form, so an AND here would kill live sessions while still handing
-    // out fresh credentials.
-    await expect(
-      service({
-        getAuthorization: async () => ({
-          ...policy,
-          ownerUserId: "owner_1",
-          orgId: "org_1",
-          revokedDeviceJkts: [],
-        }),
-      }).mint(await mintRequest(await grant())),
-    ).rejects.toMatchObject({ code: "not_authorized" });
   });
 
   it("refuses a mint request whose protected header claims another typ", async () => {
@@ -317,49 +290,29 @@ describe("HostMintService", () => {
         replayCache: new JwtReplayCache(),
         nowSeconds: NOW,
       }),
-    ).resolves.toEqual({ userId: USER_ID, deviceJkt, expiresAtSeconds: NOW + 3600 });
+    ).resolves.toEqual({
+      userId: USER_ID,
+      deviceJkt,
+      expiresAtSeconds: NOW + 3600,
+      trustGeneration: 1,
+    });
   });
 
-  it("mints for the link-time owner without consulting the account API", async () => {
-    // ADR 0011: the owner's own access must survive an API outage, and a
-    // compromised API must not be able to nominate itself as owner. Both
-    // follow from deciding the owner path off the link-time record.
-    let authorizationCalls = 0;
-    const minted = await service({
-      ownerUserId: USER_ID,
-      getAuthorization: async () => {
-        authorizationCalls += 1;
-        throw new Error("account API is unreachable");
-      },
-    }).mint(await mintRequest(await grant()));
-    expect(minted.userId).toBe(USER_ID);
-    expect(authorizationCalls).toBe(0);
-  });
-
-  it("refuses an org member whose device was revoked while its grant was in flight", async () => {
+  it("refuses a cloud-signed grant from a non-owner", async () => {
     await expect(
       service({
-        getAuthorization: async () => ({
-          discoverable: true,
-          ownerUserId: "owner_1",
-          orgId: "org_1",
-          revokedDeviceJkts: [deviceJkt],
-          ownerInOrg: true,
-        }),
+        ownerUserId: "owner_1",
       }).mint(await mintRequest(await grant())),
     ).rejects.toMatchObject({ code: "not_authorized" });
   });
 
-  it("still refuses a non-owner when the account API is unreachable", async () => {
-    // The org-member path is cloud-governed policy, so it must fail CLOSED
-    // rather than inherit the owner's offline tolerance.
+  it("refuses a cloud-signed owner grant when the device lacks local approval", async () => {
     await expect(
       service({
-        ownerUserId: "someone_else",
-        getAuthorization: async () => {
-          throw new Error("account API is unreachable");
+        authorizeDevice: async () => {
+          throw new Error("No local approval");
         },
       }).mint(await mintRequest(await grant())),
-    ).rejects.toThrow();
+    ).rejects.toMatchObject({ code: "not_authorized" });
   });
 });

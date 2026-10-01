@@ -1,3 +1,7 @@
+import { windowQueryNamespace } from "./lib/hosts/controlQueryScope";
+import { registerExecutionSwitchGuard } from "./lib/hosts/executionSwitch";
+import { recoverWorkspaceEditors, readWorkspaceEditorDrafts } from "./lib/workspaceEditorSession";
+import { flushDeferredStorage } from "./lib/storage";
 import { createElement } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
@@ -15,6 +19,13 @@ export function getRouter(history: RouterHistory) {
   // (an account switch performed by another renderer against the shared
   // server). Lives as long as the QueryClient, so never unsubscribed.
   watchAccountIdentityChanges(queryClient);
+  registerExecutionSwitchGuard({
+    recover: () => {
+      recoverWorkspaceEditors(queryClient);
+      flushDeferredStorage();
+    },
+    drafts: () => readWorkspaceEditorDrafts(queryClient),
+  });
 
   return createRouter({
     routeTree,

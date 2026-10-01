@@ -1,34 +1,43 @@
+import { WsBootstrapNegotiateInput, type WsBootstrapNegotiateResult } from "@synara/contracts";
+import { Effect, Schema } from "effect";
+import { negotiateWsCompatibility } from "../wsCompatibility";
 import { randomUUID } from "node:crypto";
 
 import {
   HOST_SESSION_CLOSE_AUTH_FAILED,
   HOST_SESSION_CLOSE_PROTOCOL_ERROR,
-} from "@synara/relay-protocol";
+} from "@synara/contracts";
 import WebSocket, { type RawData } from "ws";
 
 import type { HostMintService } from "../hostAuth";
 import { JwtReplayCache, verifySessionCredential } from "../hostAuth";
 import type { HostIdentity } from "../hostIdentity";
-import type { RelaySocket } from "../relayDial";
+import type { RelaySocket } from "../relaySocket";
 import { RemoteSessionRegistry } from "./sessionRegistry";
 
 const REMOTE_PROTOCOL_ERROR = HOST_SESSION_CLOSE_PROTOCOL_ERROR;
 const REMOTE_AUTH_ERROR = HOST_SESSION_CLOSE_AUTH_FAILED;
-
-type ExpectedPeer = { readonly userId: string; readonly deviceJkt: string };
 
 export interface RemoteConnectionGatewayOptions {
   readonly mintService: HostMintService;
   readonly identity: HostIdentity;
   readonly environmentId: string;
   readonly keyGeneration: number;
+  readonly authorizeDevice: (
+    userId: string,
+    deviceJkt: string,
+    generation: number,
+  ) => Promise<void>;
   readonly sessions: RemoteSessionRegistry;
   readonly bridgeToLocal: (
     socket: RelaySocket,
     peer: {
       readonly userId: string;
       readonly deviceJkt: string;
+      readonly trustGeneration: number;
       readonly expiresAtSeconds: number;
+      readonly client: WsBootstrapNegotiateInput;
+      readonly compatibility: WsBootstrapNegotiateResult;
     },
   ) => Promise<void>;
   readonly presentationHtu?: string;
@@ -49,17 +58,24 @@ export class RemoteConnectionGateway {
 
   async accept(
     socket: RelaySocket,
-    expected?: ExpectedPeer,
     via: "direct" | "relay" | "cloudflare" | "ssh-forward" = "direct",
   ): Promise<void> {
     let state: "mint" | "authorize" | "bridged" = "mint";
     let removeSession: (() => void) | undefined;
     let socketClosed = socket.readyState !== WebSocket.OPEN;
+    let queuedBytes = 0;
+    let queuedFrames = 0;
+    const handshakeTimer = setTimeout(
+      () => socket.close(1008, "Remote authorization timed out"),
+      15_000,
+    );
+    handshakeTimer.unref();
     // A terminal close is not replayed to listeners attached after credential
     // verification. Observe it before the first handshake await, and make the
     // same listener own any registry entry created later.
     socket.on("close", () => {
       socketClosed = true;
+      clearTimeout(handshakeTimer);
       removeSession?.();
       removeSession = undefined;
     });
@@ -70,10 +86,21 @@ export class RemoteConnectionGateway {
     // jtis defeat the replay cache) and each bridging the same socket, which
     // registers the forwarder twice and duplicates every subsequent RPC.
     let handshake: Promise<void> = Promise.resolve();
-    socket.on("message", (raw) => {
-      if (state === "bridged") return;
+    socket.on("message", (raw, binary) => {
+      if (state === "bridged" || socketClosed) return;
+      const bytes = Array.isArray(raw)
+        ? raw.reduce((size, chunk) => size + chunk.length, 0)
+        : raw.byteLength;
+      queuedBytes += bytes;
+      queuedFrames += 1;
+      if (binary || queuedBytes > 64 * 1024 || queuedFrames > 8) {
+        socket.close(1009, "Remote authorization frame limit exceeded");
+        return;
+      }
       handshake = handshake.then(async () => {
-        if (state === "bridged") return;
+        queuedBytes -= bytes;
+        queuedFrames -= 1;
+        if (state === "bridged" || socketClosed) return;
         try {
           const frame = parseFrame(raw);
           if (
@@ -83,12 +110,6 @@ export class RemoteConnectionGateway {
             typeof frame.request === "string"
           ) {
             const minted = await this.options.mintService.mint(frame.request);
-            if (
-              expected &&
-              (minted.userId !== expected.userId || minted.deviceJkt !== expected.deviceJkt)
-            ) {
-              throw new Error("mint request does not match relay splice identity");
-            }
             socket.send(
               JSON.stringify({
                 v: 1,
@@ -122,19 +143,7 @@ export class RemoteConnectionGateway {
             expectedHtm: "CONNECT",
             replayCache: this.#dpopReplays,
           });
-          if (
-            expected &&
-            (peer.userId !== expected.userId || peer.deviceJkt !== expected.deviceJkt)
-          ) {
-            throw new Error("session credential does not match relay splice identity");
-          }
-          // A credential outlives the device it was minted for. Revocation
-          // kills live sessions, but nothing stopped a revoked device from
-          // opening a NEW one over a direct transport with the credential it
-          // already held — no relay and no cloud in that path to refuse it.
-          if (this.options.sessions.isDeviceRevoked(peer.deviceJkt)) {
-            throw new Error("this device's access was revoked");
-          }
+          await this.options.authorizeDevice(peer.userId, peer.deviceJkt, peer.trustGeneration);
           if (socketClosed || socket.readyState !== WebSocket.OPEN) return;
           state = "bridged";
           const id = randomUUID();
@@ -145,7 +154,31 @@ export class RemoteConnectionGateway {
             via,
             close: (code, reason) => socket.close(code, reason),
           });
-          await this.options.bridgeToLocal(socket, peer);
+          // Registration precedes the second trust read: a revoke racing the
+          // first read either closes this entry or is observed before bridging.
+          await this.options.authorizeDevice(peer.userId, peer.deviceJkt, peer.trustGeneration);
+          if (socketClosed || socket.readyState !== WebSocket.OPEN) return;
+          const client = Schema.decodeUnknownSync(WsBootstrapNegotiateInput)(frame.client);
+          const negotiated = await Effect.runPromise(
+            negotiateWsCompatibility(client).pipe(
+              Effect.match({
+                onFailure: (error) => ({ error }),
+                onSuccess: (compatibility) => ({ compatibility }),
+              }),
+            ),
+          );
+          if ("error" in negotiated) {
+            socket.send(
+              JSON.stringify({ v: 2, type: "session_incompatible", error: negotiated.error }),
+            );
+            socket.close(1008, "Incompatible renderer protocol");
+            return;
+          }
+          await this.options.bridgeToLocal(socket, {
+            ...peer,
+            client,
+            compatibility: negotiated.compatibility,
+          });
           if (socketClosed || socket.readyState !== WebSocket.OPEN) {
             removeSession?.();
             removeSession = undefined;
@@ -154,7 +187,15 @@ export class RemoteConnectionGateway {
           // Do not invite application traffic until the ordinary local WS path is
           // ready to receive it. Otherwise a fast peer can race the async token
           // issuance/local connection setup and lose its first RPC frame.
-          socket.send(JSON.stringify({ v: 1, type: "session_ready" }));
+          clearTimeout(handshakeTimer);
+          socket.send(
+            JSON.stringify({
+              v: 2,
+              type: "session_ready",
+              compatibility: negotiated.compatibility,
+              environmentId: this.options.environmentId,
+            }),
+          );
         } catch (error) {
           removeSession?.();
           removeSession = undefined;

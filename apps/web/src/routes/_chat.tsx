@@ -50,6 +50,7 @@ import {
   isShortcutDispatchSuspended,
   resolveShortcutCommand,
 } from "../keybindings";
+import { isModelPickerShortcutScopeActive } from "../components/chat/ComposerModelPicker.logic";
 import { useStore } from "../store";
 import { createProjectLastActivityAtSelector } from "../storeSelectors";
 import { useSpacesUiStore } from "../spacesUiStore";
@@ -356,6 +357,14 @@ function ChatRouteGlobalShortcuts() {
         terminalOpen,
         terminalWorkspaceOpen,
       };
+      const frame = readWorkspaceFrame();
+      if (
+        frame?.controller.sidebarKeydown(event, shortcutContext, isModelPickerShortcutScopeActive())
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
 
       if (recentSwitcherState && event.key === "Escape") {
         event.preventDefault();
@@ -493,9 +502,17 @@ function ChatRouteGlobalShortcuts() {
       void handleNewThread(target.projectId);
     };
 
+    const onWindowKeyUp = (event: KeyboardEvent) =>
+      readWorkspaceFrame()?.controller.sidebarKeyup(event, {
+        terminalFocus: isTerminalFocused(),
+        terminalOpen,
+        terminalWorkspaceOpen,
+      });
     window.addEventListener("keydown", onWindowKeyDown, { capture: true });
+    window.addEventListener("keyup", onWindowKeyUp, { capture: true });
     return () => {
       window.removeEventListener("keydown", onWindowKeyDown, { capture: true });
+      window.removeEventListener("keyup", onWindowKeyUp, { capture: true });
     };
   }, [
     activeDraftThread,
