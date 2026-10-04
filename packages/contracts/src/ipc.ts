@@ -6,6 +6,7 @@ import type {
   SavedInboxRecapIdInput,
 } from "./inboxRecaps";
 import type { RemoteResourceReference } from "./remoteResources";
+import type { DesktopProductAnalyticsBridge } from "./productAnalytics";
 import { Schema } from "effect";
 import type {
   LoadProjectImportHistoryInput,
@@ -969,6 +970,7 @@ export const DESKTOP_DIAGNOSTIC_ISSUE_PREFIX = "SYNARA_DIAGNOSTIC_ISSUE ";
 export type DesktopDiagnosticReportStatus = "queued" | "sent" | "unavailable";
 
 export interface DesktopBridge {
+  productAnalytics?: DesktopProductAnalyticsBridge;
   /** Present only when the desktop main process enables baked-in Beta diagnostics. */
   betaDiagnostics?: {
     rendererReady: () => void;

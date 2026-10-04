@@ -6,6 +6,7 @@ import type {
   DesktopBridge,
   DesktopComputerPreviewFrame,
   DesktopDiagnosticActivity,
+  ProductAnalyticsInput,
 } from "@synara/contracts";
 import { normalizeDesktopWsUrl, resolveDesktopWsUrlFromEnv } from "./desktopWsBridge";
 import { DESKTOP_IPC_CHANNELS } from "./ipcChannels";
@@ -113,6 +114,11 @@ function parseBrowserAnnotationEvent(payload: unknown): BrowserAnnotationEvent |
 }
 
 const betaDiagnosticsBridge = getBetaDiagnosticsBridge();
+const productAnalyticsBridge: DesktopBridge["productAnalytics"] = {
+  getState: () => ipcRenderer.invoke(IPC.productAnalytics.getState),
+  setEnabled: (enabled) => ipcRenderer.invoke(IPC.productAnalytics.setEnabled, enabled),
+  track: (input: ProductAnalyticsInput) => ipcRenderer.send(IPC.productAnalytics.track, input),
+};
 let lastBrowserResize = -Infinity;
 function recordBrowserActivity(activity: DesktopDiagnosticActivity): void {
   try {
@@ -129,6 +135,7 @@ function recordBrowserActivity(activity: DesktopDiagnosticActivity): void {
 }
 
 contextBridge.exposeInMainWorld("desktopBridge", {
+  productAnalytics: productAnalyticsBridge,
   ...(betaDiagnosticsBridge ? { betaDiagnostics: betaDiagnosticsBridge } : {}),
   getWsUrl: getDesktopWsUrl,
   // Absolute path for OS-dropped File objects (folders with spaces/parens, etc.).

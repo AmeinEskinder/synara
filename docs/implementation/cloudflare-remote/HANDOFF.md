@@ -1,6 +1,55 @@
 # Remote connections — punto di ripartenza
 
-Aggiornato il **4 ottobre 2026**. Questo checkpoint sostituisce gli stati di pubblicazione e i limiti d'integrazione delle sezioni storiche sotto. La richiesta attuale autorizza l'allineamento alle icone e alle viste recenti su desktop, iPhone e iPad; la precedente pausa del restyling non blocca questo aggiornamento.
+Aggiornato il **5 ottobre 2026**. I checkpoint datati sostituiscono gli stati precedenti solo per le superfici espressamente verificate. L'ultimo passaggio implementa le analytics di prodotto su desktop, iPhone/iPad e backend Cloudflare; i checkpoint precedenti restano storici.
+
+## Implementazione analytics opt-in — 5 ottobre 2026
+
+Implementati contratto, sender desktop, consenso locale in Settings → General → Privacy,
+osservatori di navigazione/trasporto e parità nativa nei due branch mobili esistenti.
+Il nuovo flusso è **spento per impostazione predefinita** in Stable/Beta e indipendente
+sia dalle diagnostiche crash Beta sia dalle statistiche account/Inbox. Dettagli e limiti:
+[contratto operativo](PRODUCT-ANALYTICS-AUDIT.md), [privacy](../../diagnostics.md#product-analytics).
+Riutilizzati SettingsRow/SettingsSection/Switch, trasporto esistente e componenti nativi;
+nuovi sender separati perché la diagnostica Beta non può diventare la raccolta Stable.
+
+Backend nella [PR draft #3](https://github.com/Emanuele-web04/synara-beta-diagnostics/pull/3),
+commit `fd9b3ce`: endpoint `/v1/product-events`, tabella D1 separata, dashboard Product
+privata, deduplica UUID e cleanup limitato dei dati oltre 30 giorni. Il codice della repo
+contiene ancora l'ID D1 precedente alla migrazione di account: prima del deploy va
+confrontato con i binding attivi di Synara Orgs. Il solo commit non prova un deploy.
+
+Verifiche di implementazione:
+
+- Formato, lint e typecheck desktop/workspace passati; warning preesistenti di lint.
+- Suite workspace: 16.020 passati, 251 saltati, un errore nel recupero concorrente
+  di un lock credenziali. Corretta la race `ENOENT` nella rilettura sotto guardia;
+  i 10 test mirati di lock/account passano. La suite completa non è stata ripetuta
+  dopo questa correzione circoscritta. I salti includono 200 test API senza PostgreSQL.
+- 8 test sender/IPC e 86 test web/trasporto passati; test browser dello switch e del
+  fallimento di salvataggio passato. Screenshot: `apps/web/src/components/settings/__screenshots__/product-analytics-consent.png` (generato, ignorato da Git).
+- Sender desktop reale → Worker Wrangler locale → D1: tutti gli 8 tipi accettati,
+  duplicati accettati zero, default-off e opt-out dopo riavvio senza invii,
+  campi privati estranei esclusi. Nessun dato utente usato nel test.
+- Worker: 114 test, typecheck e build passati; HTTP locale controllato con auth,
+  input malformati, duplicati, token parziali e cleanup di 10.001 righe sintetiche.
+- iPhone/iPad: 197 test SwiftPM per branch e build iOS complete senza firma passati.
+  Simulatore non disponibile in questa sessione: nuova UI mobile non provata dal vivo.
+
+Limiti intenzionali: le completion sono osservazioni desktop live, non un totale globale
+multi-client; native non inventa completamenti dall'ack di invio. Token assenti restano
+sconosciuti, nomi di modelli non vengono raccolti. Gli attuali build nativi sono etichettati
+`stable`, non avendo un selettore di flavor dedicato. Servono nuovi build client per usare
+lo switch: questo checkpoint non è un rilascio firmato né TestFlight.
+
+## Integrazione di main e audit analytics — 5 ottobre 2026
+
+Integrati i quattro nuovi commit di `origin/main`, fino a `f2069a6f316e61601be23281c9ebab86982b4252`, preservando la cronologia condivisa con un merge. Backup: `codex/remote-before-main-20261005`, a `db9aa8f0eae03b128dad0b28e7b2d1e5cf422d22`. Unico conflitto testuale in `BETA.md`: conservati sia i gate remote/account sia la nuova descrizione Auto-fix CI. Nessuna nuova migrazione o modifica al protocollo remoto; il nuovo bridge di diagnostica resta opzionale e Beta-only.
+
+La base aggiornata comprende contesto diagnostico limitato e campioni memoria, correzioni del teardown browser/Devin, del toggle sidebar e dell'overflow dei pannelli. Revisione semantica del wrapper RPC: nessun nuovo bypass dei permessi o cambiamento dell'host di esecuzione individuato. Le breadcrumb sono contesto per errori/crash, non metriche complete di adozione o di completamento del turno.
+
+Passati `bun run fmt:check`, `bun run lint` (896 warning, zero errori), `bun run typecheck` e 12 test browser su sidebar, overlay e transcript. La suite workspace ha eseguito **16.007 test passati, 251 saltati e 2 falliti**: timeout nella selezione PR di GitManager e mancata icona nella fixture Windows Store. Rieseguiti separatamente i due file, **64 test passati senza modifiche a codice o assertion**. Questo non trasforma la prima esecuzione completa in una run verde; resta una segnalazione di instabilità sotto suite. Il primo tentativo in sandbox era stato bloccato sulle porte locali e non è evidenza di regressione dell'app. Nessun nuovo test live tra Mac, build mobile o deploy in questo passaggio.
+
+Tre subagent GPT-6 Luna High hanno confrontato il progetto upstream, la raccolta Synara e l'integrazione. Il confronto usa un checkout fresco del progetto upstream e del Worker Cloudflare. Risultato e piano implementativo in [PRODUCT-ANALYTICS-AUDIT.md](PRODUCT-ANALYTICS-AUDIT.md): scelta richiesta **Cloudflare, Beta e Stable, controllo nelle impostazioni**. Product analytics, consenso, dashboard dedicata ed eventi nativi **non sono ancora implementati**; nessun servizio PostHog aggiunto. Lo stato dei deploy account/Inbox non cambia.
 
 ## Integrazione desktop e mobile — 4 ottobre 2026
 

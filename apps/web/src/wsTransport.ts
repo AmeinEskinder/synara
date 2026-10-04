@@ -5,6 +5,11 @@ import { readWorkspaceFrame } from "./lib/hosts/workspaceFrame";
 // Exports: WsTransport plus stream-selection helpers used by tests.
 
 import { ServerBusyController, publishServerBusySnapshot } from "./serverBusyState";
+import {
+  ProductTurnObserver,
+  productRpcActivity,
+  trackProductAnalytics,
+} from "./lib/productAnalytics";
 import { recordRendererActivity, rendererRpcActivity } from "./lib/rendererErrorDiagnostics";
 
 import {
@@ -891,6 +896,8 @@ export function shouldKeepServerLifecycleStream(activeChannels: ReadonlySet<stri
 export class WsTransport {
   private readonly serverBusy = new ServerBusyController({ onChange: publishServerBusySnapshot });
   private readonly explicitUrl: string | null;
+  private readonly productTurns = new ProductTurnObserver();
+  private readonly analyticsMode: "local" | "remote";
   private readonly listeners = new Map<string, Set<(message: WsPush) => void>>();
   private readonly stateListeners = new Set<(state: WsTransportState) => void>();
   private readonly compatibilityListeners = new Set<(issue: WsCompatibilityError | null) => void>();
@@ -947,8 +954,14 @@ export class WsTransport {
   // cache was cleared by an intervening failure.
   private lastServerInstanceId: string | null = null;
 
-  constructor(url?: string) {
-    this.explicitUrl = url ?? null;
+  constructor(
+    url?: string,
+    private readonly options: { onGenerationChanged?: () => void } = {},
+  ) {
+    this.explicitUrl = rawSocketUrl(url ?? null);
+    this.analyticsMode = new URL(this.explicitUrl).pathname.startsWith("/ws/remote/")
+      ? "remote"
+      : "local";
     if (typeof document !== "undefined")
       document.addEventListener("visibilitychange", this.serverBusy.visibilityChanged);
     this.clientPromise = this.createSession().clientPromise;
@@ -969,13 +982,33 @@ export class WsTransport {
   ): Promise<T> {
     const finish = this.serverBusy?.trackRequest(method, options);
     const activity = rendererRpcActivity(method, params);
+    const productActivity = productRpcActivity(method, params);
+    const startedAt = performance.now();
     if (activity) recordRendererActivity(activity, "started");
     try {
       const result = await this.requestInternal<T>(method, params, options);
       if (activity) recordRendererActivity(activity, "succeeded");
+      if (productActivity)
+        trackProductAnalytics({
+          ...productActivity,
+          outcome: "succeeded",
+          mode: this.analyticsMode,
+          ...(productActivity.event === "feature.used"
+            ? {}
+            : { durationMs: Math.round(performance.now() - startedAt) }),
+        });
       return result;
     } catch (error) {
       if (activity) recordRendererActivity(activity, "failed");
+      if (productActivity)
+        trackProductAnalytics({
+          ...productActivity,
+          outcome: options?.signal?.aborted ? "cancelled" : "failed",
+          mode: this.analyticsMode,
+          ...(productActivity.event === "feature.used"
+            ? {}
+            : { durationMs: Math.round(performance.now() - startedAt) }),
+        });
       throw error;
     } finally {
       finish?.();
@@ -1457,6 +1490,8 @@ export class WsTransport {
 
   private createSession() {
     const sessionVersion = ++this.sessionVersion;
+    const analyticsEvent = sessionVersion === 1 ? "connection.connect" : "connection.reconnect";
+    const startedAt = performance.now();
     // Reconnects reuse the cached negotiation while the server generation is
     // unchanged, so a reconnect costs exactly one WebSocket handshake.
     const cachedCompatibility = this.compatibility;
@@ -1498,10 +1533,22 @@ export class WsTransport {
       if (!this.disposed && this.sessionVersion === sessionVersion) {
         this.adoptNegotiation(compatibility);
         this.setState("open");
+        trackProductAnalytics({
+          event: analyticsEvent,
+          outcome: "succeeded",
+          mode: this.analyticsMode,
+          durationMs: Math.round(performance.now() - startedAt),
+        });
       }
       return client;
     })().catch((error) => {
       if (!this.disposed && this.sessionVersion === sessionVersion) {
+        trackProductAnalytics({
+          event: analyticsEvent,
+          outcome: "failed",
+          mode: this.analyticsMode,
+          durationMs: Math.round(performance.now() - startedAt),
+        });
         this.setCompatibility(null);
         const compatibilityError = getTerminalCompatibilityError(error);
         if (compatibilityError) {
@@ -1778,6 +1825,16 @@ export class WsTransport {
   }
 
   private emit<C extends WsPushChannel>(channel: C, data: WsPushMessage<C>["data"]): void {
+    try {
+      if (channel === ORCHESTRATION_WS_CHANNELS.domainEvent) {
+        this.productTurns.observe(data as OrchestrationEvent, this.analyticsMode);
+      } else if (channel === ORCHESTRATION_WS_CHANNELS.threadEvent) {
+        const item = data as OrchestrationThreadStreamItem;
+        if (item.kind === "event") this.productTurns.observe(item.event, this.analyticsMode);
+      }
+    } catch {
+      // Optional analytics must not interrupt delivery of a valid stream item.
+    }
     const message = {
       type: "push" as const,
       sequence: ++this.sequence,

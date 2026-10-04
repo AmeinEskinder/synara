@@ -65,3 +65,4 @@ export * from "./remoteResources";
 
 export * from "./remoteAgentGateway";
 export * from "./inboxRecaps";
+export * from "./productAnalytics";
