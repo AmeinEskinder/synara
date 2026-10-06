@@ -1,5 +1,14 @@
 import Migration0135 from "./Migrations/135_AccountUsageSync.ts";
 import Migration0136 from "./Migrations/136_AccountUsageSyncIdentity.ts";
+import Migration0137 from "./Migrations/137_RemoteDeviceTrust.ts";
+import Migration0138 from "./Migrations/138_RemoteConnectionPreferences.ts";
+import Migration0139 from "./Migrations/139_RemoteAccessControls.ts";
+import {
+  classifyAccountMigrationLineage,
+  migrationTrackerFingerprint,
+  validateAccountMigrationSchema,
+  type MigrationIdentity,
+} from "./AccountMigrationLineage.ts";
 /**
  * MigrationsLive - Migration runner with inline loader
  *
@@ -304,6 +313,9 @@ export const migrationEntries = [
   [134, "ProjectionThreadsForkSourceMessage", Migration0134],
   [135, "AccountUsageSync", Migration0135],
   [136, "AccountUsageSyncIdentity", Migration0136],
+  [137, "RemoteDeviceTrust", Migration0137],
+  [138, "RemoteConnectionPreferences", Migration0138],
+  [139, "RemoteAccessControls", Migration0139],
 ] as const;
 
 export const makeMigrationLoader = (throughId?: number) =>
