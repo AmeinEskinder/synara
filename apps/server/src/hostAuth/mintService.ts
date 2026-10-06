@@ -1,9 +1,6 @@
 import { randomUUID } from "node:crypto";
 
 import {
-  GrantClaims,
-  GRANT_JWT_TYP,
-  GRANT_MAX_AGE_SECONDS,
   HOST_CONNECT_SCOPE,
   JWT_CLOCK_TOLERANCE_SECONDS,
   MintRequestClaims,
@@ -12,17 +9,13 @@ import {
   SESSION_CREDENTIAL_JWT_TYP,
   SESSION_CREDENTIAL_MAX_AGE_SECONDS,
   SYNARA_DEVICE_ISSUER,
-  SYNARA_RELAY_AUDIENCE,
   SYNARA_SESSION_AUDIENCE,
-  type ApiJwks,
   type DevicePublicKeyJwk,
-  type GrantClaims as GrantClaimsType,
+  type GrantClaims,
 } from "@synara/contracts";
 import { Schema } from "effect";
 import {
   calculateJwkThumbprint,
-  createLocalJWKSet,
-  errors,
   importJWK,
   importPKCS8,
   jwtVerify,
@@ -32,46 +25,12 @@ import {
 } from "jose";
 
 import type { HostIdentity } from "../hostIdentity";
-import { JwtReplayCache } from "./replayCache";
-
-/** jose's unknown-kid signal, matching the relay's detection. */
-function isUnknownKidError(error: unknown): boolean {
-  return (
-    error instanceof errors.JWKSNoMatchingKey ||
-    (typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      (error as { code?: unknown }).code === "ERR_JWKS_NO_MATCHING_KEY")
-  );
-}
-
-export class HostMintError extends Error {
-  constructor(
-    readonly code: "invalid_grant" | "invalid_mint_request" | "not_authorized",
-    message: string,
-    options?: ErrorOptions,
-  ) {
-    super(message, options);
-    this.name = "HostMintError";
-  }
-}
-
-function assertBoundedLifetime(
-  claims: { iat: number; exp: number },
-  maximumSeconds: number,
-  label: string,
-  nowSeconds: number,
-): void {
-  if (claims.exp <= claims.iat || claims.exp - claims.iat > maximumSeconds) {
-    throw new Error(`${label} lifetime exceeds ${maximumSeconds}s`);
-  }
-  if (claims.iat > nowSeconds + JWT_CLOCK_TOLERANCE_SECONDS) {
-    throw new Error(`${label} iat is too far in the future`);
-  }
-  if (claims.exp < nowSeconds) {
-    throw new Error(`${label} has expired`);
-  }
-}
+import {
+  assertBoundedLifetime,
+  HostGrantVerifier,
+  HostMintError,
+  type HostGrantVerifierOptions,
+} from "./grantVerifier";
 
 function hostIssuer(environmentId: string): string {
   return `synara-host:${environmentId}`;
@@ -88,23 +47,12 @@ function assertDeviceHeader(header: JWTHeaderParameters, jwk: DevicePublicKeyJwk
   }
 }
 
-export interface HostMintServiceOptions {
+export interface HostMintServiceOptions extends HostGrantVerifierOptions {
   readonly identity: HostIdentity;
-  readonly apiIssuer: string;
-  readonly environmentId: string;
-  readonly hostId: string;
   readonly keyGeneration: number;
-  /**
-   * The owner recorded when this host was linked. Authoritative for the
-   * owner path: it changes only through a re-link, which requires this
-   * host's key, so no cloud-side compromise or outage can alter it.
-   */
-  readonly ownerUserId: string;
-  readonly getApiJwks: () => Promise<ApiJwks>;
-  /** Forced refetch when a grant names a kid we do not hold (key rotation). */
-  readonly refreshApiJwksForUnknownKid?: () => Promise<ApiJwks | undefined>;
-  readonly replayCache?: JwtReplayCache;
-  readonly nowSeconds?: () => number;
+  readonly authorizeDevice: (userId: string, deviceJkt: string) => Promise<number>;
+  /** Shared with pairing so one grant jti cannot be spent twice across both paths. */
+  readonly grants?: HostGrantVerifier;
 }
 
 export interface MintedSessionCredential {
@@ -115,17 +63,17 @@ export interface MintedSessionCredential {
 }
 
 export class HostMintService {
-  readonly #replays: JwtReplayCache;
+  readonly #grants: HostGrantVerifier;
 
   constructor(readonly options: HostMintServiceOptions) {
-    this.#replays = options.replayCache ?? new JwtReplayCache();
+    this.#grants = options.grants ?? new HostGrantVerifier(options);
   }
 
   async mint(mintRequestJwt: string): Promise<MintedSessionCredential> {
-    const now = this.options.nowSeconds?.() ?? Math.floor(Date.now() / 1_000);
-    let grant: GrantClaimsType;
-    let grantJwt: string;
+    const now = this.#grants.now();
+    let grant: GrantClaims;
     let deviceJkt: string;
+    let trustGeneration: number;
     try {
       const unverifiedParts = mintRequestJwt.split(".");
       if (unverifiedParts.length !== 3) throw new Error("mint request is not a compact JWT");
@@ -148,62 +96,20 @@ export class HostMintService {
       assertDeviceHeader(mintVerified.protectedHeader, publicKeyJwk);
       const mint = Schema.decodeUnknownSync(MintRequestClaims)(mintVerified.payload);
       assertBoundedLifetime(mint, MINT_REQUEST_MAX_AGE_SECONDS, "mint request", now);
-      grantJwt = mint.grant;
       deviceJkt = await calculateJwkThumbprint(publicKeyJwk as JWK, "sha256");
-
-      const verifyGrant = async (jwks: ApiJwks) =>
-        jwtVerify(
-          grantJwt as string,
-          createLocalJWKSet(jwks as Parameters<typeof createLocalJWKSet>[0]),
-          {
-            algorithms: ["EdDSA"],
-            audience: SYNARA_RELAY_AUDIENCE,
-            issuer: this.options.apiIssuer,
-            typ: GRANT_JWT_TYP,
-            clockTolerance: JWT_CLOCK_TOLERANCE_SECONDS,
-          },
-        );
-      let grantVerified: Awaited<ReturnType<typeof verifyGrant>>;
+      grant = await this.#grants.verify(mint.grant, { deviceJkt, subject: mint.sub }, now);
       try {
-        grantVerified = await verifyGrant(await this.options.getApiJwks());
+        trustGeneration = await this.options.authorizeDevice(grant.sub, deviceJkt);
       } catch (cause) {
-        // An unknown `kid` means the API rotated its signing key. Without a
-        // forced refetch every mint fails until the periodic refresh window
-        // elapses — a total outage of remote access after a routine rotation.
-        const rotated =
-          isUnknownKidError(cause) && (await this.options.refreshApiJwksForUnknownKid?.());
-        if (!rotated) throw cause;
-        grantVerified = await verifyGrant(rotated);
+        throw new HostMintError("not_authorized", "Device has no current local approval", {
+          cause,
+        });
       }
-      grant = Schema.decodeUnknownSync(GrantClaims)(grantVerified.payload);
-      assertBoundedLifetime(grant, GRANT_MAX_AGE_SECONDS, "grant", now);
-      if (
-        grant.hostId !== this.options.hostId ||
-        grant.environmentId !== this.options.environmentId ||
-        grant.sub !== mint.sub ||
-        grant.cnf.jkt !== deviceJkt
-      ) {
-        throw new Error("grant is not bound to this host, user, and device key");
+      if (!Number.isSafeInteger(trustGeneration) || trustGeneration < 1) {
+        throw new HostMintError("not_authorized", "Device has no local approval");
       }
 
-      // The owner is decided from the LINK-TIME record, not from a live API
-      // answer (ADR 0011). Two things follow, both deliberate: the owner's own
-      // access survives an account-API outage, and a compromised API cannot
-      // nominate itself as owner — it would have to also hold this host's key
-      // to change the linked record. Only the org-member path, which is
-      // genuinely cloud-governed policy, needs the round trip.
-      if (grant.sub !== this.options.ownerUserId) {
-        const authorization = await this.options.getAuthorization();
-        if (authorization.revokedDeviceJkts.includes(deviceJkt)) {
-          throw new HostMintError("not_authorized", "device is revoked");
-        }
-        const owner = grant.sub === authorization.ownerUserId;
-        if (!owner && (!authorization.discoverable || !authorization.ownerInOrg)) {
-          throw new HostMintError("not_authorized", "user is no longer authorized for this host");
-        }
-      }
-
-      this.#replays.consume(grant.jti, grant.exp, now);
+      this.#grants.consume(grant, now);
     } catch (cause) {
       if (cause instanceof HostMintError) throw cause;
       const message = cause instanceof Error ? cause.message : "invalid mint request";
@@ -216,6 +122,7 @@ export class HostMintService {
 
     const expiresAtSeconds = now + SESSION_CREDENTIAL_MAX_AGE_SECONDS;
     const credential = await new SignJWT({
+      trustGeneration,
       cnf: { jkt: deviceJkt },
       keyGeneration: this.options.keyGeneration,
       scope: [HOST_CONNECT_SCOPE],
