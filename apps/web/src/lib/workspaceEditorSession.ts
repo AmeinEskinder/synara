@@ -96,8 +96,13 @@ export class WorkspaceEditorSession {
   }
 
   pause = () => {
+    const previouslyPaused = this.paused;
     this.paused = true;
     this.clearTimer();
+    return () => {
+      this.paused = previouslyPaused;
+      this.schedule();
+    };
   };
 
   resume = () => {
@@ -253,4 +258,31 @@ export async function flushWorkspaceEditors(
     ),
   );
   return results.every(Boolean);
+}
+
+export function readWorkspaceEditorDrafts(client: QueryClient) {
+  return [...(sessions.get(client)?.values() ?? [])]
+    .filter((session) => session.dirty || session.saving)
+    .map((session) => ({
+      cwd: session.cwd,
+      relativePath: session.relativePath,
+      snapshot: session.getSnapshot(),
+      savedAt: new Date().toISOString(),
+    }));
+}
+
+/** Capture the latest text before offline escape; no remote writes are issued. */
+export function recoverWorkspaceEditors(client: QueryClient): (() => void) | undefined {
+  const entries = [...(sessions.get(client)?.values() ?? [])].filter(
+    (session) => session.dirty || session.saving,
+  );
+  if (entries.length === 0) return;
+  const drafts = readWorkspaceEditorDrafts(client);
+  // Do not discard a previous recovery on another failed save/exit.
+  const key = `editor-recovery:${crypto.randomUUID()}`;
+  executionStorage.setItem(key, JSON.stringify(drafts));
+  const restore = entries.map((session) => session.pause());
+  return () => {
+    for (const resume of restore) resume();
+  };
 }

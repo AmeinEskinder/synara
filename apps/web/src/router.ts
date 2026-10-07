@@ -21,8 +21,14 @@ export function getRouter(history: RouterHistory) {
   watchAccountIdentityChanges(queryClient);
   registerExecutionSwitchGuard({
     recover: () => {
-      recoverWorkspaceEditors(queryClient);
-      flushDeferredStorage();
+      const resume = recoverWorkspaceEditors(queryClient);
+      try {
+        flushDeferredStorage();
+      } catch (error) {
+        resume?.();
+        throw error;
+      }
+      return resume;
     },
     drafts: () => readWorkspaceEditorDrafts(queryClient),
   });
