@@ -3,7 +3,12 @@
 //          local enrollment state.
 // Layer: Web data-fetching (see accountReactQuery.ts for the conventions).
 
-import type { AccountDevice, AccountHost, HostConnection, HostSession } from "@synara/contracts";
+import type {
+  AccountDevice,
+  AccountHost,
+  ListHostConnectionsResponse,
+  HostSession,
+} from "@synara/contracts";
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 
 import { readHostsApi, type HostEnrollment } from "./api";
@@ -115,10 +120,10 @@ export function connectionsQueryOptions(input: { enabled?: boolean } = {}) {
     refetchInterval: 5_000,
     refetchOnWindowFocus: true,
     retry: 1,
-    queryFn: async (): Promise<readonly HostConnection[]> => {
+    queryFn: async (): Promise<ListHostConnectionsResponse> => {
       const hosts = readHostsApi();
       if (!hosts) throw new HostsUnsupportedError();
-      return (await hosts.listConnections()).connections;
+      return hosts.listConnections();
     },
   });
 }

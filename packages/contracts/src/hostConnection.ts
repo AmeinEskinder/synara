@@ -54,7 +54,25 @@ export const HostsDisconnectInput = Schema.Struct({
 });
 export type HostsDisconnectInput = typeof HostsDisconnectInput.Type;
 
+export const DesiredHostConnection = Schema.Struct({
+  hostId: TrimmedNonEmptyString,
+  environmentId: TrimmedNonEmptyString,
+  label: TrimmedNonEmptyString,
+  state: Schema.optional(HostConnectionState),
+  nextRetryAt: Schema.optional(IsoDateTime),
+});
+export type DesiredHostConnection = typeof DesiredHostConnection.Type;
+
+/** Confirmed trust on this controller, including intentionally disconnected hosts. */
+export const PairedHost = Schema.Struct({
+  hostId: TrimmedNonEmptyString,
+  environmentId: TrimmedNonEmptyString,
+});
+export type PairedHost = typeof PairedHost.Type;
+
 export const ListHostConnectionsResponse = Schema.Struct({
+  pairedHosts: Schema.optional(Schema.Array(PairedHost)),
+  desiredHosts: Schema.optional(Schema.Array(DesiredHostConnection)),
   connections: Schema.Array(HostConnection),
 });
 export type ListHostConnectionsResponse = typeof ListHostConnectionsResponse.Type;
