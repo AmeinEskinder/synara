@@ -1,3 +1,4 @@
+import RemoteAccessControlsMigration from "./Migrations/139_RemoteAccessControls.ts";
 import RemoteDeviceTrustMigration from "./Migrations/137_RemoteDeviceTrust.ts";
 import RemoteConnectionPreferencesMigration from "./Migrations/138_RemoteConnectionPreferences.ts";
 import historicalAccountLineages from "./fixtures/historicalAccountLineages.json";
@@ -1657,6 +1658,11 @@ layer("historical account upgrades", (it) => {
             session_id, subject, role, method, issued_at, expires_at, revoked_at
           ) VALUES ('session-sentinel', 'user', 'client', 'bearer-session-token',
             '2026-09-30', '2026-10-30', '2026-10-01')`;
+          if (lineage.tail.some(([, name]) => name === "RemoteAccessControls")) {
+            yield* RemoteAccessControlsMigration;
+            yield* sql`UPDATE remote_access_state SET allow_connections = 0`;
+            yield* sql`UPDATE remote_device_trust SET enrolled_via = 'qr', last_connected_at = '2026-10-06'`;
+          }
           const account = yield* sql`SELECT * FROM account_usage_sync`;
           const hosts = yield* sql`SELECT * FROM remote_host_trust`;
           const devices = yield* sql`SELECT * FROM remote_device_trust`;
@@ -1679,11 +1685,11 @@ layer("historical account upgrades", (it) => {
           // RemoteAccessControls only adds columns with defaults that keep today's behaviour.
           assert.deepStrictEqual(
             yield* sql`SELECT * FROM remote_device_trust`,
-            devices.map((row) => ({ ...row, enrolled_via: "approval", last_connected_at: null })),
+            devices.map((row) => ({ enrolled_via: "approval", last_connected_at: null, ...row })),
           );
           assert.deepStrictEqual(
             yield* sql`SELECT * FROM remote_access_state`,
-            access.map((row) => ({ ...row, allow_connections: 1 })),
+            access.map((row) => ({ allow_connections: 1, ...row })),
           );
           assert.deepStrictEqual(yield* sql`SELECT * FROM auth_pairing_links`, pairing);
           assert.deepStrictEqual(yield* sql`SELECT * FROM auth_sessions`, sessions);
@@ -1722,6 +1728,7 @@ layer("historical account upgrades", (it) => {
             yield* AccountUsageSyncIdentityMigration;
             yield* sql`UPDATE account_usage_sync SET watermark_minute = '2026-01-01T00:00:00Z', last_failure_at = 'sentinel', account_identity = 'authority#account'`;
             for (const entry of lineage.tail.slice(0, tailLength)) {
+              if (entry[1] === "RemoteAccessControls") yield* RemoteAccessControlsMigration;
               if (entry[1] === "RemoteDeviceTrust") yield* RemoteDeviceTrustMigration;
               if (entry[1] === "RemoteConnectionPreferences")
                 yield* RemoteConnectionPreferencesMigration;
