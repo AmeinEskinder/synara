@@ -14,6 +14,7 @@ import type {
 } from "@synara/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
+import { readProfileThemeAccent } from "./useTheme";
 import {
   accountQueryKeys,
   accountStatusQueryOptions,
@@ -24,6 +25,12 @@ import {
 import { ensureNativeApi } from "~/nativeApi";
 import { isBetaFeatureOn } from "~/betaFeatures";
 import { readExecutionContext } from "~/lib/hosts/executionContext";
+
+// Shared by every hook instance in this window, including dialogs and footer.
+export const ACCOUNT_STATUS_WRITE_KEY = ["account", "status-write"] as const;
+
+const mutationGenerations = new WeakMap<QueryClient, number>();
+type StatusWriteFence = { generation: number; statusRevision: number };
 
 export function useAccount() {
   const queryClient = useQueryClient();
@@ -43,7 +50,16 @@ export function useAccount() {
    * the authoritative answer afterwards, success or failure.
    */
   const statusFence = {
-    onMutate: () => cancelAccountStatusFetches(queryClient),
+    mutationKey: ACCOUNT_STATUS_WRITE_KEY,
+    onMutate: async (): Promise<StatusWriteFence> => {
+      const generation = (mutationGenerations.get(queryClient) ?? 0) + 1;
+      mutationGenerations.set(queryClient, generation);
+      await cancelAccountStatusFetches(queryClient);
+      return {
+        generation,
+        statusRevision: queryClient.getQueryState(accountQueryKeys.status())?.dataUpdateCount ?? 0,
+      };
+    },
     onSettled: () => invalidateAccountStatus(queryClient),
   };
 
@@ -112,9 +128,12 @@ export function useAccount() {
 
   const updateProfile = useMutation({
     ...statusFence,
+    // A manual save following background accent sync must be the last writer.
+    scope: { id: "account-profile" },
     mutationFn: async (input: AccountUpdateProfileInput) => {
       const api = ensureNativeApi();
-      return api.account.updateProfile(input);
+      // Onboarding, profile settings, and background sync share this write path.
+      return api.account.updateProfile({ ...input, themeAccent: readProfileThemeAccent() });
     },
     onSuccess: (me: AccountMe) => {
       setStatus({ state: "signed-in", me });
