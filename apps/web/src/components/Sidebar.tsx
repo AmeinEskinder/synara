@@ -74,7 +74,6 @@ import {
 import { PinStatusIcon, pinActionLabel } from "~/lib/pin";
 import { useTasksNeedingAttentionCount, useTodoEventSubscription } from "./tasks/useTodos";
 import { THREAD_CONTEXT_MENU_ICONS } from "~/lib/contextMenuIcons";
-import { ensureNativeApi } from "~/nativeApi";
 import {
   getActiveComposerSendThreadIds,
   subscribeComposerSends,
@@ -118,7 +117,6 @@ import { restrictToFirstScrollableAncestor, restrictToVerticalAxis } from "@dnd-
 import { CSS } from "@dnd-kit/utilities";
 import {
   type AutomationDefinition,
-  type AutomationListResult,
   MAX_PINNED_PROJECTS,
   type DesktopUpdateState,
   type OrchestrationShellSnapshot,
@@ -256,9 +254,8 @@ import { quotePosixShellArgument } from "../lib/shellQuote";
 import { useStableValue } from "~/hooks/useStableValue";
 import { DEFAULT_THREAD_TERMINAL_ID, type SidebarThreadSummary, type Thread } from "../types";
 import {
-  applyAutomationEvent,
   automationAttentionCount,
-  automationQueryKey,
+  useAutomationList,
   formatCadence,
   groupAutomationsByContinuedThread,
 } from "../routes/-automations.shared";
@@ -1387,25 +1384,19 @@ export default function Sidebar() {
   const pathname = useCommittedPathname();
   const isOnSettings = pathname === "/settings";
   const isOnGroupsRoute = pathname.startsWith("/hubs") || pathname.startsWith("/groups");
-  const isOnKanban = pathname.startsWith("/kanban");
-  const isOnTasks = pathname.startsWith("/tasks");
-  const isOnAutomations = pathname.startsWith("/automations");
-  const isOnPullRequests = pathname.startsWith("/pull-requests");
-  const isOnInbox = pathname.startsWith("/inbox");
+  const activeWorkspaceSearch = useLocation({ select: (location) => location.searchStr });
+  const workspaceSurfacePath =
+    pathname === "/remote"
+      ? (new URLSearchParams(activeWorkspaceSearch).get("path") ?? "").split("?")[0]!
+      : pathname;
+  const isOnKanban = workspaceSurfacePath.startsWith("/kanban");
+  const isOnTasks = workspaceSurfacePath.startsWith("/tasks");
+  const isOnAutomations = workspaceSurfacePath.startsWith("/automations");
+  const isOnPullRequests = workspaceSurfacePath.startsWith("/pull-requests");
+  const isOnInbox = workspaceSurfacePath.startsWith("/inbox");
   // Lightweight read of automations to drive the sidebar attention badge. Shares the
   // ["automations"] query cache with the Automations route (and its live stream updates).
-  const automationListQuery = useQuery({
-    queryKey: automationQueryKey,
-    queryFn: () => ensureNativeApi().automation.list({}),
-  });
-  useEffect(() => {
-    const api = ensureNativeApi();
-    return api.automation.onEvent((event) => {
-      queryClient.setQueryData<AutomationListResult>(automationQueryKey, (prev) =>
-        applyAutomationEvent(prev, event),
-      );
-    });
-  }, [queryClient]);
+  const automationListQuery = useAutomationList();
   const automationAttentionBadge = useMemo(() => {
     const data = automationListQuery.data;
     if (!data) return null;
@@ -2049,6 +2040,23 @@ export default function Sidebar() {
   const activeRouteProject = activeRouteProjectId
     ? (projectById.get(activeRouteProjectId) ?? null)
     : null;
+  // A remote computer's Hubs routes and studio threads keep the Groups segment active.
+  const workspaceSessions = useWorkspaceSessions();
+  const remoteGroupActive = useMemo(() => {
+    if (pathname !== "/remote") return false;
+    const params = new URLSearchParams(activeWorkspaceSearch);
+    const session = workspaceSessions.find(
+      (entry) => entry.host.executionScope.environmentId === params.get("environment"),
+    );
+    const remotePath = params.get("path")?.split("?")[0];
+    if (["/hubs", "/groups", "/studio"].includes(remotePath ?? "")) return true;
+    const thread = session?.summary?.threads.find((entry) => `/${entry.id}` === remotePath);
+    return (
+      session?.summary?.projects.some(
+        (project) => project.id === thread?.projectId && project.section === "studio",
+      ) ?? false
+    );
+  }, [pathname, activeWorkspaceSearch, workspaceSessions]);
   // Use the list's validated containers and member index: a hub worker's projectId
   // points at its execution repo, which must not move its chat out of Hubs.
   const isOnGroups =
@@ -4002,7 +4010,7 @@ export default function Sidebar() {
     sidebarThreadSortOrder: appSettings.sidebarThreadSortOrder,
     routeThreadId,
     routeProjectId,
-    isOnKanban,
+    isOnKanban: pathname.startsWith("/kanban"),
     activeRouteProject,
     activeRouteProjectId,
     activateThreadFromSidebarIntent,
