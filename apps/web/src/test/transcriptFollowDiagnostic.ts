@@ -38,9 +38,27 @@ export function readTranscriptFollowDiagnostic(node: HTMLElement | null) {
     const signals = context?.values;
     if (!state || !(signals instanceof Map)) continue;
     const stateProps = record(state.props);
+    const scroller = record(record(state.refScroller)?.current);
     result.list = {
+      contextDepth: depth,
+      scrollerMatchesNode:
+        typeof scroller?.getScrollableNode === "function"
+          ? scroller.getScrollableNode() === node
+          : null,
+      scrollerOffset:
+        typeof scroller?.getCurrentScrollOffset === "function"
+          ? scroller.getCurrentScrollOffset()
+          : null,
       state: scalars(state, [
         "scroll",
+        "scrollPending",
+        "scrollPrev",
+        "lastNativeScroll",
+        "lastNativeScrollTime",
+        "scrollProcessingEnabled",
+        "hasScrolled",
+        "dataChangeNeedsScrollUpdate",
+        "ignoreScrollFromMVCPIgnored",
         "scrollLength",
         "totalSize",
         "queuedInitialLayout",
@@ -81,6 +99,11 @@ export function readTranscriptFollowDiagnostic(node: HTMLElement | null) {
         "size",
       ]),
       pendingNativeAdjustment: Boolean(state.pendingNativeMVCPAdjust),
+      ignoredNativeScrollRange: scalars(record(state.ignoreScrollFromMVCP), ["lt", "gt"]),
+      initialScrollSession: scalars(record(state.initialScrollSession), ["kind"]),
+      scrollHistory: Array.isArray(state.scrollHistory)
+        ? state.scrollHistory.slice(-5).map((entry) => scalars(record(entry), ["scroll", "time"]))
+        : null,
       scrollingTo: scalars(record(state.scrollingTo), [
         "index",
         "offset",

@@ -28,10 +28,14 @@ jobs:
           mkdir -p output/follow-diagnostics
           {
             printf 'source_main=f29c2cd8db65bc61b22df00e8da4b8c4d2518824\n'
+            printf 'baseline_diagnostic=8b023c2fdf3d9b1cb7cfed4957429e9b670b9b72\n'
+            printf 'correction_donor=15cac8cca8b42417a7cc15334096c950945bad46\n'
             printf 'head='; git rev-parse HEAD
             printf 'tree='; git rev-parse HEAD^{tree}
             printf 'chat_view_test_blob='; git rev-parse HEAD:apps/web/src/components/ChatView.browser.tsx
             printf 'diagnostic_helper_blob='; git rev-parse HEAD:apps/web/src/test/transcriptFollowDiagnostic.ts
+            printf 'follow_hook_blob='; git rev-parse HEAD:apps/web/src/components/chat/useChatTranscriptScroll.ts
+            printf 'follow_hook_test_blob='; git rev-parse HEAD:apps/web/src/components/chat/useChatTranscriptScroll.browser.tsx
           } > output/follow-diagnostics/provenance.txt
 
       - name: Setup workspace
@@ -47,10 +51,10 @@ jobs:
         working-directory: apps/web
         run: ./node_modules/.bin/playwright install chromium
 
-      - name: Run unchanged full follow lane and isolated case once each
+      - name: Run unchanged follow cases and donor regression once each
         shell: bash
         run: |
-          mkdir -p output/follow-diagnostics/full output/follow-diagnostics/isolated
+          mkdir -p output/follow-diagnostics/full output/follow-diagnostics/isolated output/follow-diagnostics/final-settle
           set +e
           VITE_FOLLOW_DIAGNOSTIC_DIR="$GITHUB_WORKSPACE/output/follow-diagnostics/full" bun run --cwd apps/web test:browser:ci -- --project=chat-follow --shard=1/1 2>&1 | tee output/follow-diagnostics/full-lane.log
           full_status=${PIPESTATUS[0]}
@@ -58,8 +62,13 @@ jobs:
           VITE_FOLLOW_DIAGNOSTIC_DIR="$GITHUB_WORKSPACE/output/follow-diagnostics/isolated" bun run --cwd apps/web test:browser:ci -- --project=chat-follow -t 'restores streaming follow after thread switch in the full ChatView' 2>&1 | tee output/follow-diagnostics/isolated-case.log
           isolated_status=${PIPESTATUS[0]}
           cp -R apps/web/src/components/__screenshots__ output/follow-diagnostics/isolated-screenshots 2>/dev/null || true
-          printf 'full_lane=%s\nisolated_case=%s\n' "$full_status" "$isolated_status" > output/follow-diagnostics/results.txt
-          if [ "$full_status" -ne 0 ] || [ "$isolated_status" -ne 0 ]; then exit 1; fi
+          VITE_FOLLOW_DIAGNOSTIC_DIR="$GITHUB_WORKSPACE/output/follow-diagnostics/final-settle" bun run --cwd apps/web test:browser:ci -- --project=chat-workflows -t 'follows the final text batch when the assistant turn settles' 2>&1 | tee output/follow-diagnostics/final-settle.log
+          final_settle_status=${PIPESTATUS[0]}
+          cp -R apps/web/src/components/__screenshots__ output/follow-diagnostics/final-settle-screenshots 2>/dev/null || true
+          bun run --cwd apps/web test:browser:ci -- --project=components src/components/chat/useChatTranscriptScroll.browser.tsx 2>&1 | tee output/follow-diagnostics/donor-hook-regression.log
+          donor_regression_status=${PIPESTATUS[0]}
+          printf 'full_lane=%s\nisolated_case=%s\nfinal_settle=%s\ndonor_hook_regression=%s\n' "$full_status" "$isolated_status" "$final_settle_status" "$donor_regression_status" > output/follow-diagnostics/results.txt
+          if [ "$full_status" -ne 0 ] || [ "$isolated_status" -ne 0 ] || [ "$final_settle_status" -ne 0 ] || [ "$donor_regression_status" -ne 0 ]; then exit 1; fi
 
       - name: Preserve all diagnostic results
         if: always()

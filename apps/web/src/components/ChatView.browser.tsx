@@ -6993,6 +6993,24 @@ describe("ChatView transcript geometry (full app)", () => {
         expect(getScrollContainerDistanceFromBottom(container)).toBeLessThanOrEqual(4),
       );
     } finally {
+      // The final-settle variant keeps its original assertions and records only afterward.
+      try {
+        const container = document.querySelector<HTMLElement>(
+          "[data-chat-scroll-container='true']",
+        );
+        console.info(
+          "SYNARA_FOLLOW_SETTLED_FINAL_STATE",
+          JSON.stringify(readTranscriptFollowDiagnostic(container)),
+        );
+        const evidenceDirectory = import.meta.env.VITE_FOLLOW_DIAGNOSTIC_DIR;
+        if (evidenceDirectory)
+          await page.screenshot({ path: `${evidenceDirectory}/final-settle.png` });
+      } catch (error) {
+        console.info(
+          "SYNARA_FOLLOW_CAPTURE_ERROR",
+          error instanceof Error ? error.message : "capture failed",
+        );
+      }
       await mounted.cleanup();
     }
   });
