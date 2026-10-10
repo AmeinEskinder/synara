@@ -71,6 +71,26 @@ describe("buildAcpSpawnProcessEnv", () => {
     expect(env.ANTHROPIC_API_KEY).toBeUndefined();
   });
 
+  it("scrubs generic ACP credential variants while retaining explicit selected variants", () => {
+    const env = buildAcpSpawnProcessEnv(
+      {
+        command: "custom-acp",
+        args: [],
+        env: { ANTHROPIC_CLIENT_SECRET: "selected-secret" },
+      },
+      {
+        PATH: "/usr/bin",
+        ANTHROPIC_CLIENT_SECRET: "ambient-secret",
+        COHERE_API_TOKEN: "ambient-token",
+        AWS_CONTAINER_CREDENTIALS_FULL_URI: "http://metadata",
+      },
+    );
+    expect(env.PATH).toBe("/usr/bin");
+    expect(env.ANTHROPIC_CLIENT_SECRET).toBe("selected-secret");
+    expect(env.COHERE_API_TOKEN).toBeUndefined();
+    expect(env.AWS_CONTAINER_CREDENTIALS_FULL_URI).toBeUndefined();
+  });
+
   it("does not restore credentials for a generic ACP process without provider authority", () => {
     const env = buildAcpSpawnProcessEnv(
       { command: "custom-acp", args: [] },

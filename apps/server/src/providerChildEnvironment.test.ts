@@ -61,6 +61,26 @@ describe("buildProviderChildEnvironment", () => {
     });
   });
 
+  it("filters mixed-case control and native capability names", () => {
+    const env = buildProviderChildEnvironment({
+      provider: "codex",
+      baseEnv: {
+        PATH: "/usr/bin",
+        sYnArA_aUtH_tOkEn: "control",
+        nOdE_oPtIoNs: "--require=bad",
+      },
+    });
+    expect(env).toEqual({ PATH: "/usr/bin" });
+  });
+
+  it.each([undefined, ""]) ("does not trust an empty test harness marker: %s", (vitest) => {
+    const env = buildProviderChildEnvironment({
+      provider: "codex",
+      baseEnv: { VITEST: vitest, SYNARA_FAKE_PROVIDER_KEY: "secret" },
+    });
+    expect(env.SYNARA_FAKE_PROVIDER_KEY).toBeUndefined();
+  });
+
   it("does not let overlays bypass the capability policy", () => {
     const env = buildProviderChildEnvironment({
       provider: "opencode",
