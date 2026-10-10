@@ -1,0 +1,44 @@
+{
+  "target": {
+    "id": "pr1786-before",
+    "pr": 1786,
+    "original": 1416,
+    "variant": "before",
+    "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+    "mode": "append-describe",
+    "fixture": "PrUiEvidence1416.snippet.ts",
+    "destination": "apps/web/src/components/ChatView.browser.tsx"
+  },
+  "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+  "sourceTree": "f7c039cd491466f5ca735040a78e082b0ab94642",
+  "driver": "6bb99e6f42626bf9e6e61dbac9a07c75f8ad49ee",
+  "overlays": [
+    {
+      "path": "apps/web/src/components/ChatView.browser.tsx",
+      "originalSha256": "d0f39ab7acdc35bdcdc9d5057cc6704955571750152b7938addd0a085db349bc",
+      "fixtureSha256": "a083abad5b57ff8af41bc6b293226b352f6102fdfd0cd207775fc31572d267f3",
+      "sha256": "79cf28a41e0de1220e1421b6196a7590f72d04210095b87e2eaa847286dba6db"
+    },
+    {
+      "path": "apps/web/vitest.pr-ui-evidence.config.ts",
+      "originalSha256": null,
+      "sha256": "f142102d7d8fc9aa6c53fd665967a2851160d46ab190f1dc88d4252581ac6240"
+    }
+  ],
+  "status": "completed",
+  "applicationCodeModified": false,
+  "createdAt": "2026-10-10T22:22:17.031Z",
+  "images": [
+    {
+      "name": "follow-up-after-promotion.png",
+      "bytes": 25478,
+      "sha256": "ec3e8982a769b2528030fe752124b85edbbc433d611d1784b035d5a648586aa8"
+    },
+    {
+      "name": "follow-up-awaiting-promotion.png",
+      "bytes": 22869,
+      "sha256": "36a32442903bd2c617dd4a348fcfe82b800b6896be87f50ab81ef40fd494fbf1"
+    }
+  ],
+  "completedAt": "2026-10-10T22:24:10.476Z"
+}

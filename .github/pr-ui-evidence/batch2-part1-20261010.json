@@ -1,0 +1,96 @@
+{
+  "run": 38090364772,
+  "runUrl": "https://github.com/Emanuele-web04/synara/actions/runs/38090364772",
+  "driver": "6bb99e6f42626bf9e6e61dbac9a07c75f8ad49ee",
+  "baseline": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+  "partialPublication": true,
+  "scope": "Only completed, source-verified and visually reviewed capture targets are listed. Other targets and fixture failures remain visible on the run.",
+  "captures": [
+    {
+      "pr": 1784,
+      "original": 982,
+      "variant": "before",
+      "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+      "sourceTree": "f7c039cd491466f5ca735040a78e082b0ab94642",
+      "driver": "6bb99e6f42626bf9e6e61dbac9a07c75f8ad49ee",
+      "artifactId": 11683688143,
+      "artifactDigest": "sha256:6572463aec6c5846a2375f372b32970c210ad9dd2d04f16363415feeb8cf70d2",
+      "path": ".github/pr-ui-evidence/1784/f29c2cd8db65bc61b22df00e8da4b8c4d2518824/before",
+      "images": [
+        {
+          "name": "sidebar-row.png",
+          "bytes": 5080,
+          "sha256": "474b4bf33a4481bdd0335927042fa8a14bfa460014b377d1b9a6b2111eed3847"
+        }
+      ],
+      "visualExpectation": "Matching component appearance; this screenshot is not a performance measurement."
+    },
+    {
+      "pr": 1784,
+      "original": 982,
+      "variant": "after",
+      "source": "58a85235577096df64e1b8e365dbbe885acedc3e",
+      "sourceTree": "1240f559c0ffe4da4a9447f4618840f0ef68c025",
+      "driver": "6bb99e6f42626bf9e6e61dbac9a07c75f8ad49ee",
+      "artifactId": 11683663084,
+      "artifactDigest": "sha256:0e48cb29ee0a450a355e549fd630ae42cb245aa18128cc18dccaa128bb7272d6",
+      "path": ".github/pr-ui-evidence/1784/58a85235577096df64e1b8e365dbbe885acedc3e/after",
+      "images": [
+        {
+          "name": "sidebar-row.png",
+          "bytes": 5080,
+          "sha256": "474b4bf33a4481bdd0335927042fa8a14bfa460014b377d1b9a6b2111eed3847"
+        }
+      ],
+      "visualExpectation": "Matching component appearance; this screenshot is not a performance measurement."
+    },
+    {
+      "pr": 1786,
+      "original": 1416,
+      "variant": "before",
+      "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+      "sourceTree": "f7c039cd491466f5ca735040a78e082b0ab94642",
+      "driver": "6bb99e6f42626bf9e6e61dbac9a07c75f8ad49ee",
+      "artifactId": 11683863609,
+      "artifactDigest": "sha256:6774d1d1ee0e3f27b679000581e2909a45e4ad3a9c32f7c2b35f0e21022adce7",
+      "path": ".github/pr-ui-evidence/1786/f29c2cd8db65bc61b22df00e8da4b8c4d2518824/before",
+      "images": [
+        {
+          "name": "follow-up-after-promotion.png",
+          "bytes": 25478,
+          "sha256": "ec3e8982a769b2528030fe752124b85edbbc433d611d1784b035d5a648586aa8"
+        },
+        {
+          "name": "follow-up-awaiting-promotion.png",
+          "bytes": 22869,
+          "sha256": "36a32442903bd2c617dd4a348fcfe82b800b6896be87f50ab81ef40fd494fbf1"
+        }
+      ],
+      "visualExpectation": "Both sources retain the follow-up draft across same-ID promotion; this capture does not assert a baseline regression."
+    },
+    {
+      "pr": 1786,
+      "original": 1416,
+      "variant": "after",
+      "source": "de518d8d550fcb05795d76962a4b0814978c3317",
+      "sourceTree": "19d8800b994c6c484a571583d04350d8c5822995",
+      "driver": "6bb99e6f42626bf9e6e61dbac9a07c75f8ad49ee",
+      "artifactId": 11683758903,
+      "artifactDigest": "sha256:05baa545cfdcb8d18be9ad0e93794757afa73d4545dc7be34491150ed4f3f536",
+      "path": ".github/pr-ui-evidence/1786/de518d8d550fcb05795d76962a4b0814978c3317/after",
+      "images": [
+        {
+          "name": "follow-up-after-promotion.png",
+          "bytes": 25439,
+          "sha256": "d4d9c301829035409ab2a66f88c6592869bf96485a9cb4db39473081c1f6adb4"
+        },
+        {
+          "name": "follow-up-awaiting-promotion.png",
+          "bytes": 22938,
+          "sha256": "9f1117defc9980906dd05c6b594aea100bcef0f8f1179a7323c58f374c21b8ac"
+        }
+      ],
+      "visualExpectation": "Both sources retain the follow-up draft across same-ID promotion; this capture does not assert a baseline regression."
+    }
+  ]
+}

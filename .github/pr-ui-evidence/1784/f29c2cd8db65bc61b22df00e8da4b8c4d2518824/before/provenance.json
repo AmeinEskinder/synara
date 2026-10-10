@@ -1,0 +1,39 @@
+{
+  "target": {
+    "id": "pr1784-before",
+    "pr": 1784,
+    "original": 982,
+    "variant": "before",
+    "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+    "mode": "standalone",
+    "fixture": "PrUiEvidence982.browser.tsx",
+    "destination": "apps/web/src/components/PrUiEvidence982.browser.tsx"
+  },
+  "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+  "sourceTree": "f7c039cd491466f5ca735040a78e082b0ab94642",
+  "driver": "6bb99e6f42626bf9e6e61dbac9a07c75f8ad49ee",
+  "overlays": [
+    {
+      "path": "apps/web/src/components/PrUiEvidence982.browser.tsx",
+      "originalSha256": null,
+      "fixtureSha256": "0d645bd39fd75f27210c77d2291f091938fd73738caf9e32519d9552b39a158f",
+      "sha256": "0d645bd39fd75f27210c77d2291f091938fd73738caf9e32519d9552b39a158f"
+    },
+    {
+      "path": "apps/web/vitest.pr-ui-evidence.config.ts",
+      "originalSha256": null,
+      "sha256": "f142102d7d8fc9aa6c53fd665967a2851160d46ab190f1dc88d4252581ac6240"
+    }
+  ],
+  "status": "completed",
+  "applicationCodeModified": false,
+  "createdAt": "2026-10-10T22:15:43.248Z",
+  "images": [
+    {
+      "name": "sidebar-row.png",
+      "bytes": 5080,
+      "sha256": "474b4bf33a4481bdd0335927042fa8a14bfa460014b377d1b9a6b2111eed3847"
+    }
+  ],
+  "completedAt": "2026-10-10T22:15:53.962Z"
+}
