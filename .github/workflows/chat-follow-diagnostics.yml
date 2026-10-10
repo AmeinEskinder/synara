@@ -1,0 +1,71 @@
+name: Chat follow causal diagnostics
+
+on:
+  push:
+    branches:
+      - cleanup/20261010/chat-follow-diagnostics
+
+permissions:
+  contents: read
+
+env:
+  NODE_OPTIONS: --max-old-space-size=4096
+
+jobs:
+  follow:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout isolated diagnostic source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Record exact source provenance
+        shell: bash
+        run: |
+          mkdir -p output/follow-diagnostics
+          {
+            printf 'source_main=f29c2cd8db65bc61b22df00e8da4b8c4d2518824\n'
+            printf 'head='; git rev-parse HEAD
+            printf 'tree='; git rev-parse HEAD^{tree}
+            printf 'chat_view_test_blob='; git rev-parse HEAD:apps/web/src/components/ChatView.browser.tsx
+            printf 'diagnostic_helper_blob='; git rev-parse HEAD:apps/web/src/test/transcriptFollowDiagnostic.ts
+          } > output/follow-diagnostics/provenance.txt
+
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('bun.lock') }}
+
+      - name: Install browser test runtime
+        working-directory: apps/web
+        run: ./node_modules/.bin/playwright install chromium
+
+      - name: Run unchanged full follow lane and isolated case once each
+        shell: bash
+        run: |
+          mkdir -p output/follow-diagnostics/full output/follow-diagnostics/isolated
+          set +e
+          VITE_FOLLOW_DIAGNOSTIC_DIR="$GITHUB_WORKSPACE/output/follow-diagnostics/full" bun run --cwd apps/web test:browser:ci -- --project=chat-follow --shard=1/1 2>&1 | tee output/follow-diagnostics/full-lane.log
+          full_status=${PIPESTATUS[0]}
+          cp -R apps/web/src/components/__screenshots__ output/follow-diagnostics/full-screenshots 2>/dev/null || true
+          VITE_FOLLOW_DIAGNOSTIC_DIR="$GITHUB_WORKSPACE/output/follow-diagnostics/isolated" bun run --cwd apps/web test:browser:ci -- --project=chat-follow -t 'restores streaming follow after thread switch in the full ChatView' 2>&1 | tee output/follow-diagnostics/isolated-case.log
+          isolated_status=${PIPESTATUS[0]}
+          cp -R apps/web/src/components/__screenshots__ output/follow-diagnostics/isolated-screenshots 2>/dev/null || true
+          printf 'full_lane=%s\nisolated_case=%s\n' "$full_status" "$isolated_status" > output/follow-diagnostics/results.txt
+          if [ "$full_status" -ne 0 ] || [ "$isolated_status" -ne 0 ]; then exit 1; fi
+
+      - name: Preserve all diagnostic results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chat-follow-causal-state
+          path: output/follow-diagnostics
+          if-no-files-found: error
+          retention-days: 7

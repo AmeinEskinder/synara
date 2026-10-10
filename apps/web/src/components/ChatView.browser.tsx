@@ -128,6 +128,7 @@ import { hasUnseenSnoozeReturn } from "./Sidebar.logic";
 // Pre-transform the compiler-heavy component outside the first case's timeout.
 // The router's auto-split route otherwise requests this module on first mount.
 import "./ChatView";
+import { readTranscriptFollowDiagnostic } from "../test/transcriptFollowDiagnostic";
 
 const THREAD_ID = "thread-browser-test" as ThreadId;
 const OTHER_THREAD_ID = "thread-browser-test-other" as ThreadId;
@@ -6894,6 +6895,25 @@ describe("ChatView transcript geometry (full app)", () => {
         expect(getScrollContainerDistanceFromBottom(container)).toBeLessThanOrEqual(4),
       );
     } finally {
+      if (action === "thread switch") {
+        // Capture only after the unchanged assertions: no live observer can alter timing.
+        try {
+          const container = document.querySelector<HTMLElement>(
+            "[data-chat-scroll-container='true']",
+          );
+          console.info(
+            "SYNARA_FOLLOW_FINAL_STATE",
+            JSON.stringify(readTranscriptFollowDiagnostic(container)),
+          );
+          const evidenceDirectory = import.meta.env.VITE_FOLLOW_DIAGNOSTIC_DIR;
+          if (evidenceDirectory) await page.screenshot({ path: `${evidenceDirectory}/final.png` });
+        } catch (error) {
+          console.info(
+            "SYNARA_FOLLOW_CAPTURE_ERROR",
+            error instanceof Error ? error.message : "capture failed",
+          );
+        }
+      }
       await mounted.cleanup();
       restoreNativeApi();
     }
