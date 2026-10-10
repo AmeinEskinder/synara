@@ -1,0 +1,133 @@
+import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
+import {
+  appendFileSync,
+  copyFileSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const driver = dirname(fileURLToPath(import.meta.url));
+const root = process.cwd();
+const targets = JSON.parse(readFileSync(resolve(driver, "targets.json"), "utf8"));
+const digest = (content) => createHash("sha256").update(content).digest("hex");
+const git = (...args) => execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
+
+if (!Array.isArray(targets) || targets.length < 1 || targets.length > 30) {
+  throw new Error("Expected one to thirty explicit evidence targets.");
+}
+const ids = new Set();
+for (const target of targets) {
+  if (
+    !/^pr\d+-(before|after)$/.test(target.id) ||
+    ids.has(target.id) ||
+    !/^[a-f0-9]{40}$/.test(target.source) ||
+    !["before", "after"].includes(target.variant) ||
+    !["standalone", "append-describe"].includes(target.mode) ||
+    !/^[A-Za-z0-9.]+\.(tsx|ts)$/.test(target.fixture) ||
+    !/^apps\/web\/src\/components\/[A-Za-z0-9.]+\.browser\.tsx$/.test(target.destination)
+  ) {
+    throw new Error(`Invalid evidence target ${JSON.stringify(target)}`);
+  }
+  ids.add(target.id);
+}
+
+const command = process.argv[2];
+if (command === "matrix") {
+  const matrix = JSON.stringify({ include: targets.map(({ id, source }) => ({ id, source })) });
+  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${matrix}\n`);
+  else console.log(matrix);
+} else if (command === "prepare") {
+  const target = targets.find(({ id }) => id === process.env.PR_UI_EVIDENCE_ID);
+  if (!target || target.source !== process.env.PR_UI_EVIDENCE_SOURCE) {
+    throw new Error("The requested target must match the reviewed matrix.");
+  }
+  const source = git("rev-parse", "HEAD");
+  if (source !== target.source) throw new Error(`Wrong source checkout: ${source}`);
+  const output = resolve(root, ".pr-ui-evidence-output", target.id);
+  mkdirSync(output, { recursive: true });
+  const destination = resolve(root, target.destination);
+  const fixture = readFileSync(resolve(driver, "fixtures", target.fixture), "utf8");
+  let original = null;
+  if (target.mode === "append-describe") {
+    original = readFileSync(destination, "utf8");
+    if (!original.endsWith("\n});\n")) throw new Error("Unexpected outer describe boundary.");
+    writeFileSync(destination, `${original.slice(0, -5)}\n${fixture}\n});\n`);
+  } else {
+    try {
+      execFileSync("git", ["ls-files", "--error-unmatch", target.destination], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      throw new Error("Standalone evidence must not replace an application file.");
+    } catch (error) {
+      if (error.status !== 1) throw error;
+    }
+    copyFileSync(resolve(driver, "fixtures", target.fixture), destination);
+  }
+  const config = "apps/web/vitest.pr-ui-evidence.config.ts";
+  copyFileSync(resolve(driver, "vitest.pr-ui-evidence.config.ts"), resolve(root, config));
+  const manifest = {
+    target,
+    source,
+    sourceTree: git("rev-parse", "HEAD^{tree}"),
+    driver: execFileSync("git", ["rev-parse", "HEAD"], { cwd: driver, encoding: "utf8" }).trim(),
+    fixtureSha256: digest(fixture),
+    originalTestSha256: original === null ? null : digest(original),
+    overlaidTestSha256: digest(readFileSync(destination)),
+    configSha256: digest(readFileSync(resolve(root, config))),
+    applicationCodeModified: false,
+    createdAt: new Date().toISOString(),
+  };
+  writeFileSync(resolve(output, "provenance.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+  const env = {
+    VITE_PR_UI_EVIDENCE_VARIANT: target.variant,
+    VITE_PR_UI_EVIDENCE_DIR: output,
+    VITE_PR_UI_EVIDENCE_TEST: target.destination.replace("apps/web/", ""),
+  };
+  if (!process.env.GITHUB_ENV) throw new Error("GITHUB_ENV is required for the isolated job.");
+  for (const [key, value] of Object.entries(env)) {
+    if (/[\r\n]/.test(value)) throw new Error("Invalid environment value.");
+    appendFileSync(process.env.GITHUB_ENV, `${key}=${value}\n`);
+  }
+  console.log(JSON.stringify(manifest));
+} else if (command === "verify") {
+  const output = process.env.VITE_PR_UI_EVIDENCE_DIR;
+  if (!output || !output.startsWith(`${resolve(root, ".pr-ui-evidence-output")}/`)) {
+    throw new Error("Unexpected evidence directory.");
+  }
+  const manifestPath = resolve(output, "provenance.json");
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  if (git("rev-parse", "HEAD") !== manifest.source)
+    throw new Error("Source changed during capture.");
+  const changed = git("diff", "HEAD", "--name-only").split("\n").filter(Boolean);
+  const allowed = manifest.target.mode === "append-describe" ? [manifest.target.destination] : [];
+  if (changed.some((path) => !allowed.includes(path))) {
+    throw new Error(`Unexpected application modifications: ${changed.join(", ")}`);
+  }
+  if (
+    digest(readFileSync(resolve(root, manifest.target.destination))) !== manifest.overlaidTestSha256
+  ) {
+    throw new Error("The reviewed fixture changed during capture.");
+  }
+  const pngs = readdirSync(output).filter((name) => name.endsWith(".png"));
+  if (pngs.length === 0) throw new Error("The capture produced no PNG files.");
+  const images = pngs.map((name) => {
+    const content = readFileSync(resolve(output, name));
+    if (content.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a") {
+      throw new Error(`Invalid PNG: ${name}`);
+    }
+    return { name, bytes: content.length, sha256: digest(content) };
+  });
+  writeFileSync(
+    manifestPath,
+    `${JSON.stringify({ ...manifest, images, completedAt: new Date().toISOString() }, null, 2)}\n`,
+  );
+  console.log(JSON.stringify({ source: manifest.source, images, applicationCodeModified: false }));
+} else {
+  throw new Error("Use matrix, prepare, or verify.");
+}
