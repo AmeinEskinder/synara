@@ -1,0 +1,44 @@
+{
+  "target": {
+    "id": "pr1788-before",
+    "pr": 1788,
+    "original": 1703,
+    "variant": "before",
+    "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+    "mode": "append-describe",
+    "fixture": "PrUiEvidence1703.snippet.ts",
+    "destination": "apps/web/src/components/ChatView.browser.tsx"
+  },
+  "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+  "sourceTree": "f7c039cd491466f5ca735040a78e082b0ab94642",
+  "driver": "6bb99e6f42626bf9e6e61dbac9a07c75f8ad49ee",
+  "overlays": [
+    {
+      "path": "apps/web/src/components/ChatView.browser.tsx",
+      "originalSha256": "d0f39ab7acdc35bdcdc9d5057cc6704955571750152b7938addd0a085db349bc",
+      "fixtureSha256": "9c61be947e79b25061d8d01a24889cba6da87d84b43a316e0b1c694ef8a3f492",
+      "sha256": "c8ad1b35cbcfded375e3f9b03d5cd721218bc14dca55c19d2f2957a2152d36e8"
+    },
+    {
+      "path": "apps/web/vitest.pr-ui-evidence.config.ts",
+      "originalSha256": null,
+      "sha256": "f142102d7d8fc9aa6c53fd665967a2851160d46ab190f1dc88d4252581ac6240"
+    }
+  ],
+  "status": "completed",
+  "applicationCodeModified": false,
+  "createdAt": "2026-10-10T22:30:50.610Z",
+  "images": [
+    {
+      "name": "rail-home.png",
+      "bytes": 46301,
+      "sha256": "edb0522c4ae04932481a89f65771beaaeac258c668ddc72ecabfdf2d940caefd"
+    },
+    {
+      "name": "rail-spaces.png",
+      "bytes": 44172,
+      "sha256": "c1176c654080b2416c0c64289f1b98321b7270e5328fd7637285a062227f8ec8"
+    }
+  ],
+  "completedAt": "2026-10-10T22:32:46.021Z"
+}

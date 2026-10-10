@@ -1,0 +1,174 @@
+{
+  "run": 38090364772,
+  "runUrl": "https://github.com/Emanuele-web04/synara/actions/runs/38090364772",
+  "driver": "6bb99e6f42626bf9e6e61dbac9a07c75f8ad49ee",
+  "baseline": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+  "partialPublication": true,
+  "scope": "Only selected, completed, source-verified and visually approved images are published. Original per-capture provenance is retained verbatim. Excluded images and the other failed fixture targets remain recorded on the original run.",
+  "captures": [
+    {
+      "pr": 1789,
+      "original": 1696,
+      "variant": "after",
+      "source": "495c5f8b3c9af27e2bacd15df51f02326f165498",
+      "sourceTree": "fae4ace9db67c3c37b438b05640b0bb6df032b4d",
+      "driver": "6bb99e6f42626bf9e6e61dbac9a07c75f8ad49ee",
+      "artifactId": 11684721480,
+      "artifactDigest": "sha256:233c3186bbebc625fd7dba2597775b2ba4167e3f17e43a6d9ea942c5491df940",
+      "path": ".github/pr-ui-evidence/1789/495c5f8b3c9af27e2bacd15df51f02326f165498/after",
+      "images": [
+        {
+          "name": "activity-default.png",
+          "bytes": 9213,
+          "sha256": "0ccf441bdf2318eff28ce788128c01c8ba60ea4a75a138080938b5e6769d49f8",
+          "width": 361,
+          "height": 522
+        }
+      ],
+      "qualification": "Actual Activity component with one recent and two working synthetic threads. These default-state images show working threads initially listed on baseline and grouped behind the collapsed Working disclosure on the feature. They make no settled expanded-state claim.",
+      "excludedImages": [
+        {
+          "name": "activity-expanded.png",
+          "bytes": 14513,
+          "sha256": "785fd4eb70a2772477419d0e3b491b2b86da8f856e07c65c8d47f9088c51ce43",
+          "width": 361,
+          "height": 522,
+          "reason": "Visual review found the disclosure mid-transition: one working row was faded and the second was clipped. This PNG is retained in the original artifact, is not published here, and is not evidence of the settled expanded state."
+        }
+      ]
+    },
+    {
+      "pr": 1788,
+      "original": 1703,
+      "variant": "before",
+      "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+      "sourceTree": "f7c039cd491466f5ca735040a78e082b0ab94642",
+      "driver": "6bb99e6f42626bf9e6e61dbac9a07c75f8ad49ee",
+      "artifactId": 11684476644,
+      "artifactDigest": "sha256:1d563d84323e9ac2f4b2cc513f56c490b2b2ba441b1cbe113c39197077592ea4",
+      "path": ".github/pr-ui-evidence/1788/f29c2cd8db65bc61b22df00e8da4b8c4d2518824/before",
+      "images": [
+        {
+          "name": "rail-home.png",
+          "bytes": 46301,
+          "sha256": "edb0522c4ae04932481a89f65771beaaeac258c668ddc72ecabfdf2d940caefd",
+          "width": 1024,
+          "height": 720
+        },
+        {
+          "name": "rail-spaces.png",
+          "bytes": 44172,
+          "sha256": "c1176c654080b2416c0c64289f1b98321b7270e5328fd7637285a062227f8ec8",
+          "width": 1024,
+          "height": 720
+        }
+      ],
+      "qualification": "Actual Home and Spaces endpoint images; completed capture also checks production transition/animation rules and final selection alignment. Static PNGs do not display the animation timeline."
+    },
+    {
+      "pr": 1789,
+      "original": 1696,
+      "variant": "before",
+      "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+      "sourceTree": "f7c039cd491466f5ca735040a78e082b0ab94642",
+      "driver": "6bb99e6f42626bf9e6e61dbac9a07c75f8ad49ee",
+      "artifactId": 11684212257,
+      "artifactDigest": "sha256:da87b8d213765b54968efb3e5451a46cb50c037eb4e9c6dc4e79d3c0044a9dc9",
+      "path": ".github/pr-ui-evidence/1789/f29c2cd8db65bc61b22df00e8da4b8c4d2518824/before",
+      "images": [
+        {
+          "name": "activity-default.png",
+          "bytes": 17309,
+          "sha256": "799662e6bcc595061ca8c87473bbfba155ac1635afe9f3f3380703e0108623e9",
+          "width": 361,
+          "height": 522
+        }
+      ],
+      "qualification": "Actual Activity component with one recent and two working synthetic threads. These default-state images show working threads initially listed on baseline and grouped behind the collapsed Working disclosure on the feature. They make no settled expanded-state claim."
+    },
+    {
+      "pr": 1787,
+      "original": 1700,
+      "variant": "before",
+      "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+      "sourceTree": "f7c039cd491466f5ca735040a78e082b0ab94642",
+      "driver": "6bb99e6f42626bf9e6e61dbac9a07c75f8ad49ee",
+      "artifactId": 11684087671,
+      "artifactDigest": "sha256:298c136457ec680fb0a8ac473a8e1efe9edf95ad30e0b760ee6f1af33ea0939b",
+      "path": ".github/pr-ui-evidence/1787/f29c2cd8db65bc61b22df00e8da4b8c4d2518824/before",
+      "images": [
+        {
+          "name": "settings-after-key.png",
+          "bytes": 93599,
+          "sha256": "adb176d53806856cc772a4400106c03787f2669c6a3c1ee5c3ae48a77ee77c4a",
+          "width": 1024,
+          "height": 720
+        },
+        {
+          "name": "settings-before-key.png",
+          "bytes": 93599,
+          "sha256": "adb176d53806856cc772a4400106c03787f2669c6a3c1ee5c3ae48a77ee77c4a",
+          "width": 1024,
+          "height": 720
+        }
+      ],
+      "qualification": "Identical initial Settings pages. After a real Escape keypress, baseline remains in Settings and feature returns to the prior chat."
+    },
+    {
+      "pr": 1787,
+      "original": 1700,
+      "variant": "after",
+      "source": "e48fdc252e17e7787baeb511eb08e1f0a7d96af7",
+      "sourceTree": "92a14e7cc5b34d0ca02f1b5fcc5a92067ba7e06c",
+      "driver": "6bb99e6f42626bf9e6e61dbac9a07c75f8ad49ee",
+      "artifactId": 11683989111,
+      "artifactDigest": "sha256:2c791661aeb338d8f1a2275da44efb75ac963bef049b095825ef768e578bc0e7",
+      "path": ".github/pr-ui-evidence/1787/e48fdc252e17e7787baeb511eb08e1f0a7d96af7/after",
+      "images": [
+        {
+          "name": "settings-after-key.png",
+          "bytes": 46519,
+          "sha256": "36af515294d228963311d9eae37467b34011e429e7b8699f87d1ce4f5aa7760a",
+          "width": 1024,
+          "height": 720
+        },
+        {
+          "name": "settings-before-key.png",
+          "bytes": 93599,
+          "sha256": "adb176d53806856cc772a4400106c03787f2669c6a3c1ee5c3ae48a77ee77c4a",
+          "width": 1024,
+          "height": 720
+        }
+      ],
+      "qualification": "Identical initial Settings pages. After a real Escape keypress, baseline remains in Settings and feature returns to the prior chat."
+    },
+    {
+      "pr": 1788,
+      "original": 1703,
+      "variant": "after",
+      "source": "4e33e715b81415e65a69fcc3810e82b0276a020e",
+      "sourceTree": "0ad24423b38178f15c8453d3342364c5985f5c9a",
+      "driver": "6bb99e6f42626bf9e6e61dbac9a07c75f8ad49ee",
+      "artifactId": 11684327248,
+      "artifactDigest": "sha256:bfd33bc491478bfbea5476cfd0f58820b92e962b3722618f3a2534838aa6d780",
+      "path": ".github/pr-ui-evidence/1788/4e33e715b81415e65a69fcc3810e82b0276a020e/after",
+      "images": [
+        {
+          "name": "rail-home.png",
+          "bytes": 46301,
+          "sha256": "edb0522c4ae04932481a89f65771beaaeac258c668ddc72ecabfdf2d940caefd",
+          "width": 1024,
+          "height": 720
+        },
+        {
+          "name": "rail-spaces.png",
+          "bytes": 44172,
+          "sha256": "1c636fea929b933daaf13d78e886f587e6ac4c6fc0f1d14c85db1f86f2aa9c6a",
+          "width": 1024,
+          "height": 720
+        }
+      ],
+      "qualification": "Actual Home and Spaces endpoint images; completed capture also checks production transition/animation rules and final selection alignment. Static PNGs do not display the animation timeline."
+    }
+  ]
+}
