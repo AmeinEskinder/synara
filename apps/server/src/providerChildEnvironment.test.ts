@@ -102,6 +102,26 @@ describe("buildProviderChildEnvironment", () => {
   );
 
   it.each(["claude", "cursor", "droid", "antigravity", "grok"] as const)(
+  it("scrubs known model-provider credentials from Pi probes while retaining ordinary state", () => {
+    const env = buildProviderChildEnvironment({
+      provider: "pi",
+      baseEnv: {
+        PATH: "/usr/bin",
+        HOME: "/home/test",
+        OPENROUTER_API_KEY: "openrouter",
+        PERPLEXITY_API_KEY: "perplexity",
+        COHERE_API_KEY: "cohere",
+        TOGETHER_AI_API_KEY: "together",
+      },
+    });
+    expect(env.PATH).toBe("/usr/bin");
+    expect(env.HOME).toBe("/home/test");
+    expect(env.OPENROUTER_API_KEY).toBeUndefined();
+    expect(env.PERPLEXITY_API_KEY).toBeUndefined();
+    expect(env.COHERE_API_KEY).toBeUndefined();
+    expect(env.TOGETHER_AI_API_KEY).toBeUndefined();
+  });
+
     "does not leak OpenAI credentials into restricted %s children",
     (provider) => {
       const env = buildProviderChildEnvironment({

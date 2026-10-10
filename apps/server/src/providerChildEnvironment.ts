@@ -2,6 +2,8 @@
 // Purpose: Builds provider child environments without Synara control-plane authority.
 // Layer: Server provider process security
 
+import { MODEL_PROVIDER_API_KEY_ENV_NAMES } from "./provider/providerProcessEnv.ts";
+
 export type ProviderChildKind =
   | "acp"
   | "antigravity"
@@ -20,6 +22,7 @@ export type ProviderChildKind =
   | "worktree-setup";
 
 const PROVIDER_CREDENTIAL_KEYS = new Set([
+  ...MODEL_PROVIDER_API_KEY_ENV_NAMES,
   "ANTHROPIC_API_KEY",
   "ANTHROPIC_AUTH_TOKEN",
   "CLAUDE_CODE_OAUTH_TOKEN",
