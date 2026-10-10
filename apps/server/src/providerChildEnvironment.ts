@@ -8,15 +8,12 @@ export type ProviderChildKind =
   | "claude"
   | "codex"
   | "cursor"
+  | "devin"
   | "droid"
   | "grok"
-  | "kilo"
-  | "kilo-server"
   | "opencode"
-  | "opencode-server"
   | "pi"
-  | "pi-shell"
-  | "worktree-setup";
+  | "omp";
 
 const PROVIDER_CREDENTIAL_KEYS = new Set([
   "ANTHROPIC_API_KEY",
@@ -33,6 +30,8 @@ const PROVIDER_CREDENTIAL_KEYS = new Set([
   "GROK_CODE_XAI_API_KEY",
   "FACTORY_API_KEY",
   "CURSOR_API_KEY",
+  "DEVIN_API_KEY",
+  "WINDSURF_API_KEY",
   "DOCKER_AUTH_CONFIG",
 ]);
 
@@ -47,6 +46,11 @@ export function isProviderCredentialKey(key: string): boolean {
   return PROVIDER_CREDENTIAL_KEYS.has(key.trim().toUpperCase());
 }
 
+/** Removes ambient provider credentials while retaining ordinary process state. */
+export function withoutProviderCredentialEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return Object.fromEntries(Object.entries(env).filter(([key]) => !isProviderCredentialKey(key)));
+}
+
 const PROVIDER_CREDENTIAL_GRANTS: Record<ProviderChildKind, "all" | ReadonlySet<string>> = {
   antigravity: new Set(["GEMINI_API_KEY", "GOOGLE_API_KEY", "GOOGLE_APPLICATION_CREDENTIALS"]),
   claude: new Set([
@@ -59,32 +63,21 @@ const PROVIDER_CREDENTIAL_GRANTS: Record<ProviderChildKind, "all" | ReadonlySet<
     "GOOGLE_APPLICATION_CREDENTIALS",
   ]),
   cursor: new Set(["CURSOR_API_KEY"]),
+  devin: new Set(["DEVIN_API_KEY", "WINDSURF_API_KEY"]),
   droid: new Set(["FACTORY_API_KEY"]),
   grok: new Set(["XAI_API_KEY", "GROK_CODE_XAI_API_KEY"]),
-  // Generic ACP startup must preserve only the exact credentials granted by
-  // its provider-specific caller. A missing spawn environment is not authority
-  // to inherit every provider credential from the Synara server.
-  acp: new Set(),
-  // The Codex process boundary grants either OpenAI or the active custom
-  // provider's configured env_key explicitly.
-  codex: new Set(),
-  // Health, maintenance, and usage probes do not contact upstream model APIs.
-  kilo: new Set(),
-  opencode: new Set(),
-  pi: new Set(),
-  // The long-lived OpenCode-compatible daemons discover and serve arbitrary
-  // upstream model providers. Isolate their exceptional broad grant from the
-  // short-lived CLI probes above until the daemon pool is provider-keyed.
-  "kilo-server": "all",
-  "opencode-server": "all",
-  // Pi's model registry is multi-provider, but commands launched by the model
-  // are a separate trust boundary and do not need the model API credentials.
-  "pi-shell": new Set(),
-  // A saved setup command can execute repository-controlled lifecycle code
-  // (for example through a package-manager install). Never expose provider
-  // credentials to that process implicitly.
-  "worktree-setup": new Set(),
+  // These profiles deliberately support arbitrary upstream model providers.
+  acp: "all",
+  codex: "all",
+  opencode: "all",
+  pi: "all",
+  omp: "all",
 };
+
+export function providerCredentialKeysFor(provider: ProviderChildKind): readonly string[] {
+  const grants = PROVIDER_CREDENTIAL_GRANTS[provider];
+  return [...(grants === "all" ? PROVIDER_CREDENTIAL_KEYS : grants)];
+}
 
 const INHERITED_NATIVE_CAPABILITY_KEYS = new Set([
   "BUN_OPTIONS",
@@ -102,7 +95,6 @@ export function buildProviderChildEnvironment(input: {
   readonly baseEnv?: NodeJS.ProcessEnv;
   readonly inheritedSynaraKeys?: ReadonlyArray<string>;
   readonly inheritedNativeCapabilityKeys?: ReadonlyArray<string>;
-  readonly additionalCredentialKeys?: ReadonlyArray<string>;
   readonly overrides?: NodeJS.ProcessEnv;
 }): NodeJS.ProcessEnv {
   const baseEnv = {
@@ -112,9 +104,6 @@ export function buildProviderChildEnvironment(input: {
   const allowedSynaraKeys = new Set(input.inheritedSynaraKeys ?? []);
   const allowedNativeCapabilities = new Set(input.inheritedNativeCapabilityKeys ?? []);
   const credentialGrants = PROVIDER_CREDENTIAL_GRANTS[input.provider];
-  const additionalCredentialGrants = new Set(
-    (input.additionalCredentialKeys ?? []).map((key) => key.trim().toUpperCase()),
-  );
   const childEnv: NodeJS.ProcessEnv = {};
 
   for (const [key, value] of Object.entries(baseEnv)) {
@@ -131,8 +120,7 @@ export function buildProviderChildEnvironment(input: {
     if (
       isProviderCredentialKey(key) &&
       credentialGrants !== "all" &&
-      !credentialGrants.has(key.toUpperCase()) &&
-      !additionalCredentialGrants.has(key.toUpperCase())
+      !credentialGrants.has(key.toUpperCase())
     ) {
       continue;
     }
