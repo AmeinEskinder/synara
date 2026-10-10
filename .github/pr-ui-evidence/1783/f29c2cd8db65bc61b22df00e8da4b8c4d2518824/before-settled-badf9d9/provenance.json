@@ -1,0 +1,63 @@
+{
+  "target": {
+    "id": "pr1783-before",
+    "pr": 1783,
+    "original": 787,
+    "variant": "before",
+    "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+    "mode": "native",
+    "fixture": "native-ui",
+    "destination": "apps/web/e2e/evidence"
+  },
+  "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+  "sourceTree": "f7c039cd491466f5ca735040a78e082b0ab94642",
+  "driver": "badf9d9afe6e6168aa822a866f418eaa5203ff80",
+  "overlays": [
+    {
+      "path": "apps/web/e2e/evidence/captureNativeUi.mjs",
+      "originalSha256": null,
+      "sha256": "5c9f6d1e48a02a538bcd8aa3cd2f33677d6d98e6d3e2a82dc1db68476296f888"
+    },
+    {
+      "path": "apps/web/e2e/evidence/nativeUi.html",
+      "originalSha256": null,
+      "sha256": "a46032a88fc3e989f6f18321e91029d957a1d80daac349b2f261e2e9b966fdf1"
+    },
+    {
+      "path": "apps/web/e2e/evidence/nativeUi.tsx",
+      "originalSha256": null,
+      "sha256": "2ca82c0c4713e82d033763d0888b15c6b08f883249df9969dc5991ebfb29f53e"
+    },
+    {
+      "path": "apps/web/e2e/evidence/nativeUiMain.ts",
+      "originalSha256": null,
+      "sha256": "975009e2d203014746aac30fd1ada29965f60fdc2f5900c83ea0f43fd28371c7"
+    },
+    {
+      "path": "apps/web/e2e/evidence/nativeUiPreload.cjs",
+      "originalSha256": null,
+      "sha256": "9cd3170d365d97341bc804862b0f331a12d5258450289aff0cc9faeb2464f201"
+    }
+  ],
+  "status": "completed",
+  "applicationCodeModified": false,
+  "createdAt": "2026-10-10T23:33:11.852Z",
+  "images": [
+    {
+      "name": "pr1783-before-controls.png",
+      "bytes": 33459,
+      "sha256": "5b5eec20b8b88de08427d2a1e2a53f80c8da85f095997793e6ae4ebb15ac8001"
+    },
+    {
+      "name": "pr1783-before-floating.png",
+      "bytes": 32869,
+      "sha256": "1ded53eac17308d664c98f4d4a20cb62469d4e7728091f2faf11e38a079a2019"
+    },
+    {
+      "name": "pr1783-before-sidebar.png",
+      "bytes": 64777,
+      "sha256": "4e905b4af32b5a602ca829e2ecabea71b0abc2103aeaefd0f29aced95ec25eee"
+    }
+  ],
+  "completedAt": "2026-10-10T23:33:25.083Z"
+}

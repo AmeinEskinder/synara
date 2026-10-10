@@ -1,0 +1,84 @@
+{
+  "run": 38094774215,
+  "runUrl": "https://github.com/Emanuele-web04/synara/actions/runs/38094774215",
+  "driver": "badf9d9afe6e6168aa822a866f418eaa5203ff80",
+  "baseline": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+  "scope": "Actual production React FloatingBrowserPanel/BrowserPanel and DesktopBrowserManager in an isolated Electron component/native scenario. The historical main and feature source revisions are pinned; these are not screenshots of the entire running application. The identical controlled loopback page receives the recorded light palette at each capture. Host and native browser control styles are unchanged.",
+  "captures": [
+    {
+      "pr": 1783,
+      "original": 787,
+      "variant": "before",
+      "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+      "sourceTree": "f7c039cd491466f5ca735040a78e082b0ab94642",
+      "driver": "badf9d9afe6e6168aa822a866f418eaa5203ff80",
+      "job": 114339685930,
+      "artifactId": 11685303792,
+      "artifactDigest": "sha256:53c6a95ae6c73c3bc620db305d72576fa857927b3596693316ca76d19952d323",
+      "path": ".github/pr-ui-evidence/1783/f29c2cd8db65bc61b22df00e8da4b8c4d2518824/before-settled-badf9d9",
+      "images": [
+        {
+          "name": "pr1783-before-controls.png",
+          "bytes": 33459,
+          "sha256": "5b5eec20b8b88de08427d2a1e2a53f80c8da85f095997793e6ae4ebb15ac8001"
+        },
+        {
+          "name": "pr1783-before-floating.png",
+          "bytes": 32869,
+          "sha256": "1ded53eac17308d664c98f4d4a20cb62469d4e7728091f2faf11e38a079a2019"
+        },
+        {
+          "name": "pr1783-before-sidebar.png",
+          "bytes": 64777,
+          "sha256": "4e905b4af32b5a602ca829e2ecabea71b0abc2103aeaefd0f29aced95ec25eee"
+        }
+      ],
+      "qualification": "Native window captures of the floating panel, fully expanded controls and sidebar handoff. Exact host identity, real native guest, readable controlled page, visible/settled controls and zero page errors are asserted. This fixed scenario is not a performance benchmark or a claim about all browser lifecycle paths."
+    },
+    {
+      "pr": 1783,
+      "original": 787,
+      "variant": "after",
+      "source": "6a3b281e2238d42add2ba7c37bacbb1723f46577",
+      "sourceTree": "d168b0d5db30a1f9a2a3b14640fd7d94793df14e",
+      "driver": "badf9d9afe6e6168aa822a866f418eaa5203ff80",
+      "job": 114339685911,
+      "artifactId": 11685068615,
+      "artifactDigest": "sha256:affc255ebdd5c6aab0cda90d8777d5620d87b1790d0df06e3729d2c40c01aa95",
+      "path": ".github/pr-ui-evidence/1783/6a3b281e2238d42add2ba7c37bacbb1723f46577/after-settled-badf9d9",
+      "images": [
+        {
+          "name": "pr1783-after-controls.png",
+          "bytes": 31865,
+          "sha256": "18a7af3215099774fd73f42f7b03baccaf408d60e54c534cb76214637c7e25d0"
+        },
+        {
+          "name": "pr1783-after-floating.png",
+          "bytes": 30975,
+          "sha256": "d0ae2abc30a72cbe23eb427320ce94d84093b145a21cb9023f85f060d029288d"
+        },
+        {
+          "name": "pr1783-after-sidebar.png",
+          "bytes": 64949,
+          "sha256": "e684ad6c86fc72996ac0c3f9a76c34fee2f94f6cd6f8d792233eaad14311b16f"
+        }
+      ],
+      "qualification": "Native window captures of the floating panel, fully expanded controls and sidebar handoff. Exact host identity, real native guest, readable controlled page, visible/settled controls and zero page errors are asserted. This fixed scenario is not a performance benchmark or a claim about all browser lifecycle paths."
+    }
+  ],
+  "previousAttempts": [
+    {
+      "run": 38090364772,
+      "result": "Both native fixtures failed; no native screenshots published."
+    },
+    {
+      "run": 38093180814,
+      "result": "Before capture executed but the controlled transparent page was unreadable; after failed host-marker readiness before producing an image. Native images unpublished."
+    },
+    {
+      "run": 38093940482,
+      "driver": "c49b926b847c88bfb77040e444082b953fa641cd",
+      "result": "Both source executions passed. Images were rejected because the baseline sidebar lost the controlled page palette on guest replacement and the after controls were captured before the expanded native view painted. Original artifacts and provenance remain available; those images are unpublished."
+    }
+  ]
+}

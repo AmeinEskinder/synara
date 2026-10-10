@@ -1,0 +1,63 @@
+{
+  "target": {
+    "id": "pr1783-after",
+    "pr": 1783,
+    "original": 787,
+    "variant": "after",
+    "source": "6a3b281e2238d42add2ba7c37bacbb1723f46577",
+    "mode": "native",
+    "fixture": "native-ui",
+    "destination": "apps/web/e2e/evidence"
+  },
+  "source": "6a3b281e2238d42add2ba7c37bacbb1723f46577",
+  "sourceTree": "d168b0d5db30a1f9a2a3b14640fd7d94793df14e",
+  "driver": "badf9d9afe6e6168aa822a866f418eaa5203ff80",
+  "overlays": [
+    {
+      "path": "apps/web/e2e/evidence/captureNativeUi.mjs",
+      "originalSha256": null,
+      "sha256": "5c9f6d1e48a02a538bcd8aa3cd2f33677d6d98e6d3e2a82dc1db68476296f888"
+    },
+    {
+      "path": "apps/web/e2e/evidence/nativeUi.html",
+      "originalSha256": null,
+      "sha256": "a46032a88fc3e989f6f18321e91029d957a1d80daac349b2f261e2e9b966fdf1"
+    },
+    {
+      "path": "apps/web/e2e/evidence/nativeUi.tsx",
+      "originalSha256": null,
+      "sha256": "2ca82c0c4713e82d033763d0888b15c6b08f883249df9969dc5991ebfb29f53e"
+    },
+    {
+      "path": "apps/web/e2e/evidence/nativeUiMain.ts",
+      "originalSha256": null,
+      "sha256": "975009e2d203014746aac30fd1ada29965f60fdc2f5900c83ea0f43fd28371c7"
+    },
+    {
+      "path": "apps/web/e2e/evidence/nativeUiPreload.cjs",
+      "originalSha256": null,
+      "sha256": "9cd3170d365d97341bc804862b0f331a12d5258450289aff0cc9faeb2464f201"
+    }
+  ],
+  "status": "completed",
+  "applicationCodeModified": false,
+  "createdAt": "2026-10-10T23:30:52.074Z",
+  "images": [
+    {
+      "name": "pr1783-after-controls.png",
+      "bytes": 31865,
+      "sha256": "18a7af3215099774fd73f42f7b03baccaf408d60e54c534cb76214637c7e25d0"
+    },
+    {
+      "name": "pr1783-after-floating.png",
+      "bytes": 30975,
+      "sha256": "d0ae2abc30a72cbe23eb427320ce94d84093b145a21cb9023f85f060d029288d"
+    },
+    {
+      "name": "pr1783-after-sidebar.png",
+      "bytes": 64949,
+      "sha256": "e684ad6c86fc72996ac0c3f9a76c34fee2f94f6cd6f8d792233eaad14311b16f"
+    }
+  ],
+  "completedAt": "2026-10-10T23:31:06.967Z"
+}

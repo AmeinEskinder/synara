@@ -1,0 +1,43 @@
+{
+  "testedHead": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+  "label": "pr1783-before",
+  "hostUrl": "http://127.0.0.1:5173/e2e/evidence/nativeUi.html",
+  "hostWindowId": 1,
+  "fixturePageCss": "html, body { color-scheme: light; background: #fff; color: #111; }",
+  "captureStates": [
+    {
+      "name": "floating",
+      "fixtureGuest": {
+        "id": 3,
+        "url": "http://127.0.0.1:37031/app",
+        "background": "rgb(255, 255, 255)",
+        "color": "rgb(17, 17, 17)"
+      }
+    },
+    {
+      "name": "controls",
+      "fixtureGuest": {
+        "id": 3,
+        "url": "http://127.0.0.1:37031/app",
+        "background": "rgb(255, 255, 255)",
+        "color": "rgb(17, 17, 17)"
+      }
+    },
+    {
+      "name": "sidebar",
+      "fixtureGuest": {
+        "id": 4,
+        "url": "http://127.0.0.1:37031/app",
+        "background": "rgb(255, 255, 255)",
+        "color": "rgb(17, 17, 17)"
+      }
+    }
+  ],
+  "images": [
+    "/home/runner/work/synara/synara/.pr-ui-evidence-output/pr1783-before/pr1783-before-floating.png",
+    "/home/runner/work/synara/synara/.pr-ui-evidence-output/pr1783-before/pr1783-before-controls.png",
+    "/home/runner/work/synara/synara/.pr-ui-evidence-output/pr1783-before/pr1783-before-sidebar.png"
+  ],
+  "errors": [],
+  "boundary": "Production React FloatingBrowserPanel/BrowserPanel and DesktopBrowserManager in isolated native Electron fixture"
+}
