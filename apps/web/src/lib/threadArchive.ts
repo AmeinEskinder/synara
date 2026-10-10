@@ -3,11 +3,11 @@
 // Layer: Web orchestration helper
 // Exports: archiveThreadFromClient, unarchiveThreadFromClient, isThreadAlreadyUnarchivedError
 
-import type { NativeApi, ThreadId } from "@t3tools/contracts";
+import type { NativeApi, ThreadId } from "@synara/contracts";
 import {
   collectErrorMessages,
   THREAD_NOT_ARCHIVED_INVARIANT_MARKER,
-} from "@t3tools/shared/errorMessages";
+} from "@synara/shared/errorMessages";
 
 import { newCommandId } from "./utils";
 
@@ -18,12 +18,13 @@ type ThreadCommandDispatcher = Pick<NativeApi["orchestration"], "dispatchCommand
 export async function archiveThreadFromClient(
   api: ThreadCommandDispatcher,
   threadId: ThreadId,
-): Promise<void> {
-  await api.dispatchCommand({
+): Promise<number> {
+  const receipt = await api.dispatchCommand({
     type: "thread.archive",
     commandId: newCommandId(),
     threadId,
   });
+  return receipt.sequence;
 }
 
 // Detects the server invariant returned when an Undo races another restore (the

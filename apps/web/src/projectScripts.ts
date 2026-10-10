@@ -3,7 +3,8 @@ import {
   SCRIPT_RUN_COMMAND_PATTERN,
   type KeybindingCommand,
   type ProjectScript,
-} from "@t3tools/contracts";
+  type ThreadId,
+} from "@synara/contracts";
 import { Schema } from "effect";
 
 function normalizeScriptId(value: string): string {
@@ -73,26 +74,18 @@ export interface ProjectScriptRunOptions {
 }
 
 export interface ProjectScriptRunResult {
+  threadId: ThreadId;
   terminalId: string;
-}
-
-export function projectScriptCwd(input: {
-  project: {
-    cwd: string;
-  };
-  worktreePath?: string | null;
-}): string {
-  return input.worktreePath ?? input.project.cwd;
 }
 
 export function projectScriptRuntimeEnv(
   input: ProjectScriptRuntimeEnvInput,
 ): Record<string, string> {
   const env: Record<string, string> = {
-    T3CODE_PROJECT_ROOT: input.project.cwd,
+    SYNARA_PROJECT_ROOT: input.project.cwd,
   };
   if (input.worktreePath) {
-    env.T3CODE_WORKTREE_PATH = input.worktreePath;
+    env.SYNARA_WORKTREE_PATH = input.worktreePath;
   }
   if (input.extraEnv) {
     return { ...env, ...input.extraEnv };

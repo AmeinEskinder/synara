@@ -2,23 +2,20 @@
 // Purpose: Verifies archived-thread delete coordination without rendering settings UI.
 // Layer: Web orchestration helper tests
 
-import { ThreadId } from "@t3tools/contracts";
+import { ThreadId } from "@synara/contracts";
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  deleteArchivedThreadFromClient,
-  deleteArchivedThreadsFromClient,
-} from "./archivedThreadDelete";
+import { deleteArchivedThreadsFromClient } from "./archivedThreadDelete";
 
-describe("deleteArchivedThreadFromClient", () => {
+describe("deleteArchivedThreadsFromClient", () => {
   it("dispatches delete, then removes the local row", async () => {
     const threadId = ThreadId.makeUnsafe("thread-archived");
     const dispatchCommand = vi.fn().mockResolvedValue({ sequence: 11 });
     const removeDeletedThreadFromClientState = vi.fn();
 
-    await deleteArchivedThreadFromClient({
+    await deleteArchivedThreadsFromClient({
       api: { dispatchCommand },
-      threadId,
+      threadIds: [threadId],
       removeDeletedThreadFromClientState,
     });
 

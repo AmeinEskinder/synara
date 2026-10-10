@@ -4,7 +4,7 @@
 // Exports: summary/reason normalizers plus AI completion-evaluation result builders.
 // Depends on: automation run-result contracts shared with the web app.
 
-import type { AutomationRunResult } from "@t3tools/contracts";
+import type { AutomationRunResult } from "@synara/contracts";
 
 const AUTOMATION_RUN_RESULT_SUMMARY_MAX_CHARS = 2_000;
 const AUTOMATION_COMPLETION_REASON_MAX_CHARS = 1_000;
@@ -20,6 +20,23 @@ export function automationRunResultSummary(
   const summary = value ?? fallback ?? null;
   const trimmed = summary?.trim();
   return trimmed ? trimmed.slice(0, AUTOMATION_RUN_RESULT_SUMMARY_MAX_CHARS) : null;
+}
+
+export function automationRunResultSummaryWithNotice(
+  baseSummary: string | null | undefined,
+  notice: string,
+): string | null {
+  const normalizedBase = baseSummary?.trim();
+  if (!normalizedBase) {
+    return automationRunResultSummary(notice);
+  }
+  const separator = "\n\n";
+  const availableBaseChars = Math.max(
+    0,
+    AUTOMATION_RUN_RESULT_SUMMARY_MAX_CHARS - notice.length - separator.length,
+  );
+  const truncatedBase = normalizedBase.slice(0, availableBaseChars).trimEnd();
+  return automationRunResultSummary(`${truncatedBase}${separator}${notice}`);
 }
 
 export function normalizeAutomationCompletionReason(value: string | null | undefined): string {

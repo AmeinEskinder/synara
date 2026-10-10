@@ -2,7 +2,7 @@
 // Purpose: Renders the compact assistant-selection count chip used in composer and user bubbles.
 // Layer: Chat attachment presentation
 
-import { pluralize } from "@t3tools/shared/text";
+import { pluralize } from "@synara/shared/text";
 
 import { MessageCircleIcon } from "~/lib/icons";
 import { type ChatAssistantSelectionAttachment } from "../../types";
@@ -29,7 +29,7 @@ export function AssistantSelectionsSummaryChip(props: AssistantSelectionsSummary
       removeLabel="Remove selections"
       onRemove={props.onRemove}
       tooltip={props.selections.map((selection) => (
-        <p key={selection.id} className="text-xs leading-relaxed">
+        <p key={selection.id} className="text-ui leading-relaxed">
           {selection.text}
         </p>
       ))}

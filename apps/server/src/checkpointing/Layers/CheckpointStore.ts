@@ -17,7 +17,7 @@ import { CheckpointInvariantError, type CheckpointStoreError } from "../Errors.t
 import { GitCommandError } from "../../git/Errors.ts";
 import { GitCore } from "../../git/Services/GitCore.ts";
 import { CheckpointStore, type CheckpointStoreShape } from "../Services/CheckpointStore.ts";
-import { CheckpointRef } from "@t3tools/contracts";
+import { CheckpointRef } from "@synara/contracts";
 
 const CHECKPOINT_DIFF_MAX_OUTPUT_BYTES = 10_000_000;
 
@@ -68,6 +68,35 @@ const makeCheckpointStore = Effect.gen(function* () {
       })
       .pipe(Effect.map((result) => result.code === 0));
 
+  const seedCheckpointIndex = (cwd: string, tempIndexPath: string) =>
+    Effect.gen(function* () {
+      const indexPathResult = yield* git.execute({
+        operation: "CheckpointStore.resolveWorkingIndex",
+        cwd,
+        args: ["rev-parse", "--git-path", "index"],
+        allowNonZeroExit: true,
+      });
+      const indexPathRaw = indexPathResult.stdout.trim();
+      if (indexPathResult.code !== 0 || indexPathRaw.length === 0) {
+        return null;
+      }
+
+      const indexPath = path.isAbsolute(indexPathRaw)
+        ? indexPathRaw
+        : path.resolve(cwd, indexPathRaw);
+      const indexExists = yield* fs.exists(indexPath).pipe(Effect.orElseSucceed(() => false));
+      if (!indexExists) {
+        return null;
+      }
+
+      // Preserve Git's stat cache in the throwaway index. Starting every
+      // checkpoint from `read-tree HEAD` discards it, forcing `git add -A` to
+      // rescan and re-hash the whole worktree before every user turn.
+      const indexInfo = yield* fs.stat(indexPath);
+      yield* fs.copyFile(indexPath, tempIndexPath);
+      return indexInfo;
+    });
+
   const resolveCheckpointCommit = (
     cwd: string,
     checkpointRef: CheckpointRef,
@@ -117,7 +146,7 @@ const makeCheckpointStore = Effect.gen(function* () {
       }
 
       yield* Effect.acquireUseRelease(
-        fs.makeTempDirectory({ prefix: "t3-fs-checkpoint-" }),
+        fs.makeTempDirectory({ prefix: "synara-fs-checkpoint-" }),
         (tempDir) =>
           Effect.gen(function* () {
             const tempIndexPath = path.join(tempDir, `index-${randomUUID()}`);
@@ -125,19 +154,47 @@ const makeCheckpointStore = Effect.gen(function* () {
               ...process.env,
               GIT_INDEX_FILE: tempIndexPath,
               GIT_AUTHOR_NAME: "Synara",
-              GIT_AUTHOR_EMAIL: "t3code@users.noreply.github.com",
+              GIT_AUTHOR_EMAIL: "synara@users.noreply.github.com",
               GIT_COMMITTER_NAME: "Synara",
-              GIT_COMMITTER_EMAIL: "t3code@users.noreply.github.com",
+              GIT_COMMITTER_EMAIL: "synara@users.noreply.github.com",
             };
 
-            const headExists = yield* hasHeadCommit(input.cwd);
-            if (headExists) {
+            const workingIndexInfo = yield* seedCheckpointIndex(input.cwd, tempIndexPath);
+            if (workingIndexInfo === null && (yield* hasHeadCommit(input.cwd))) {
               yield* git.execute({
                 operation,
                 cwd: input.cwd,
                 args: ["read-tree", "HEAD"],
                 env: commitEnv,
               });
+            }
+            if (workingIndexInfo !== null) {
+              // A copied index can describe a rapid same-size rewrite as clean
+              // when its cached stat tuple still matches. Really-refresh makes
+              // Git verify those racily-clean entries and leaves changed paths
+              // for the following add to hash, without discarding the cache for
+              // the rest of a large workspace.
+              yield* git.execute({
+                operation,
+                cwd: input.cwd,
+                args: ["update-index", "--really-refresh"],
+                env: commitEnv,
+                allowNonZeroExit: true,
+              });
+
+              // Copying or refreshing the temporary index advances its file
+              // timestamp. Git uses that timestamp to decide whether an entry
+              // whose cached stat tuple still matches is "racily clean" and
+              // needs hashing. Restore the working index's original timestamp
+              // so rapid same-size rewrites remain newer than (or equal to) the
+              // index snapshot and `git add` verifies their contents.
+              if (workingIndexInfo.mtime !== undefined) {
+                yield* fs.utimes(
+                  tempIndexPath,
+                  workingIndexInfo.atime ?? workingIndexInfo.mtime,
+                  workingIndexInfo.mtime,
+                );
+              }
             }
 
             yield* git.execute({
@@ -163,7 +220,7 @@ const makeCheckpointStore = Effect.gen(function* () {
               });
             }
 
-            const message = `t3 checkpoint ref=${input.checkpointRef}`;
+            const message = `Synara checkpoint ref=${input.checkpointRef}`;
             const commitTreeResult = yield* git.execute({
               operation,
               cwd: input.cwd,
@@ -324,8 +381,13 @@ const makeCheckpointStore = Effect.gen(function* () {
     Effect.gen(function* () {
       const operation = "CheckpointStore.diffCheckpoints";
 
-      let fromCommitOid = yield* resolveCheckpointCommit(input.cwd, input.fromCheckpointRef);
-      const toCommitOid = yield* resolveCheckpointCommit(input.cwd, input.toCheckpointRef);
+      let [fromCommitOid, toCommitOid] = yield* Effect.all(
+        [
+          resolveCheckpointCommit(input.cwd, input.fromCheckpointRef),
+          resolveCheckpointCommit(input.cwd, input.toCheckpointRef),
+        ],
+        { concurrency: "unbounded" },
+      );
 
       if (!fromCommitOid && input.fallbackFromToHead === true) {
         const headCommit = yield* resolveHeadCommit(input.cwd);
@@ -363,21 +425,264 @@ const makeCheckpointStore = Effect.gen(function* () {
       return result.stdout;
     });
 
+  // Rolls the working tree back to `treeOid` for the provided paths without
+  // touching the repository index: paths absent from the tree did not exist
+  // before the aborted apply, so they are deleted instead of restored.
+  const restoreWorktreePathsFromTree = (input: {
+    readonly cwd: string;
+    readonly treeOid: string;
+    readonly paths: ReadonlyArray<string>;
+  }) =>
+    Effect.gen(function* () {
+      const operation = "CheckpointStore.restoreWorktreePathsFromTree";
+      if (input.paths.length === 0) {
+        return;
+      }
+
+      const trackedResult = yield* git.execute({
+        operation,
+        cwd: input.cwd,
+        args: ["ls-tree", "-r", "--name-only", "-z", input.treeOid, "--", ...input.paths],
+        allowNonZeroExit: true,
+      });
+      const trackedPaths = trackedResult.stdout.split("\0").filter((entry) => entry.length > 0);
+      if (trackedPaths.length > 0) {
+        yield* git.execute({
+          operation,
+          cwd: input.cwd,
+          args: ["restore", "--source", input.treeOid, "--worktree", "--", ...trackedPaths],
+        });
+      }
+
+      const trackedPathSet = new Set(trackedPaths);
+      yield* Effect.forEach(
+        input.paths.filter((entry) => !trackedPathSet.has(entry)),
+        (relativePath) => fs.remove(path.join(input.cwd, relativePath), { force: true }),
+        { discard: true },
+      );
+    });
+
+  // Fallback for undo when the working tree drifted after the checkpoint: a
+  // plain `git apply --reverse` is all-or-nothing, so any unrelated edit in a
+  // touched hunk aborts the whole undo.
+  //
+  // `git apply --3way` implies `--index` and therefore refuses to run while the
+  // working tree differs from the index. Point it at a throwaway index that
+  // mirrors the current working tree so the merge can run; the repository index
+  // stays untouched and the caller's `git reset` remains its only writer.
+  const applyReverseWithThreeWayMerge = (input: {
+    readonly cwd: string;
+    readonly tempDir: string;
+    readonly patchPath: string;
+    readonly affectedPaths: ReadonlyArray<string>;
+    readonly strictApplyStderr: string;
+  }) =>
+    Effect.gen(function* () {
+      const operation = "CheckpointStore.reverseCheckpointDiff";
+      const mergeIndexEnv: NodeJS.ProcessEnv = {
+        ...process.env,
+        GIT_INDEX_FILE: path.join(input.tempDir, `undo-index-${randomUUID()}`),
+      };
+
+      const headExists = yield* hasHeadCommit(input.cwd);
+      if (headExists) {
+        yield* git.execute({
+          operation,
+          cwd: input.cwd,
+          args: ["read-tree", "HEAD"],
+          env: mergeIndexEnv,
+        });
+      }
+      yield* git.execute({
+        operation,
+        cwd: input.cwd,
+        args: ["add", "-A", "--", "."],
+        env: mergeIndexEnv,
+      });
+      // Snapshot of the pre-attempt working tree, used to undo a conflicted
+      // 3-way apply (which writes conflict markers before failing).
+      const preAttemptTreeResult = yield* git.execute({
+        operation,
+        cwd: input.cwd,
+        args: ["write-tree"],
+        env: mergeIndexEnv,
+      });
+      const preAttemptTreeOid = preAttemptTreeResult.stdout.trim();
+
+      const applied = yield* git.execute({
+        operation,
+        cwd: input.cwd,
+        args: ["apply", "--reverse", "--3way", "--whitespace=nowarn", "--", input.patchPath],
+        env: mergeIndexEnv,
+        allowNonZeroExit: true,
+      });
+      if (applied.code === 0) {
+        return;
+      }
+
+      if (preAttemptTreeOid.length > 0) {
+        yield* restoreWorktreePathsFromTree({
+          cwd: input.cwd,
+          treeOid: preAttemptTreeOid,
+          paths: input.affectedPaths,
+        }).pipe(
+          Effect.catchCause((cause) =>
+            Effect.logWarning("failed to roll back a conflicted checkpoint undo", {
+              cwd: input.cwd,
+              cause: Cause.pretty(cause),
+            }),
+          ),
+        );
+      }
+
+      return yield* new GitCommandError({
+        operation,
+        command: "git apply --reverse --3way",
+        cwd: input.cwd,
+        detail: [
+          "Undo could not be applied because the workspace changed since this checkpoint.",
+          input.strictApplyStderr.trim(),
+          applied.stderr.trim(),
+        ]
+          .filter((part) => part.length > 0)
+          .join(" "),
+      });
+    });
+
+  const reverseCheckpointDiff: CheckpointStoreShape["reverseCheckpointDiff"] = (input) =>
+    Effect.gen(function* () {
+      const operation = "CheckpointStore.reverseCheckpointDiff";
+      const [fromCommitOid, toCommitOid] = yield* Effect.all(
+        [
+          resolveCheckpointCommit(input.cwd, input.fromCheckpointRef),
+          resolveCheckpointCommit(input.cwd, input.toCheckpointRef),
+        ],
+        { concurrency: "unbounded" },
+      );
+
+      if (!fromCommitOid || !toCommitOid) {
+        return false;
+      }
+
+      const diff = yield* git.execute({
+        operation,
+        cwd: input.cwd,
+        args: [
+          "diff",
+          "--patch",
+          "--binary",
+          "--full-index",
+          "--no-color",
+          "--no-ext-diff",
+          "--no-textconv",
+          fromCommitOid,
+          toCommitOid,
+        ],
+        maxOutputBytes: input.maxOutputBytes ?? CHECKPOINT_DIFF_MAX_OUTPUT_BYTES,
+      });
+      if (diff.stdout.length === 0) {
+        return true;
+      }
+
+      const changedPaths = yield* git.execute({
+        operation,
+        cwd: input.cwd,
+        args: ["diff", "--name-only", "--no-renames", "-z", fromCommitOid, toCommitOid],
+        maxOutputBytes: input.maxOutputBytes ?? CHECKPOINT_DIFF_MAX_OUTPUT_BYTES,
+      });
+      const affectedPaths = changedPaths.stdout.split("\0").filter((entry) => entry.length > 0);
+
+      return yield* Effect.acquireUseRelease(
+        fs.makeTempDirectory({ prefix: "synara-checkpoint-undo-" }),
+        (tempDir) =>
+          Effect.gen(function* () {
+            const patchPath = path.join(tempDir, "turn.patch");
+            yield* fs.writeFileString(patchPath, diff.stdout);
+            const strictApply = yield* git.execute({
+              operation,
+              cwd: input.cwd,
+              args: ["apply", "--reverse", "--whitespace=nowarn", "--", patchPath],
+              allowNonZeroExit: true,
+            });
+            if (strictApply.code !== 0) {
+              yield* applyReverseWithThreeWayMerge({
+                cwd: input.cwd,
+                tempDir,
+                patchPath,
+                affectedPaths,
+                strictApplyStderr: strictApply.stderr,
+              });
+            }
+            if (affectedPaths.length > 0) {
+              const resetExit = yield* Effect.exit(
+                git.execute({
+                  operation,
+                  cwd: input.cwd,
+                  args: ["reset", "--quiet", fromCommitOid, "--", ...affectedPaths],
+                }),
+              );
+              if (Exit.isFailure(resetExit)) {
+                yield* git.execute({
+                  operation,
+                  cwd: input.cwd,
+                  args: ["apply", "--whitespace=nowarn", "--", patchPath],
+                });
+                return yield* Effect.failCause(resetExit.cause);
+              }
+            }
+            return true;
+          }),
+        (tempDir) => fs.remove(tempDir, { recursive: true }),
+      ).pipe(
+        Effect.catchTag("PlatformError", (error) =>
+          Effect.fail(
+            new CheckpointInvariantError({
+              operation,
+              detail: "Failed to prepare the checkpoint patch for undo.",
+              cause: error,
+            }),
+          ),
+        ),
+      );
+    });
+
   const deleteCheckpointRefs: CheckpointStoreShape["deleteCheckpointRefs"] = (input) =>
     Effect.gen(function* () {
       const operation = "CheckpointStore.deleteCheckpointRefs";
 
-      yield* Effect.forEach(
-        input.checkpointRefs,
-        (checkpointRef) =>
-          git.execute({
+      // Ref deletion writes contend on packed-refs.lock, so a concurrent delete
+      // can lose the lock race. `allowNonZeroExit` keeps one loser from
+      // abandoning the rest of the batch, but the exit codes must still be
+      // inspected: silently discarding them made every caller's cleanup error
+      // handling unreachable. Deleting an already-absent ref exits 0, so the
+      // "missing refs are tolerated" contract is unaffected.
+      const results = yield* Effect.forEach(input.checkpointRefs, (checkpointRef) =>
+        git
+          .execute({
             operation,
             cwd: input.cwd,
             args: ["update-ref", "-d", checkpointRef],
             allowNonZeroExit: true,
-          }),
-        { discard: true },
+          })
+          .pipe(Effect.map((result) => ({ checkpointRef, result }))),
       );
+
+      const failures = results.filter((entry) => entry.result.code !== 0);
+      if (failures.length === 0) {
+        return;
+      }
+
+      return yield* new GitCommandError({
+        operation,
+        command: "git update-ref -d",
+        cwd: input.cwd,
+        detail: `Failed to delete ${failures.length} of ${results.length} checkpoint ref(s): ${failures
+          .map(
+            (entry) =>
+              `${entry.checkpointRef} (${entry.result.stderr.trim() || `exit code ${entry.result.code}`})`,
+          )
+          .join("; ")}`,
+      });
     });
 
   return {
@@ -387,6 +692,7 @@ const makeCheckpointStore = Effect.gen(function* () {
     hasCheckpointRef,
     restoreCheckpoint,
     diffCheckpoints,
+    reverseCheckpointDiff,
     deleteCheckpointRefs,
   } satisfies CheckpointStoreShape;
 });

@@ -1,4 +1,4 @@
-import { EventId, MessageId, ThreadId, TurnId } from "@t3tools/contracts";
+import { EventId, MessageId, ThreadId, TurnId } from "@synara/contracts";
 import { describe, expect, it } from "vitest";
 
 import type { AppState } from "../store";
@@ -112,6 +112,35 @@ describe("createThreadLineageSelector", () => {
 
     expect(after).not.toBe(before);
     expect(after[0]?.activities[0]).toBe(nextActivity);
+  });
+
+  it("stays stable when a lineage shell only rewrites a field the lineage does not read", () => {
+    const selectLineage = createThreadLineageSelector(childThreadId);
+    const before = selectLineage(makeState());
+    // What every streamed token does to the active thread's shell.
+    const after = selectLineage(
+      makeState({
+        threadShellById: {
+          ...threadShellById,
+          [childThreadId]: {
+            ...threadShellById[childThreadId]!,
+            updatedAt: "2026-01-01T00:05:00.000Z",
+          },
+        },
+      }),
+    );
+    expect(after).toBe(before);
+
+    const renamed = selectLineage(
+      makeState({
+        threadShellById: {
+          ...threadShellById,
+          [childThreadId]: { ...threadShellById[childThreadId]!, title: "Renamed child" },
+        },
+      }),
+    );
+    expect(renamed).not.toBe(before);
+    expect(renamed.at(-1)?.title).toBe("Renamed child");
   });
 
   it("stays stable when unrelated thread shells change", () => {

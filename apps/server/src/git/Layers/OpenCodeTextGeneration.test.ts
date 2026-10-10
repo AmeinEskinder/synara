@@ -7,7 +7,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { it } from "@effect/vitest";
 import { Duration, Effect, Fiber, Layer } from "effect";
 import { TestClock } from "effect/testing";
-import { beforeEach, expect } from "vitest";
+import { beforeEach, expect, test } from "vitest";
 
 import { ServerConfig } from "../../config.ts";
 import {
@@ -16,7 +16,20 @@ import {
   type OpenCodeRuntimeShape,
 } from "../../provider/opencodeRuntime.ts";
 import { OpenCodeTextGeneration } from "../Services/TextGeneration.ts";
-import { OpenCodeTextGenerationServiceLive } from "./OpenCodeTextGeneration.ts";
+import {
+  makeOpenCodeTextGenerationServiceLive,
+  OpenCodeTextGenerationServiceLive,
+  openCodeTextGenerationEnvironmentFingerprint,
+} from "./OpenCodeTextGeneration.ts";
+
+test("text-generation environment fingerprints preserve presence and resist old hash collisions", () => {
+  expect(openCodeTextGenerationEnvironmentFingerprint(undefined)).not.toBe(
+    openCodeTextGenerationEnvironmentFingerprint({}),
+  );
+  expect(openCodeTextGenerationEnvironmentFingerprint({ OPENAI_API_KEY: "a02hh7njhk5" })).not.toBe(
+    openCodeTextGenerationEnvironmentFingerprint({ OPENAI_API_KEY: "p7fe9wsknu9" }),
+  );
+});
 
 const runtimeMock = {
   state: {
@@ -64,6 +77,7 @@ const OpenCodeRuntimeTestDouble: OpenCodeRuntimeShape = {
 
       return {
         url,
+        serverPassword: `managed-password-${index}`,
         exitCode: Effect.never,
       };
     }),
@@ -145,11 +159,11 @@ const DEFAULT_TEST_MODEL_SELECTION = {
 const OPENCODE_TEXT_GENERATION_IDLE_TTL_MS = 30_000;
 
 const OpenCodeTextGenerationServerConfigLayer = ServerConfig.layerTest(process.cwd(), {
-  prefix: "t3code-opencode-text-generation-test-",
+  prefix: "synara-opencode-text-generation-test-",
 });
 
 const OpenCodeTextGenerationExistingServerConfigLayer = ServerConfig.layerTest(process.cwd(), {
-  prefix: "t3code-opencode-text-generation-existing-server-test-",
+  prefix: "synara-opencode-text-generation-existing-server-test-",
 });
 
 const OpenCodeTextGenerationTestLayer = Layer.mergeAll(
@@ -163,7 +177,7 @@ const OpenCodeTextGenerationTestLayer = Layer.mergeAll(
 
 const OpenCodeTextGenerationExistingServerTestLayer = Layer.mergeAll(
   NodeServices.layer,
-  OpenCodeTextGenerationServiceLive.pipe(
+  makeOpenCodeTextGenerationServiceLive(() => Effect.succeed("secret-password")).pipe(
     Layer.provide(OpenCodeTextGenerationExistingServerConfigLayer),
     Layer.provide(Layer.succeed(OpenCodeRuntime, OpenCodeRuntimeTestDouble)),
     Layer.provide(NodeServices.layer),
@@ -207,6 +221,10 @@ it.layer(OpenCodeTextGenerationTestLayer)("OpenCodeTextGenerationServiceLive", (
         "http://127.0.0.1:4301",
       ]);
       expect(runtimeMock.state.closeCalls).toEqual([]);
+      expect(runtimeMock.state.authHeaders).toEqual([
+        `Basic ${btoa("opencode:managed-password-1")}`,
+        `Basic ${btoa("opencode:managed-password-1")}`,
+      ]);
 
       yield* advanceIdleClock;
 
@@ -240,6 +258,10 @@ it.layer(OpenCodeTextGenerationTestLayer)("OpenCodeTextGenerationServiceLive", (
       expect(runtimeMock.state.promptUrls).toEqual([
         "http://127.0.0.1:4301",
         "http://127.0.0.1:4302",
+      ]);
+      expect(runtimeMock.state.authHeaders).toEqual([
+        `Basic ${btoa("opencode:managed-password-1")}`,
+        `Basic ${btoa("opencode:managed-password-2")}`,
       ]);
       expect(runtimeMock.state.closeCalls).toEqual(["http://127.0.0.1:4301"]);
     }).pipe(Effect.provide(TestClock.layer())),
@@ -330,6 +352,10 @@ it.layer(OpenCodeTextGenerationTestLayer)("OpenCodeTextGenerationServiceLive", (
         "http://127.0.0.1:4302",
       ]);
       expect(runtimeMock.state.closeCalls).toContain("http://127.0.0.1:4302");
+      expect(runtimeMock.state.authHeaders).toEqual([
+        `Basic ${btoa("opencode:managed-password-1")}`,
+        `Basic ${btoa("opencode:managed-password-2")}`,
+      ]);
     }).pipe(Effect.provide(TestClock.layer())),
   );
 
@@ -483,11 +509,71 @@ it.layer(OpenCodeTextGenerationTestLayer)("OpenCodeTextGenerationServiceLive", (
       expect(error.message).toContain("Model did not produce structured output");
     }),
   );
+
+  it.effect("does not lend the default server password to a custom instance", () =>
+    Effect.gen(function* () {
+      const textGeneration = yield* OpenCodeTextGeneration;
+
+      yield* textGeneration.generateCommitMessage({
+        cwd: process.cwd(),
+        branch: "feature/opencode-work",
+        stagedSummary: "M README.md",
+        stagedPatch: "diff --git a/README.md b/README.md",
+        modelSelection: {
+          provider: "opencode",
+          instanceId: "opencode_work",
+          model: "openai/gpt-5",
+        },
+        providerOptions: {
+          opencode: { serverUrl: "http://127.0.0.1:9999" },
+        },
+      });
+      yield* textGeneration.generateCommitMessage({
+        cwd: process.cwd(),
+        branch: "feature/opencode-work-explicit",
+        stagedSummary: "M README.md",
+        stagedPatch: "diff --git a/README.md b/README.md",
+        modelSelection: {
+          provider: "opencode",
+          instanceId: "opencode_work",
+          model: "openai/gpt-5",
+        },
+        providerOptions: {
+          opencode: {
+            serverUrl: "http://127.0.0.1:9999",
+            serverPassword: "work-password",
+          },
+        },
+      });
+
+      expect(runtimeMock.state.authHeaders).toEqual([
+        null,
+        `Basic ${btoa("opencode:work-password")}`,
+      ]);
+    }),
+  );
 });
 
 it.layer(OpenCodeTextGenerationExistingServerTestLayer)(
   "OpenCodeTextGenerationServiceLive with configured server URL",
   (it) => {
+    it.effect("uses the managed server password instead of a saved external password", () =>
+      Effect.gen(function* () {
+        const textGeneration = yield* OpenCodeTextGeneration;
+        yield* textGeneration.generateCommitMessage({
+          cwd: process.cwd(),
+          branch: "feature/opencode-auth",
+          stagedSummary: "M README.md",
+          stagedPatch: "diff --git a/README.md b/README.md",
+          modelSelection: DEFAULT_TEST_MODEL_SELECTION,
+        });
+
+        expect(runtimeMock.state.authHeaders).toEqual([
+          `Basic ${btoa("opencode:managed-password-1")}`,
+        ]);
+      }).pipe(Effect.provide(TestClock.layer())),
+    );
+
     it.effect("reuses a configured OpenCode server URL without spawning or applying idle TTL", () =>
       Effect.gen(function* () {
         const textGeneration = yield* OpenCodeTextGeneration;
@@ -501,7 +587,6 @@ it.layer(OpenCodeTextGenerationExistingServerTestLayer)(
           providerOptions: {
             opencode: {
               serverUrl: "http://127.0.0.1:9999",
-              serverPassword: "secret-password",
             },
           },
         });
@@ -514,7 +599,6 @@ it.layer(OpenCodeTextGenerationExistingServerTestLayer)(
           providerOptions: {
             opencode: {
               serverUrl: "http://127.0.0.1:9999",
-              serverPassword: "secret-password",
             },
           },
         });

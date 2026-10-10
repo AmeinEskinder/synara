@@ -7,7 +7,7 @@
 //          host (the chat header) and gate it with `enabled`.
 // Layer: Chat editor action hook
 
-import type { EditorId, ResolvedKeybindingsConfig } from "@t3tools/contracts";
+import type { EditorId, ResolvedKeybindingsConfig } from "@synara/contracts";
 import { useEffect } from "react";
 
 import { usePreferredEditor } from "../editorPreferences";
@@ -18,7 +18,7 @@ export function useOpenFavoriteEditorShortcut({
   keybindings,
   availableEditors,
   openInTarget,
-  enabled = true,
+  enabled: enabledProp,
 }: {
   keybindings: ResolvedKeybindingsConfig;
   availableEditors: ReadonlyArray<EditorId>;
@@ -26,6 +26,7 @@ export function useOpenFavoriteEditorShortcut({
   /** When false the listener is not registered (e.g. temporary threads with no project). */
   enabled?: boolean;
 }): void {
+  const enabled = enabledProp ?? true;
   const [preferredEditor] = usePreferredEditor(availableEditors);
 
   useEffect(() => {

@@ -1,10 +1,10 @@
 // FILE: central-icons.tsx
 // Purpose: Resolve and render Central icon SVGs shipped as static web assets.
 // Layer: web UI utility
-// Exports: CentralIcon, getCentralIconUrl, createCentralIconElement
+// Exports: CentralIcon, getCentralIconUrl, createCentralIconElement, createCentralIconComponent
 // Depends on: Vite public asset serving and app className merging utilities.
 
-import { forwardRef, type CSSProperties, type HTMLAttributes } from "react";
+import { forwardRef, type CSSProperties, type HTMLAttributes, type ReactElement } from "react";
 import { cn } from "./utils";
 
 // Central icons ship in two visual sets served as static assets: the default
@@ -31,6 +31,13 @@ export function getCentralIconUrl(
   name: string,
   variant: CentralIconVariant = DEFAULT_CENTRAL_ICON_VARIANT,
 ): string | null {
+  // Defensive: a non-string name (stale HMR module state, or a dynamic call site handing
+  // through bad data) must degrade to "no icon" with a loud diagnostic instead of taking
+  // down the whole tree with `name.endsWith is not a function`.
+  if (typeof name !== "string") {
+    console.error("[central-icons] non-string icon name:", name, new Error("caller").stack);
+    return null;
+  }
   const normalizedName = name.endsWith(SVG_SUFFIX) ? name.slice(0, -SVG_SUFFIX.length) : name;
 
   if (!CENTRAL_ICON_NAME_PATTERN.test(normalizedName)) {
@@ -106,6 +113,20 @@ export const CentralIcon = forwardRef<HTMLSpanElement, CentralIconProps>(functio
     />
   );
 });
+
+// Adapts a Central icon name to the `ComponentType<{ className?: string }>` shape
+// expected by icon-prop APIs (SidebarIconButton, menu action descriptors, …) so
+// Central glyphs can drop in wherever a react-icons/lucide component was used.
+export function createCentralIconComponent(
+  name: string,
+  variant?: CentralIconVariant,
+): (props: { className?: string }) => ReactElement {
+  function CentralIconGlyph({ className }: { className?: string }) {
+    return <CentralIcon name={name} variant={variant} className={className} />;
+  }
+  CentralIconGlyph.displayName = `CentralIconGlyph(${name})`;
+  return CentralIconGlyph;
+}
 
 // Imperative twin of `CentralIcon` for non-React surfaces such as the Lexical
 // composer chips that build their DOM by hand. Returns null when the name is

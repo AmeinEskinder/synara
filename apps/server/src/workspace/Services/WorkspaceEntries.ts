@@ -7,11 +7,17 @@ import type {
   ProjectDiscoverScriptsResult,
   ProjectListDirectoriesInput,
   ProjectListDirectoriesResult,
+  ProjectPrewarmSearchIndexInput,
+  ProjectPrewarmSearchIndexResult,
+  ProjectResolveWorkspaceFileReferencesInput,
+  ProjectResolveWorkspaceFileReferencesResult,
+  ProjectSearchContentInput,
+  ProjectSearchContentResult,
   ProjectSearchEntriesInput,
   ProjectSearchEntriesResult,
   ProjectSearchLocalEntriesInput,
   ProjectSearchLocalEntriesResult,
-} from "@t3tools/contracts";
+} from "@synara/contracts";
 
 export interface WorkspaceEntriesShape {
   readonly browse: (
@@ -20,6 +26,13 @@ export interface WorkspaceEntriesShape {
   readonly search: (
     input: ProjectSearchEntriesInput,
   ) => Effect.Effect<ProjectSearchEntriesResult, WorkspaceEntriesError>;
+  readonly searchContent: (
+    input: ProjectSearchContentInput,
+  ) => Effect.Effect<ProjectSearchContentResult, WorkspaceEntriesError>;
+  // Fire-and-forget index warm-up; resolves before the build completes.
+  readonly prewarmSearchIndex: (
+    input: ProjectPrewarmSearchIndexInput,
+  ) => Effect.Effect<ProjectPrewarmSearchIndexResult, WorkspaceEntriesError>;
   readonly discoverScripts: (
     input: ProjectDiscoverScriptsInput,
   ) => Effect.Effect<ProjectDiscoverScriptsResult, WorkspaceEntriesError>;
@@ -35,11 +48,14 @@ export interface WorkspaceEntriesShape {
     readonly cwd: string;
     readonly relativePath: string;
   }) => Effect.Effect<string | null, WorkspaceEntriesError>;
+  readonly resolveFileReferences: (
+    input: ProjectResolveWorkspaceFileReferencesInput,
+  ) => Effect.Effect<ProjectResolveWorkspaceFileReferencesResult, WorkspaceEntriesError>;
   readonly invalidate: (cwd: string) => Effect.Effect<void, never>;
 }
 
 export class WorkspaceEntries extends ServiceMap.Service<WorkspaceEntries, WorkspaceEntriesShape>()(
-  "t3/workspace/Services/WorkspaceEntries",
+  "synara/workspace/Services/WorkspaceEntries",
 ) {}
 
 export class WorkspaceEntriesError extends Data.TaggedError("WorkspaceEntriesError")<{

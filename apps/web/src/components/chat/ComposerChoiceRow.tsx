@@ -40,23 +40,27 @@ const CHIP_TONE_CLASS_NAME: Record<ComposerChoiceTone, string> = {
   primary:
     "border border-[color:color-mix(in_srgb,var(--color-accent-blue)_50%,var(--color-border))] text-[var(--color-accent-blue)] group-hover:border-[color:color-mix(in_srgb,var(--color-accent-blue)_78%,var(--color-border))]",
   destructive:
-    "border border-[color:color-mix(in_srgb,var(--destructive)_42%,var(--color-border))] text-destructive-foreground group-hover:border-[color:color-mix(in_srgb,var(--destructive)_68%,var(--color-border))]",
+    "border border-[color:color-mix(in_srgb,var(--destructive)_42%,var(--color-border))] text-destructive group-hover:border-[color:color-mix(in_srgb,var(--destructive)_68%,var(--color-border))]",
 };
 
 export function ComposerChoiceRow({
   shortcut,
   label,
   description,
-  selected = false,
-  tone = "neutral",
-  disabled = false,
+  selected: selectedProp,
+  tone: toneProp,
+  disabled: disabledProp,
   trailing,
   onSelect,
 }: ComposerChoiceRowProps) {
+  const selected = selectedProp ?? false;
+  const tone = toneProp ?? "neutral";
+  const disabled = disabledProp ?? false;
   return (
     <button
       type="button"
       disabled={disabled}
+      aria-pressed={selectedProp === undefined ? undefined : selected}
       onClick={onSelect}
       className={cn(
         "group flex w-full items-start gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors duration-150",
@@ -67,7 +71,7 @@ export function ComposerChoiceRow({
       {shortcut !== null ? (
         <span
           className={cn(
-            "flex size-[18px] shrink-0 items-center justify-center rounded-full text-[11px] font-medium tabular-nums transition-colors duration-150",
+            "flex size-[18px] shrink-0 items-center justify-center rounded-full text-ui-sm font-medium tabular-nums transition-colors duration-150",
             selected
               ? "bg-[var(--color-text-foreground)] text-[var(--color-background-surface)]"
               : CHIP_TONE_CLASS_NAME[tone],
@@ -77,9 +81,9 @@ export function ComposerChoiceRow({
         </span>
       ) : null}
       <div className="min-w-0 flex-1 leading-snug">
-        <span className="text-[13px] font-medium text-foreground/90">{label}</span>
+        <span className="text-ui-lg font-medium text-foreground/90">{label}</span>
         {description && description !== label ? (
-          <span className="ml-1.5 text-[12px] text-muted-foreground/55">{description}</span>
+          <span className="ml-1.5 text-ui text-muted-foreground/55">{description}</span>
         ) : null}
       </div>
       {trailing}

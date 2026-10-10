@@ -6,8 +6,7 @@
 // Layer: Chat composer UI
 // Exports: ComposerLiveChangesHeader
 
-import { pluralize } from "@t3tools/shared/text";
-import { memo } from "react";
+import { pluralize } from "@synara/shared/text";
 
 import { ChangesIcon } from "~/lib/icons";
 import {
@@ -30,13 +29,14 @@ interface ComposerLiveChangesHeaderProps {
   attachedToPrevious?: boolean;
 }
 
-export const ComposerLiveChangesHeader = memo(function ComposerLiveChangesHeader({
+export function ComposerLiveChangesHeader({
   fileCount,
   additions,
   deletions,
   onReview,
-  attachedToPrevious = false,
+  attachedToPrevious: attachedToPreviousProp,
 }: ComposerLiveChangesHeaderProps) {
+  const attachedToPrevious = attachedToPreviousProp ?? false;
   if (fileCount === 0) {
     return null;
   }
@@ -59,4 +59,4 @@ export const ComposerLiveChangesHeader = memo(function ComposerLiveChangesHeader
       </ComposerStackedPanelRow>
     </ComposerStackedPanel>
   );
-});
+}

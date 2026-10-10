@@ -3,7 +3,7 @@
 // Layer: Web domain helper
 // Exports: date/slug helpers plus unique chat workspace path resolution.
 
-import { workspaceRootsEqual } from "@t3tools/shared/threadWorkspace";
+import { workspaceRootsEqual } from "@synara/shared/threadWorkspace";
 
 const FALLBACK_CHAT_WORKSPACE_SLUG = "new-thread";
 const MAX_CHAT_WORKSPACE_SLUG_LENGTH = 72;
@@ -26,13 +26,13 @@ function joinWorkspacePath(root: string, ...segments: readonly string[]): string
 }
 
 // Uses the user's local calendar day, matching the date-bucketed folders Codex creates.
-export function formatChatWorkspaceDate(date: Date): string {
+function formatChatWorkspaceDate(date: Date): string {
   return [date.getFullYear(), padDatePart(date.getMonth() + 1), padDatePart(date.getDate())].join(
     "-",
   );
 }
 
-export function slugifyChatWorkspaceSeed(seed: string): string {
+function slugifyChatWorkspaceSeed(seed: string): string {
   const normalized = seed
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")

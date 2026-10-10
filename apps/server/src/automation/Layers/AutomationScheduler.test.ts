@@ -8,7 +8,7 @@ import {
   AutomationId,
   type AutomationDefinition,
   type AutomationStreamEvent,
-} from "@t3tools/contracts";
+} from "@synara/contracts";
 import { Effect, Layer, PubSub, Stream } from "effect";
 
 import { AutomationRepository } from "../../persistence/Services/AutomationRepository.ts";
@@ -29,8 +29,15 @@ it.effect("wakes a long sleep when an automation definition changes", () =>
     const automationService = {
       list: unusedEffect,
       create: unusedEffect,
+      createProjectManaged: unusedEffect,
       update: unusedEffect,
       delete: unusedEffect,
+      resolveProposal: unusedEffect,
+      getMemory: unusedEffect,
+      listRunsForDefinition: unusedEffect,
+      updateMemory: unusedEffect,
+      reportResult: unusedEffect,
+      resolveCallerRun: unusedEffect,
       runNow: unusedEffect,
       cancelRun: unusedEffect,
       markRunRead: unusedEffect,
@@ -81,8 +88,15 @@ it.effect("wakes a pending heartbeat sleep when a stop evaluation is recorded", 
     const automationService = {
       list: unusedEffect,
       create: unusedEffect,
+      createProjectManaged: unusedEffect,
       update: unusedEffect,
       delete: unusedEffect,
+      resolveProposal: unusedEffect,
+      getMemory: unusedEffect,
+      listRunsForDefinition: unusedEffect,
+      updateMemory: unusedEffect,
+      reportResult: unusedEffect,
+      resolveCallerRun: unusedEffect,
       runNow: unusedEffect,
       cancelRun: unusedEffect,
       markRunRead: unusedEffect,

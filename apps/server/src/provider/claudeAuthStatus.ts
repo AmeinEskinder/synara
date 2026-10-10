@@ -7,7 +7,7 @@
  * only; the health check in ProviderHealth owns spawning, locking, and
  * retries.
  */
-import type { ServerProviderAuthStatus, ServerProviderStatusState } from "@t3tools/contracts";
+import type { ServerProviderAuthStatus, ServerProviderStatusState } from "@synara/contracts";
 
 import {
   detailFromResult,
@@ -54,7 +54,7 @@ function readClaudeAuthStatusJsonMarker(result: CommandResult): {
       auth: extractAuthBoolean(JSON.parse(trimmed)),
     };
   } catch {
-    return { attemptedJsonParse: false, auth: undefined };
+    return { attemptedJsonParse: true, auth: undefined };
   }
 }
 

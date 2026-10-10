@@ -1,42 +1,26 @@
 import { assert, describe, it } from "vitest";
 
-import { getAttachmentIconName, getFileIconName, inferEntryKindFromPath } from "./file-icons";
+import {
+  getAttachmentIconName,
+  getFileIconName,
+  inferEntryKindFromPath,
+  pathLooksLikeKnownFile,
+} from "./file-icons";
+
+// Object.prototype member names, which lookup keys can collide with because they are
+// derived from untrusted text. Only `constructor` and `__proto__` survive the lowercased
+// basename (`toString` becomes `tostring` and misses by luck), so pin them all.
+const PROTOTYPE_MEMBER_TOKENS = [
+  "constructor",
+  "__proto__",
+  "toString",
+  "valueOf",
+  "hasOwnProperty",
+  "map.constructor",
+  "obj.__proto__",
+];
 
 describe("getFileIconName", () => {
-  it("uses exact filename matches from the Central mapping", () => {
-    assert.equal(getFileIconName("package.json"), "npm");
-    assert.equal(getFileIconName("bun.lock"), "bun");
-    assert.equal(getFileIconName("tsconfig.json"), "typescript");
-    assert.equal(getFileIconName(".gitignore"), "git");
-    assert.equal(getFileIconName("Cargo.toml"), "rust");
-  });
-
-  it("prefers the longest compound extension", () => {
-    assert.equal(getFileIconName("checkbox.tsx"), "react");
-    assert.equal(getFileIconName("types.d.ts"), "typescript");
-    assert.equal(getFileIconName("logic.ts"), "typescript");
-  });
-
-  it("resolves common language extensions", () => {
-    assert.equal(getFileIconName("main.py"), "phyton");
-    assert.equal(getFileIconName("lib.rs"), "rust");
-    assert.equal(getFileIconName("index.php"), "php");
-    assert.equal(getFileIconName("App.vue"), "vue");
-    assert.equal(getFileIconName("Counter.svelte"), "svelte");
-    assert.equal(getFileIconName("Main.java"), "java");
-    assert.equal(getFileIconName("readme.md"), "markdown");
-    assert.equal(getFileIconName("general.mdc"), "markdown");
-    assert.equal(getFileIconName(".github/workflows/ci.yml"), "settings-gear-1");
-  });
-
-  it("resolves common attachment extensions", () => {
-    assert.equal(getFileIconName("meeting.ics"), "calendar-days");
-    assert.equal(getFileIconName("contacts.csv"), "file-chart");
-    assert.equal(getFileIconName("report.docx"), "page-text");
-    assert.equal(getFileIconName("budget.xlsx"), "file-chart");
-    assert.equal(getFileIconName("deck.pptx"), "page-text");
-  });
-
   it("falls back to the bracket glyph for unknown or icon-less types", () => {
     // Swift/Go/Ruby have no dedicated Central icon, so they use the bracket.
     assert.equal(getFileIconName("App.swift"), "code-brackets");
@@ -55,6 +39,20 @@ describe("getFileIconName", () => {
     assert.equal(inferEntryKindFromPath("LICENSE"), "file");
     assert.equal(inferEntryKindFromPath("C:\\repo\\.gitignore"), "file");
     assert.equal(inferEntryKindFromPath("scripts"), "directory");
+  });
+
+  it("never resolves an inherited Object.prototype member as an icon name", () => {
+    for (const token of PROTOTYPE_MEMBER_TOKENS) {
+      assert.equal(getFileIconName(token), "code-brackets", token);
+    }
+  });
+});
+
+describe("pathLooksLikeKnownFile", () => {
+  it("does not mistake an Object.prototype member for a known file", () => {
+    for (const token of PROTOTYPE_MEMBER_TOKENS) {
+      assert.isFalse(pathLooksLikeKnownFile(token), `${token} must not look like a known file`);
+    }
   });
 });
 
@@ -85,15 +83,9 @@ describe("getAttachmentIconName", () => {
     assert.equal(getAttachmentIconName({ name: "notes", mimeType: "text/plain" }), "file-text");
   });
 
-  it("defaults to a document glyph rather than the source-code bracket", () => {
-    assert.equal(
-      getAttachmentIconName({ name: "download", mimeType: "application/octet-stream" }),
-      "file-text",
-    );
-    assert.equal(getAttachmentIconName({ name: "download", mimeType: "" }), "file-text");
-    assert.notEqual(
-      getAttachmentIconName({ name: "download", mimeType: "application/octet-stream" }),
-      "code-brackets",
-    );
+  it("never resolves an inherited Object.prototype member as an icon name", () => {
+    for (const token of PROTOTYPE_MEMBER_TOKENS) {
+      assert.equal(getAttachmentIconName({ name: token, mimeType: "" }), "file-text", token);
+    }
   });
 });

@@ -4,8 +4,24 @@ import { describe, expect, it } from "vitest";
 import {
   evaluateAcpTurnIdleTick,
   forkAcpTurnIdleWatchdog,
+  isAcpTurnProgressEventTag,
   resolveAcpTurnIdleTimeoutMs,
 } from "./AcpTurnIdleWatchdog.ts";
+
+describe("isAcpTurnProgressEventTag", () => {
+  it("classifies genuine turn-progress events as progress", () => {
+    expect(isAcpTurnProgressEventTag("ContentDelta")).toBe(true);
+    expect(isAcpTurnProgressEventTag("ToolCallUpdated")).toBe(true);
+    expect(isAcpTurnProgressEventTag("PlanUpdated")).toBe(true);
+    expect(isAcpTurnProgressEventTag("AssistantItemStarted")).toBe(true);
+    expect(isAcpTurnProgressEventTag("AssistantItemCompleted")).toBe(true);
+  });
+  it("does not treat heartbeats or unknown tags as progress", () => {
+    expect(isAcpTurnProgressEventTag("ModeChanged")).toBe(false);
+    expect(isAcpTurnProgressEventTag("UsageUpdated")).toBe(false);
+    expect(isAcpTurnProgressEventTag("unknown")).toBe(false);
+  });
+});
 
 describe("evaluateAcpTurnIdleTick", () => {
   it("stops once the turn is no longer active, regardless of idle state", () => {
@@ -153,5 +169,40 @@ describe("forkAcpTurnIdleWatchdog", () => {
 
     const fired = await Effect.runPromise(program);
     expect(fired).toBe(false);
+  });
+
+  it("uses the live timeout override for provider work hidden from the parent stream", async () => {
+    const program = Effect.gen(function* () {
+      const scope = yield* Scope.make();
+      let fired = false;
+      let nestedWorkActive = true;
+
+      yield* forkAcpTurnIdleWatchdog({
+        idleTimeoutMs: 1,
+        currentIdleTimeoutMs: () => (nestedWorkActive ? 60_000 : 1),
+        checkIntervalMs: 1,
+        scope,
+        isTurnActive: () => true,
+        isAwaitingHuman: () => false,
+        lastActivityAt: () => Date.now() - 100,
+        touchActivity: () => {},
+        onIdleTimeout: () =>
+          Effect.sync(() => {
+            fired = true;
+          }),
+      });
+
+      yield* Effect.sleep(10);
+      const stayedAliveDuringNestedWork = !fired;
+      nestedWorkActive = false;
+      yield* Effect.sleep(10);
+      yield* Scope.close(scope, Exit.void);
+      return { fired, stayedAliveDuringNestedWork };
+    });
+
+    await expect(Effect.runPromise(program)).resolves.toEqual({
+      fired: true,
+      stayedAliveDuringNestedWork: true,
+    });
   });
 });

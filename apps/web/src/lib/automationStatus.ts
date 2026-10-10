@@ -1,4 +1,4 @@
-import type { AutomationDefinition, AutomationSchedule } from "@t3tools/contracts";
+import type { AutomationDefinition, AutomationSchedule } from "@synara/contracts";
 
 /**
  * Lifecycle state of an automation, independent of any in-flight or unreviewed run. Single
@@ -8,7 +8,7 @@ import type { AutomationDefinition, AutomationSchedule } from "@t3tools/contract
 export type AutomationLifecycleState = "active" | "paused" | "scheduled" | "done";
 
 /** A "once" automation fires a single time; every other schedule recurs (or is manual). */
-export function isOneTimeSchedule(schedule: AutomationSchedule): boolean {
+function isOneTimeSchedule(schedule: AutomationSchedule): boolean {
   return schedule.type === "once";
 }
 

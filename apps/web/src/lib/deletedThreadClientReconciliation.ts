@@ -3,7 +3,8 @@
 // Layer: Web orchestration helper
 // Exports: reconcileDeletedThreadFromClient, reconcileDeletedThreadsFromClient
 
-import type { ThreadId } from "@t3tools/contracts";
+import type { ThreadId } from "@synara/contracts";
+import { useDiffRenderModeStore } from "../diffRenderModeStore";
 
 interface DeletedThreadClientReconciliationInput {
   threadIds: ReadonlyArray<ThreadId>;
@@ -37,6 +38,7 @@ export async function reconcileDeletedThreadsFromClient(
   }
 
   for (const threadId of threadIds) {
+    useDiffRenderModeStore.getState().removeThread(threadId);
     input.removeDeletedThreadFromClientState(threadId);
   }
 }

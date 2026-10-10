@@ -1,141 +1,14 @@
-import {
-  PROVIDER_SEND_TURN_MAX_FILE_BYTES,
-  PROVIDER_SEND_TURN_MAX_IMAGE_BYTES,
-  type ClientOrchestrationCommand,
-  type ChatAttachment,
-  type OrchestrationCommand,
-} from "@t3tools/contracts";
-import { isWorkspaceRootWithin, workspaceRootsEqual } from "@t3tools/shared/threadWorkspace";
+import type {
+  ClientOrchestrationCommand,
+  OrchestrationCommand,
+  ProjectId,
+} from "@synara/contracts";
+import { isWorkspaceRootWithin, workspaceRootsEqual } from "@synara/shared/threadWorkspace";
 import type { FileSystem, Path } from "effect";
 import { Effect, Schedule } from "effect";
 
-import { createAttachmentId, resolveAttachmentPath } from "../attachmentStore";
-
-interface UploadBinaryAttachmentInput {
-  readonly type: "image" | "file";
-  readonly name: string;
-  readonly mimeType: string;
-  readonly sizeBytes: number;
-  readonly dataUrl: string;
-}
-
-function parseBinaryAttachmentDataUrl(
-  dataUrl: string,
-): { readonly mimeType: string; readonly base64: string } | null {
-  const match = /^data:([^,]*),([a-z0-9+/=\r\n ]+)$/i.exec(dataUrl.trim());
-  if (!match) return null;
-
-  const headerParts = (match[1] ?? "")
-    .split(";")
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0);
-  const trailingToken = headerParts.at(-1)?.toLowerCase();
-  if (trailingToken !== "base64") {
-    return null;
-  }
-
-  const mimeType = headerParts[0]?.toLowerCase() ?? "";
-  const base64 = match[2]?.replace(/\s+/g, "");
-  if (!base64) return null;
-
-  return { mimeType, base64 };
-}
-
-function persistBinaryAttachment(input: {
-  readonly attachment: UploadBinaryAttachmentInput;
-  readonly threadId: string;
-  readonly attachmentsDir: string;
-  readonly fileSystem: FileSystem.FileSystem;
-  readonly path: Path.Path;
-  readonly maxBytes: number;
-  readonly requireImageMime: boolean;
-  readonly trackAttachmentPath?: ((path: string) => void) | undefined;
-}): Effect.Effect<ChatAttachment, Error, never> {
-  return Effect.gen(function* () {
-    const parsed = parseBinaryAttachmentDataUrl(input.attachment.dataUrl);
-    const parsedMimeType =
-      parsed?.mimeType && parsed.mimeType.length > 0
-        ? parsed.mimeType.toLowerCase()
-        : "application/octet-stream";
-    if (!parsed || (input.requireImageMime && !parsedMimeType.startsWith("image/"))) {
-      return yield* Effect.fail(
-        new Error(
-          `Invalid ${input.attachment.type} attachment payload for '${input.attachment.name}'.`,
-        ),
-      );
-    }
-
-    const bytes = Buffer.from(parsed.base64, "base64");
-    if (bytes.byteLength === 0 || bytes.byteLength > input.maxBytes) {
-      const label = input.attachment.type === "image" ? "Image" : "File";
-      return yield* Effect.fail(
-        new Error(`${label} attachment '${input.attachment.name}' is empty or too large.`),
-      );
-    }
-
-    const attachmentId = createAttachmentId(input.threadId);
-    if (!attachmentId) {
-      return yield* Effect.fail(new Error("Failed to create a safe attachment id."));
-    }
-
-    const persistedAttachment: ChatAttachment =
-      input.attachment.type === "image"
-        ? {
-            type: "image",
-            id: attachmentId,
-            name: input.attachment.name,
-            mimeType: parsedMimeType,
-            sizeBytes: bytes.byteLength,
-          }
-        : {
-            type: "file",
-            id: attachmentId,
-            name: input.attachment.name,
-            mimeType: parsedMimeType,
-            sizeBytes: bytes.byteLength,
-          };
-
-    const attachmentPath = resolveAttachmentPath({
-      attachmentsDir: input.attachmentsDir,
-      attachment: persistedAttachment,
-    });
-    if (!attachmentPath) {
-      return yield* Effect.fail(
-        new Error(`Failed to resolve persisted path for '${input.attachment.name}'.`),
-      );
-    }
-    input.trackAttachmentPath?.(attachmentPath);
-
-    yield* input.fileSystem
-      .makeDirectory(input.path.dirname(attachmentPath), { recursive: true })
-      .pipe(
-        Effect.mapError(
-          () => new Error(`Failed to create attachment directory for '${input.attachment.name}'.`),
-        ),
-      );
-    yield* input.fileSystem
-      .writeFile(attachmentPath, bytes)
-      .pipe(
-        Effect.mapError(
-          () => new Error(`Failed to persist attachment '${input.attachment.name}'.`),
-        ),
-      );
-
-    return persistedAttachment;
-  });
-}
-
-function removePersistedAttachmentPaths(input: {
-  readonly paths: ReadonlyArray<string>;
-  readonly fileSystem: FileSystem.FileSystem;
-}): Effect.Effect<void> {
-  return Effect.forEach(
-    input.paths,
-    (attachmentPath) =>
-      input.fileSystem.remove(attachmentPath, { force: true }).pipe(Effect.ignore),
-    { discard: true, concurrency: 1 },
-  );
-}
+import { createAttachmentId } from "../attachmentStore";
+import { slugifyGroupTitle } from "../groupWorkspaceScaffold";
 
 export interface DispatchCommandNormalizerResult<E> {
   readonly command: OrchestrationCommand;
@@ -153,14 +26,24 @@ export interface DispatchCommandNormalizerOptions<E> {
   readonly attachmentsDir: string;
   readonly chatWorkspaceRoot?: string;
   readonly studioWorkspaceRoot?: string;
+  readonly groupsWorkspaceRoot?: string;
   readonly fileSystem: FileSystem.FileSystem;
   readonly path: Path.Path;
   readonly canonicalizeProjectWorkspaceRoot: (
     workspaceRoot: string,
     options?: { readonly createIfMissing?: boolean },
   ) => Effect.Effect<string, E>;
+  /**
+   * Workspace roots already claimed by live group projects. Used to keep the
+   * derived group folder unique across renames and same-title creates.
+   */
+  readonly listGroupWorkspaceRoots?: () => Effect.Effect<
+    ReadonlyArray<{ readonly projectId: ProjectId; readonly workspaceRoot: string }>,
+    E
+  >;
   readonly prepareChatWorkspaceRoot?: (workspaceRoot: string) => Effect.Effect<void, E>;
   readonly prepareStudioWorkspaceRoot?: (workspaceRoot: string) => Effect.Effect<void, E>;
+  readonly prepareGroupWorkspaceRoot?: (workspaceRoot: string) => Effect.Effect<void, E>;
 }
 
 // Deferred workspace-root scaffolding (mkdir of managed subdirectories like Inbox/Outbox/
@@ -168,7 +51,7 @@ export interface DispatchCommandNormalizerOptions<E> {
 // operation is safe to retry (it's idempotent recursive directory creation). Since this runs
 // AFTER the orchestration decider has already accepted the dispatch (see wsRpc), a single
 // transient failure here would otherwise permanently strand the project row without its
-// managed subdirectories — Studio self-heals via studio.listRecentOutputs, but per-thread CHAT
+// managed subdirectories — Studio self-heals via studio.listThreadOutputs, but per-thread CHAT
 // workspace roots have no other re-run site. Retry a bounded number of times with a short
 // backoff before letting the failure surface to the caller.
 const WORKSPACE_ROOT_PREPARE_RETRY_SCHEDULE = Schedule.exponential("100 millis").pipe(
@@ -176,6 +59,61 @@ const WORKSPACE_ROOT_PREPARE_RETRY_SCHEDULE = Schedule.exponential("100 millis")
 );
 
 export function makeDispatchCommandNormalizer<E>(options: DispatchCommandNormalizerOptions<E>) {
+  // Group folders are derived from the title alone, so same-slug titles (or
+  // titles that collapse to the same slug) must not share one folder. Reserve
+  // the first free slug against both the live group read-model rows (excluding
+  // the command's own project on meta.update) and the directories already on
+  // disk under groupsWorkspaceRoot.
+  const resolveGroupWorkspaceRoot = (input: {
+    readonly kind: string | undefined;
+    readonly title: string | undefined;
+    readonly workspaceRoot: string;
+    readonly excludeProjectId?: ProjectId | undefined;
+  }): Effect.Effect<string, E> => {
+    const { kind, title, workspaceRoot, excludeProjectId } = input;
+    if (kind !== "group" || !options.groupsWorkspaceRoot) {
+      return Effect.succeed(workspaceRoot);
+    }
+    const groupsWorkspaceRoot = options.groupsWorkspaceRoot;
+    const baseSlug = slugifyGroupTitle(title?.trim() || workspaceRoot);
+    return Effect.gen(function* () {
+      const takenRoots: string[] = [];
+      let ownRoot: string | null = null;
+      if (options.listGroupWorkspaceRoots) {
+        const groupRoots = yield* options.listGroupWorkspaceRoots();
+        for (const row of groupRoots) {
+          if (excludeProjectId !== undefined && row.projectId === excludeProjectId) {
+            // The project's own folder must not push itself to a -2 suffix
+            // when meta.update re-derives the root.
+            ownRoot = row.workspaceRoot;
+            continue;
+          }
+          takenRoots.push(row.workspaceRoot);
+        }
+      }
+      const ownDirName = ownRoot === null ? null : options.path.basename(ownRoot).toLowerCase();
+      const directoryNames: ReadonlyArray<string> =
+        typeof options.fileSystem.readDirectory === "function"
+          ? yield* options.fileSystem
+              .readDirectory(groupsWorkspaceRoot)
+              .pipe(Effect.catch(() => Effect.succeed([] as ReadonlyArray<string>)))
+          : [];
+      const takenDirNames = new Set(
+        directoryNames.map((name) => name.toLowerCase()).filter((name) => name !== ownDirName),
+      );
+      for (let suffix = 1; ; suffix += 1) {
+        const slug = suffix === 1 ? baseSlug : `${baseSlug}-${suffix}`;
+        const candidateRoot = options.path.join(groupsWorkspaceRoot, slug);
+        const claimedByProject = takenRoots.some((root) =>
+          workspaceRootsEqual(root, candidateRoot),
+        );
+        if (!claimedByProject && !takenDirNames.has(slug.toLowerCase())) {
+          return candidateRoot;
+        }
+      }
+    });
+  };
+
   // Shared "should we scaffold this managed workspace root's subdirectories" guard for both
   // container kinds. The two kinds intentionally differ in exactly one respect
   // (`prepareWhenEqualToRoot`):
@@ -183,10 +121,12 @@ export function makeDispatchCommandNormalizer<E>(options: DispatchCommandNormali
   //     (see buildChatWorkspaceFolderPath in chatFirstSend.ts); the shared chatWorkspaceRoot
   //     itself is never used directly as a project's root, so exact equality must be excluded
   //     to avoid ever scaffolding "work"/"outputs" straight into the shared parent directory.
-  //   - studio: the Studio container project's workspace root IS exactly studioWorkspaceRoot
-  //     (see ensureStudioProject in studioProjects.ts), so exact equality must trigger prepare.
+  //   - studio: the legacy Studio container's workspace root IS exactly
+  //     studioWorkspaceRoot, so exact equality must trigger prepare.
+  //   - group: each group lives in its own subfolder under groupsWorkspaceRoot, never at the
+  //     Groups parent itself, so exact equality must be excluded like chat.
   const maybePrepareWorkspaceRoot = (input: {
-    readonly kind: "chat" | "studio";
+    readonly kind: "chat" | "studio" | "group";
     readonly command: Extract<
       ClientOrchestrationCommand,
       { type: "project.create" | "project.meta.update" }
@@ -250,6 +190,21 @@ export function makeDispatchCommandNormalizer<E>(options: DispatchCommandNormali
       prepare: options.prepareStudioWorkspaceRoot,
       prepareWhenEqualToRoot: true,
     });
+  const maybePrepareGroupWorkspaceRoot = (
+    command: Extract<
+      ClientOrchestrationCommand,
+      { type: "project.create" | "project.meta.update" }
+    >,
+    workspaceRoot: string,
+  ) =>
+    maybePrepareWorkspaceRoot({
+      kind: "group",
+      command,
+      workspaceRoot,
+      configuredWorkspaceRoot: options.groupsWorkspaceRoot,
+      prepare: options.prepareGroupWorkspaceRoot,
+      prepareWhenEqualToRoot: false,
+    });
 
   // Combines the chat + studio scaffolding decisions into a single deferred effect. The
   // decision logic (kinds, prepareWhenEqualToRoot, isWorkspaceRootWithin/workspaceRootsEqual)
@@ -266,6 +221,7 @@ export function makeDispatchCommandNormalizer<E>(options: DispatchCommandNormali
       [
         maybePrepareChatWorkspaceRoot(command, workspaceRoot),
         maybePrepareStudioWorkspaceRoot(command, workspaceRoot),
+        maybePrepareGroupWorkspaceRoot(command, workspaceRoot),
       ],
       { discard: true },
     );
@@ -277,15 +233,31 @@ export function makeDispatchCommandNormalizer<E>(options: DispatchCommandNormali
       // exist, and comparing lexical paths instead would mis-handle symlinked roots. A rejected
       // command can therefore leave an empty directory behind, but never scaffolding: the
       // subdirectory prepare is deferred until the dispatch is accepted (see wsRpc).
+      const requestedWorkspaceRoot = yield* resolveGroupWorkspaceRoot({
+        kind: input.command.kind,
+        title: input.command.title,
+        workspaceRoot: input.command.workspaceRoot,
+      });
       const workspaceRoot = yield* options.canonicalizeProjectWorkspaceRoot(
-        input.command.workspaceRoot,
+        requestedWorkspaceRoot,
         {
           createIfMissing: input.command.createWorkspaceRootIfMissing === true,
         },
       );
+      // Extra folders of a multi-folder project must already exist: only the primary
+      // folder may be created from a hand-typed path.
+      const additionalFolders =
+        input.command.additionalFolders === undefined
+          ? undefined
+          : yield* Effect.forEach(
+              input.command.additionalFolders,
+              (folder) => options.canonicalizeProjectWorkspaceRoot(folder),
+              { concurrency: 1 },
+            );
       const command = {
         ...input.command,
         workspaceRoot,
+        ...(additionalFolders !== undefined ? { additionalFolders } : {}),
         createWorkspaceRootIfMissing: input.command.createWorkspaceRootIfMissing === true,
       } satisfies OrchestrationCommand;
       return {
@@ -295,8 +267,14 @@ export function makeDispatchCommandNormalizer<E>(options: DispatchCommandNormali
     }
 
     if (input.command.type === "project.meta.update" && input.command.workspaceRoot !== undefined) {
+      const requestedWorkspaceRoot = yield* resolveGroupWorkspaceRoot({
+        kind: input.command.kind,
+        title: input.command.title,
+        workspaceRoot: input.command.workspaceRoot,
+        excludeProjectId: input.command.projectId,
+      });
       const workspaceRoot = yield* options.canonicalizeProjectWorkspaceRoot(
-        input.command.workspaceRoot,
+        requestedWorkspaceRoot,
         {
           createIfMissing: input.command.createWorkspaceRootIfMissing === true,
         },
@@ -320,7 +298,6 @@ export function makeDispatchCommandNormalizer<E>(options: DispatchCommandNormali
     }
     const turnStartCommand = input.command;
 
-    const writtenAttachmentPaths: string[] = [];
     const normalizedAttachments = yield* Effect.forEach(
       turnStartCommand.message.attachments,
       (attachment) =>
@@ -339,41 +316,12 @@ export function makeDispatchCommandNormalizer<E>(options: DispatchCommandNormali
             };
           }
 
-          if (attachment.type === "image") {
-            return yield* persistBinaryAttachment({
-              attachment,
-              threadId: turnStartCommand.threadId,
-              attachmentsDir: options.attachmentsDir,
-              fileSystem: options.fileSystem,
-              path: options.path,
-              maxBytes: PROVIDER_SEND_TURN_MAX_IMAGE_BYTES,
-              requireImageMime: true,
-              trackAttachmentPath: (attachmentPath) => writtenAttachmentPaths.push(attachmentPath),
-            });
-          }
-
-          return yield* persistBinaryAttachment({
-            attachment,
-            threadId: turnStartCommand.threadId,
-            attachmentsDir: options.attachmentsDir,
-            fileSystem: options.fileSystem,
-            path: options.path,
-            maxBytes: PROVIDER_SEND_TURN_MAX_FILE_BYTES,
-            requireImageMime: false,
-            trackAttachmentPath: (attachmentPath) => writtenAttachmentPaths.push(attachmentPath),
-          });
+          // Binary attachment metadata is resolved from the durable managed
+          // attachment ledger by OrchestrationEngine immediately before its
+          // atomic event/receipt claim. Client metadata is never authoritative.
+          return attachment;
         }),
       { concurrency: 1 },
-    ).pipe(
-      Effect.catch((error) =>
-        Effect.gen(function* () {
-          yield* removePersistedAttachmentPaths({
-            paths: writtenAttachmentPaths,
-            fileSystem: options.fileSystem,
-          });
-          return yield* Effect.fail(error);
-        }),
-      ),
     );
 
     return {

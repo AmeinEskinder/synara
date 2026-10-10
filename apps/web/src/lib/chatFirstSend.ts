@@ -1,5 +1,5 @@
-import { DEFAULT_MODEL_BY_PROVIDER, type ModelSelection } from "@t3tools/contracts";
-import { workspaceRootsEqual } from "@t3tools/shared/threadWorkspace";
+import { DEFAULT_MODEL_BY_PROVIDER, type ModelSelection } from "@synara/contracts";
+import { workspaceRootsEqual } from "@synara/shared/threadWorkspace";
 
 import type { Project } from "../types";
 import { buildChatWorkspaceFolderPath } from "./chatWorkspaceFolders";
@@ -43,43 +43,53 @@ export function resolveFirstSendTarget(input: {
   activeProject: Project;
   chatWorkspaceRoot: string | null;
   createdAt: Date;
+  defaultModelSelection?: ModelSelection;
   isFirstMessage: boolean;
   isHomeChatContainer: boolean;
-  isStudioContainer: boolean;
+  isGroupContainer: boolean;
   projects: readonly Project[];
   selectedWorkspaceRoot: string | null;
   title: string;
   titleSeed: string;
 }): FirstSendTargetResolution {
+  const createDefaultModelSelection =
+    input.defaultModelSelection ??
+    ({
+      provider: "codex",
+      model: DEFAULT_MODEL_BY_PROVIDER.codex,
+    } satisfies ModelSelection);
   const {
     activeProject,
     chatWorkspaceRoot,
     createdAt,
     isFirstMessage,
     isHomeChatContainer,
-    isStudioContainer,
+    isGroupContainer,
     projects,
     selectedWorkspaceRoot,
     title,
     titleSeed,
   } = input;
 
-  if (!isFirstMessage || (!isHomeChatContainer && !isStudioContainer)) {
+  if (!isFirstMessage || (!isHomeChatContainer && !isGroupContainer)) {
     return {
       kind: "current",
       target: buildProjectTarget(activeProject),
     };
   }
 
-  // Folder mentions intentionally escape the generic-chat workspace and become normal projects.
-  if (!selectedWorkspaceRoot) {
-    if (isStudioContainer) {
-      return {
-        kind: "current",
-        target: buildProjectTarget(activeProject),
-      };
-    }
+  // Group chats never leave their group container: a picked folder stays attached to the
+  // thread as its workspace root instead of becoming (or joining) a Projects entry.
+  if (isGroupContainer) {
+    return {
+      kind: "current",
+      target: buildProjectTarget(activeProject),
+    };
+  }
 
+  // Home-chat folder mentions intentionally escape the generic-chat workspace and become
+  // normal projects.
+  if (!selectedWorkspaceRoot) {
     if (!chatWorkspaceRoot) {
       return {
         kind: "current",
@@ -99,10 +109,7 @@ export function resolveFirstSendTarget(input: {
         title,
         kind: "chat",
         createWorkspaceRootIfMissing: true,
-        defaultModelSelection: {
-          provider: "codex",
-          model: DEFAULT_MODEL_BY_PROVIDER.codex,
-        },
+        defaultModelSelection: createDefaultModelSelection,
       },
     };
   }
@@ -125,10 +132,7 @@ export function resolveFirstSendTarget(input: {
       title: buildProjectTitleFromWorkspaceRoot(selectedWorkspaceRoot),
       kind: "project",
       createWorkspaceRootIfMissing: false,
-      defaultModelSelection: {
-        provider: "codex",
-        model: DEFAULT_MODEL_BY_PROVIDER.codex,
-      },
+      defaultModelSelection: createDefaultModelSelection,
     },
   };
 }
