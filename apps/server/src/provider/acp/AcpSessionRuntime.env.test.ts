@@ -56,8 +56,11 @@ describe("buildAcpSpawnProcessEnv", () => {
         providerEnvironment: {
           driver: "cursor",
           instanceId: "cursor_work",
-          ...isolatedPaths(),
-          environment: { cursor_api_key: "selected-cursor" },
+          environment: {
+            HOME: "C:\\acp-test-home",
+            USERPROFILE: "C:\\acp-test-home",
+            cursor_api_key: "selected-cursor",
+          },
         },
       },
       { PATH: "/usr/bin", CURSOR_API_KEY: "ambient-cursor", ANTHROPIC_API_KEY: "unrelated" },
