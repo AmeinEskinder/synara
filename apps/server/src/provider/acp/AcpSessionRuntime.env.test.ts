@@ -12,6 +12,8 @@ describe("buildAcpSpawnProcessEnv", () => {
         providerEnvironment: {
           driver: "grok",
           instanceId: "grok_work",
+          homeDir: "/tmp/synara-acp-test-home",
+          isolationRootDir: "/tmp/synara-acp-test-isolation",
           environment: { GROK_CODE_XAI_API_KEY: "selected-account-b" },
         },
       },
@@ -39,14 +41,16 @@ describe("buildAcpSpawnProcessEnv", () => {
         providerEnvironment: {
           driver: "cursor",
           instanceId: "cursor_work",
+          homeDir: "/tmp/synara-acp-test-home",
+          isolationRootDir: "/tmp/synara-acp-test-isolation",
           environment: { cursor_api_key: "selected-cursor" },
         },
       },
       { PATH: "/usr/bin", CURSOR_API_KEY: "ambient-cursor", ANTHROPIC_API_KEY: "unrelated" },
       "win32",
     );
-    expect(env.cursor_api_key).toBe("selected-cursor");
-    expect(env.CURSOR_API_KEY).toBe("ambient-cursor");
+    expect(env.CURSOR_API_KEY).toBe("selected-cursor");
+    expect(env.cursor_api_key).toBeUndefined();
     expect(env.ANTHROPIC_API_KEY).toBeUndefined();
   });
 
