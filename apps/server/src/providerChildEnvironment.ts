@@ -44,6 +44,9 @@ const PROVIDER_CREDENTIAL_KEYS = new Set([
   "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI",
   "AWS_CONTAINER_AUTHORIZATION_TOKEN",
   "AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE",
+  "AWS_BEARER_TOKEN_BEDROCK",
+  "AWS_SHARED_CREDENTIALS_FILE",
+  "AWS_WEB_IDENTITY_TOKEN_FILE",
 ]);
 
 const PROVIDER_CREDENTIAL_SUFFIXES = [
@@ -148,7 +151,9 @@ export function buildProviderChildEnvironment(input: {
     if (
       normalizedKey.startsWith("SYNARA_") &&
       !allowedSynaraKeys.has(normalizedKey) &&
-      !(normalizedEnvKeys.has("VITEST") &&
+      !(Boolean(
+          Object.entries(baseEnv).find(([envKey]) => envKey.toUpperCase() === "VITEST")?.[1],
+        ) &&
         (normalizedKey.startsWith("SYNARA_FAKE_") || normalizedKey.startsWith("SYNARA_ACP_")))
     ) {
       continue;
