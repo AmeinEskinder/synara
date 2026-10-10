@@ -21,11 +21,13 @@ import {
 } from "effect";
 import { describe, expect, vi } from "vitest";
 import { TestClock } from "effect/testing";
+import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 import { collectGitOutput, GitCoreLive, makeGitCore } from "./GitCore.ts";
 import { GitCore, type GitCoreShape } from "../Services/GitCore.ts";
 import { GitCheckoutDirtyWorktreeError, GitCommandError } from "../Errors.ts";
 import { ServerConfig } from "../../config.ts";
+import { makeEffectProcessCommand } from "../../platform/effectProcessRuntime.ts";
 
 // ── Helpers ──
 
@@ -3497,19 +3499,57 @@ it.layer(TestLayer)("git integration", (it) => {
     );
 
     for (const method of ["statusDetails", "readActionStatus"] as const) {
-      it.effect(`bounds ${method} when a filesystem monitor stalls Git status`, () =>
+      it.effect(`ignores repository filesystem monitors in ${method}`, () =>
         Effect.gen(function* () {
           const tmp = yield* makeTmpDir();
-          yield* initRepoWithCommit(tmp);
+          const { initialBranch } = yield* initRepoWithCommit(tmp);
           const hook = path.join(tmp, ".git/hooks/fsmonitor");
           const started = path.join(tmp, ".git/fsmonitor-started");
           yield* writeTextFile(
             hook,
-            "#!/bin/sh\ntouch .git/fsmonitor-started\nwhile :; do sleep 0.05; done\n",
+            "#!/bin/sh\ntouch .git/fsmonitor-started\nprintf 'test-token\\0'\n",
           );
           yield* Effect.promise(() => fs.chmod(hook, 0o755));
           yield* git(tmp, ["config", "core.fsmonitor", hook]);
-          const core = yield* GitCore;
+          // Explicitly enable the test-owned hook for a positive control. The
+          // service call below must ignore the same repository configuration.
+          yield* git(tmp, ["-c", `core.fsmonitor=${hook}`, "status", "--porcelain"]);
+          expect(existsSync(started)).toBe(true);
+          yield* Effect.promise(() => fs.unlink(started));
+          const status = yield* (yield* GitCore)[method](tmp);
+          expect(status.branch).toBe(initialBranch);
+          expect(existsSync(started)).toBe(false);
+        }),
+      );
+
+      it.effect(`bounds ${method} when a Git status process stalls`, () =>
+        Effect.gen(function* () {
+          const tmp = yield* makeTmpDir();
+          yield* initRepoWithCommit(tmp);
+          const started = path.join(tmp, ".git/status-started");
+          const nativeSpawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+          const spawner = ChildProcessSpawner.make((command) => {
+            if (!ChildProcess.isStandardCommand(command) || command.args[2] !== "status") {
+              return nativeSpawner.spawn(command);
+            }
+            expect(command.args.slice(0, 3)).toEqual(["-c", "core.fsmonitor=false", "status"]);
+            // Exercise the production process deadline and cleanup with a real
+            // stalled child without re-enabling repository-controlled commands.
+            return nativeSpawner.spawn(
+              makeEffectProcessCommand(
+                process.execPath,
+                [
+                  "-e",
+                  `require("node:fs").writeFileSync(${JSON.stringify(started)}, "started"); setInterval(() => {}, 1000);`,
+                ],
+                command.options,
+              ),
+            );
+          });
+          const core = yield* makeGitCore().pipe(
+            Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
+            Effect.provide(ServerConfigLayer),
+          );
           const query = yield* core[method](tmp).pipe(
             Effect.result,
             Effect.timeoutOption("35 seconds"),
@@ -3518,7 +3558,7 @@ it.layer(TestLayer)("git integration", (it) => {
           yield* Effect.promise(async () => {
             const deadline = Date.now() + 5000;
             while (!existsSync(started)) {
-              if (Date.now() > deadline) throw new Error("Filesystem monitor did not start");
+              if (Date.now() > deadline) throw new Error("Git status process did not start");
               await new Promise((resolve) => setTimeout(resolve, 10));
             }
           });
