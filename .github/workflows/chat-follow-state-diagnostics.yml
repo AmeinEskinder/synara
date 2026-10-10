@@ -1,4 +1,4 @@
-name: Chat follow virtualizer state diagnostics
+name: Chat follow final main source qualification
 
 on:
   push:
@@ -30,6 +30,9 @@ jobs:
           {
             printf 'failing_source=97f9b7fc314d93bda8117249fe89cdeca66bf6cf\n'
             printf 'failing_source_tree=f510e8923dad83cff52a62fc13eb7fcac1b97855\n'
+            printf 'qualification_source=fa8aa49e14855999c37315dd4c6dcab34efbdf58\n'
+            printf 'qualification_source_tree=1ec4c27e2f03f5411aafa1e6ac5238e334018b61\n'
+            printf 'final_pr_head=8c7de27f9a82d52da40ae9df51e5f5a0d400f0c7\n'
             printf 'timer_correction_donor=d7f803e87b0ef832aa78b4505cd39e16fdb1e896\n'
             printf 'original_failure_run=38089702898\n'
             printf 'original_failure_job=114323654856\n'
@@ -39,11 +42,15 @@ jobs:
             printf 'diagnostic_helper_blob='; git rev-parse HEAD:apps/web/src/test/transcriptFollowDiagnostic.ts
             printf 'instrumenter_blob='; git rev-parse HEAD:.github/scripts/prepare-follow-state-trace.mjs
             printf 'trace_config_blob='; git rev-parse HEAD:apps/web/vitest.browser.follow-trace.config.ts
+            printf 'timeline_blob='; git rev-parse HEAD:apps/web/src/components/chat/MessagesTimeline.tsx
+            printf 'timeline_scroll_test_blob='; git rev-parse HEAD:apps/web/src/components/chat/MessagesTimeline.scroll.browser.tsx
             printf 'follow_hook_blob='; git rev-parse HEAD:apps/web/src/components/chat/useChatTranscriptScroll.ts
             printf 'follow_hook_test_blob='; git rev-parse HEAD:apps/web/src/components/chat/useChatTranscriptScroll.browser.tsx
           } > output/follow-diagnostics/provenance.txt
           test "$(git rev-parse HEAD:apps/web/src/components/chat/useChatTranscriptScroll.ts)" = a88d19da5ece9a2168686347f940873ae870eb76
           test "$(git rev-parse HEAD:apps/web/src/components/chat/useChatTranscriptScroll.browser.tsx)" = ab8ef7cb3e39499681feb58b62d0cc508bbe808d
+          test "$(git rev-parse HEAD:apps/web/src/components/chat/MessagesTimeline.tsx)" = 327bdb4a494ffd9df743531d4e4eb7d25885453a
+          test "$(git rev-parse HEAD:apps/web/src/components/chat/MessagesTimeline.scroll.browser.tsx)" = ca6a23815327b31413ea210f611683522b8926cc
 
       - name: Setup workspace
         uses: ./.github/actions/setup-workspace
@@ -77,14 +84,16 @@ jobs:
           VITE_FOLLOW_DIAGNOSTIC_DIR="$evidence/final-settle" ./node_modules/.bin/vitest run --config vitest.browser.follow-trace.config.ts --project=chat-workflows -t 'follows the final text batch when the assistant turn settles' 2>&1 | tee "$evidence/final-settle.log"
           final_settle_status=${PIPESTATUS[0]}
           cp -R src/components/__screenshots__ "$evidence/final-settle-screenshots" 2>/dev/null || true
-          printf 'full_lane=%s\nisolated_case=%s\nfinal_settle=%s\n' "$full_status" "$isolated_status" "$final_settle_status" > "$evidence/results.txt"
-          if [ "$full_status" -ne 0 ] || [ "$isolated_status" -ne 0 ] || [ "$final_settle_status" -ne 0 ]; then exit 1; fi
+          ./node_modules/.bin/vitest run --config vitest.browser.follow-trace.config.ts --project=components src/components/chat/MessagesTimeline.scroll.browser.tsx 2>&1 | tee "$evidence/measured-growth.log"
+          measured_growth_status=${PIPESTATUS[0]}
+          printf 'full_lane=%s\nisolated_case=%s\nfinal_settle=%s\nmeasured_growth=%s\n' "$full_status" "$isolated_status" "$final_settle_status" "$measured_growth_status" > "$evidence/results.txt"
+          if [ "$full_status" -ne 0 ] || [ "$isolated_status" -ne 0 ] || [ "$final_settle_status" -ne 0 ] || [ "$measured_growth_status" -ne 0 ]; then exit 1; fi
 
       - name: Preserve all diagnostic results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: chat-follow-1776-scalar-state
+          name: chat-follow-fa8-source-qualification
           path: output/follow-diagnostics
           if-no-files-found: error
           retention-days: 7
