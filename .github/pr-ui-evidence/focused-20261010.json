@@ -1,0 +1,68 @@
+{
+  "run": 38093180814,
+  "runUrl": "https://github.com/Emanuele-web04/synara/actions/runs/38093180814",
+  "driver": "33aff4d854f4fc543d12e9fdbfd4067228302fd9",
+  "baseline": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+  "scope": "Selected completed, source-verified and independently visually reviewed captures. Native baseline also passed, but its transparent synthetic page had poor contrast and was not published. Native after failed the host marker readiness timeout before any image; both native sources are being recaptured with an explicit shared fixture page palette and the existing bounded startup timeout.",
+  "captures": [
+    {
+      "pr": 1785,
+      "variant": "before",
+      "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+      "sourceTree": "f7c039cd491466f5ca735040a78e082b0ab94642",
+      "driver": "33aff4d854f4fc543d12e9fdbfd4067228302fd9",
+      "artifactId": 11684729081,
+      "artifactDigest": "sha256:18a225d0d8251e68ab377355bdead7719a48519d4cfff70a6bf4d89523c62fee",
+      "path": ".github/pr-ui-evidence/1785/f29c2cd8db65bc61b22df00e8da4b8c4d2518824/before",
+      "images": [
+        {
+          "name": "automation-count.png",
+          "bytes": 28267,
+          "sha256": "f0f7382316fa76fca2bb11826ad8d133b420b82aa126bcee9946f5d83d6fe0ad"
+        }
+      ],
+      "qualification": "Actual Automations route with the same two definitions and three failed runs; count and accessible/visible tooltip assertions preserved."
+    },
+    {
+      "pr": 1785,
+      "variant": "after",
+      "source": "adf3d989af888da770a6b948b1c9612b1944819d",
+      "sourceTree": "4f7106d0ab66db490193b373113f883ac59cd77d",
+      "driver": "33aff4d854f4fc543d12e9fdbfd4067228302fd9",
+      "artifactId": 11685021448,
+      "artifactDigest": "sha256:e33f4e622c4f515e7c157323a07ce83fb50a9270a86fd8ff58fcd40042d78c48",
+      "path": ".github/pr-ui-evidence/1785/adf3d989af888da770a6b948b1c9612b1944819d/after",
+      "images": [
+        {
+          "name": "automation-count.png",
+          "bytes": 27515,
+          "sha256": "6a226f18f8fdc4e77106d64208598662025e4fb083fa235fe5453063674ed7a8"
+        }
+      ],
+      "qualification": "Actual Automations route with the same two definitions and three failed runs; count and accessible/visible tooltip assertions preserved."
+    },
+    {
+      "pr": 1789,
+      "variant": "after",
+      "source": "495c5f8b3c9af27e2bacd15df51f02326f165498",
+      "sourceTree": "fae4ace9db67c3c37b438b05640b0bb6df032b4d",
+      "driver": "33aff4d854f4fc543d12e9fdbfd4067228302fd9",
+      "artifactId": 11684926537,
+      "artifactDigest": "sha256:91c8847f3eac83aa214384161ec3ee51d0974222ce91f7030a0c6313807a858e",
+      "path": ".github/pr-ui-evidence/1789/495c5f8b3c9af27e2bacd15df51f02326f165498/after-settled-33aff4d8",
+      "images": [
+        {
+          "name": "activity-default.png",
+          "bytes": 9213,
+          "sha256": "0ccf441bdf2318eff28ce788128c01c8ba60ea4a75a138080938b5e6769d49f8"
+        },
+        {
+          "name": "activity-expanded.png",
+          "bytes": 19056,
+          "sha256": "2ccb84cd709395808287e259ebee9579ea3352e838ae92dc5fb273f74c5ff7f2"
+        }
+      ],
+      "qualification": "Actual Activity component after finite production disclosure animations finish; both complete working rows, opacity and clipping bounds asserted. Earlier mid-transition image remains excluded in the prior manifest."
+    }
+  ]
+}

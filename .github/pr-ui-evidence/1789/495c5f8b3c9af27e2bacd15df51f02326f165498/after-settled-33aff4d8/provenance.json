@@ -1,0 +1,44 @@
+{
+  "target": {
+    "id": "pr1789-after",
+    "pr": 1789,
+    "original": 1696,
+    "variant": "after",
+    "source": "495c5f8b3c9af27e2bacd15df51f02326f165498",
+    "mode": "standalone",
+    "fixture": "PrUiEvidence1696.browser.tsx",
+    "destination": "apps/web/src/components/PrUiEvidence1696.browser.tsx"
+  },
+  "source": "495c5f8b3c9af27e2bacd15df51f02326f165498",
+  "sourceTree": "fae4ace9db67c3c37b438b05640b0bb6df032b4d",
+  "driver": "33aff4d854f4fc543d12e9fdbfd4067228302fd9",
+  "overlays": [
+    {
+      "path": "apps/web/src/components/PrUiEvidence1696.browser.tsx",
+      "originalSha256": null,
+      "fixtureSha256": "b503f3a22a7c8b19d73a7da02f3ba5edfb664b6a2bce397633d584691aab500f",
+      "sha256": "b503f3a22a7c8b19d73a7da02f3ba5edfb664b6a2bce397633d584691aab500f"
+    },
+    {
+      "path": "apps/web/vitest.pr-ui-evidence.config.ts",
+      "originalSha256": null,
+      "sha256": "f142102d7d8fc9aa6c53fd665967a2851160d46ab190f1dc88d4252581ac6240"
+    }
+  ],
+  "status": "completed",
+  "applicationCodeModified": false,
+  "createdAt": "2026-10-10T22:57:52.690Z",
+  "images": [
+    {
+      "name": "activity-default.png",
+      "bytes": 9213,
+      "sha256": "0ccf441bdf2318eff28ce788128c01c8ba60ea4a75a138080938b5e6769d49f8"
+    },
+    {
+      "name": "activity-expanded.png",
+      "bytes": 19056,
+      "sha256": "2ccb84cd709395808287e259ebee9579ea3352e838ae92dc5fb273f74c5ff7f2"
+    }
+  ],
+  "completedAt": "2026-10-10T22:58:07.056Z"
+}

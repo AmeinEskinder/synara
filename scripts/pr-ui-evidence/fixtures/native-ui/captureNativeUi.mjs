@@ -9,6 +9,7 @@ import { startVisibleBrowserFixtureSite } from "../fixtures/siteServer.ts";
 const web = process.cwd();
 const output = resolve(process.env.SYNARA_EVIDENCE_OUTPUT || "test-results/native-ui");
 const label = process.env.SYNARA_EVIDENCE_LABEL || "candidate";
+const fixturePageCss = "html, body { color-scheme: light; background: #fff; color: #111; }";
 const testedHead = execFileSync("git", ["rev-parse", "HEAD"], {
   cwd: web,
   encoding: "utf8",
@@ -88,7 +89,7 @@ try {
     .toBe(1);
   const shell = app.windows().find((page) => page.url() === uiUrl);
   await expect(shell).toHaveURL(uiUrl);
-  await expect(shell.locator("[data-synara-native-ui-host]")).toBeVisible();
+  await expect(shell.locator("[data-synara-native-ui-host]")).toBeVisible({ timeout: 120000 });
   hostWindowId = await app.evaluate(({ BrowserWindow }, url) => {
     const matches = BrowserWindow.getAllWindows().filter(
       (window) => window.webContents.getURL() === url,
@@ -110,6 +111,19 @@ try {
       { timeout: 120000 },
     )
     .toBe(true);
+  // The controlled fixture page has a transparent default background. Give
+  // that synthetic content the same readable colors on both source revisions;
+  // no production host, browser chrome or component styles are changed.
+  await app.evaluate(
+    async ({ webContents }, { url, css }) => {
+      const guests = webContents
+        .getAllWebContents()
+        .filter((guest) => guest.getType() === "webview" && guest.getURL() === url);
+      if (guests.length !== 1) throw new Error("Expected one loaded synthetic fixture page");
+      await guests[0].insertCSS(css);
+    },
+    { url: site.appUrl, css: fixturePageCss },
+  );
   await shell.evaluate(() => document.fonts.ready);
   await shell.evaluate(
     () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))),
@@ -236,6 +250,7 @@ try {
         label,
         hostUrl: uiUrl,
         hostWindowId,
+        fixturePageCss,
         images,
         errors,
         boundary:

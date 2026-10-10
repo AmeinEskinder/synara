@@ -1,35 +1,5 @@
 [
   {
-    "id": "pr1785-before",
-    "pr": 1785,
-    "original": 1026,
-    "variant": "before",
-    "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
-    "mode": "append-describe",
-    "fixture": "PrUiEvidence1026.snippet.ts",
-    "destination": "apps/web/src/components/ChatView.browser.tsx"
-  },
-  {
-    "id": "pr1785-after",
-    "pr": 1785,
-    "original": 1026,
-    "variant": "after",
-    "source": "adf3d989af888da770a6b948b1c9612b1944819d",
-    "mode": "append-describe",
-    "fixture": "PrUiEvidence1026.snippet.ts",
-    "destination": "apps/web/src/components/ChatView.browser.tsx"
-  },
-  {
-    "id": "pr1789-after",
-    "pr": 1789,
-    "original": 1696,
-    "variant": "after",
-    "source": "495c5f8b3c9af27e2bacd15df51f02326f165498",
-    "mode": "standalone",
-    "fixture": "PrUiEvidence1696.browser.tsx",
-    "destination": "apps/web/src/components/PrUiEvidence1696.browser.tsx"
-  },
-  {
     "id": "pr1783-before",
     "pr": 1783,
     "original": 787,

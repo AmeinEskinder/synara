@@ -1,0 +1,39 @@
+{
+  "target": {
+    "id": "pr1785-before",
+    "pr": 1785,
+    "original": 1026,
+    "variant": "before",
+    "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+    "mode": "append-describe",
+    "fixture": "PrUiEvidence1026.snippet.ts",
+    "destination": "apps/web/src/components/ChatView.browser.tsx"
+  },
+  "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+  "sourceTree": "f7c039cd491466f5ca735040a78e082b0ab94642",
+  "driver": "33aff4d854f4fc543d12e9fdbfd4067228302fd9",
+  "overlays": [
+    {
+      "path": "apps/web/src/components/ChatView.browser.tsx",
+      "originalSha256": "d0f39ab7acdc35bdcdc9d5057cc6704955571750152b7938addd0a085db349bc",
+      "fixtureSha256": "0ecc22e636282615a66f7d62d06a1fd834e7fe27e7ce0b8834590516f3598b3c",
+      "sha256": "56f7f0766becc591a990f0f251378e6bf390a7fbb7f468d48ce8d1439ba0f4e8"
+    },
+    {
+      "path": "apps/web/vitest.pr-ui-evidence.config.ts",
+      "originalSha256": null,
+      "sha256": "f142102d7d8fc9aa6c53fd665967a2851160d46ab190f1dc88d4252581ac6240"
+    }
+  ],
+  "status": "completed",
+  "applicationCodeModified": false,
+  "createdAt": "2026-10-10T22:58:10.075Z",
+  "images": [
+    {
+      "name": "automation-count.png",
+      "bytes": 28267,
+      "sha256": "f0f7382316fa76fca2bb11826ad8d133b420b82aa126bcee9946f5d83d6fe0ad"
+    }
+  ],
+  "completedAt": "2026-10-10T22:59:39.697Z"
+}
