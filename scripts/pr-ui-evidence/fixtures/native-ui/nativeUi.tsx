@@ -17,7 +17,10 @@ function NativeUiEvidence() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <main style={{ width: "100vw", height: "100vh", display: "flex" }}>
+        <main
+          data-synara-native-ui-host
+          style={{ width: "100vw", height: "100vh", display: "flex" }}
+        >
           <section style={{ flex: 1, position: "relative", minWidth: 0, height: "100%" }}>
             <header
               style={{ height: 48, padding: 16, borderBottom: "1px solid var(--color-border)" }}

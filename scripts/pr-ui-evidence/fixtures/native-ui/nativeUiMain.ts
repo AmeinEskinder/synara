@@ -5,7 +5,7 @@ import {
   BROWSER_SESSION_PARTITION,
   DesktopBrowserManager,
 } from "../../../desktop/src/browserManager";
-import { hardenIsolatedWebviewPreferences } from "../../../desktop/src/browserAnnotations/webviewSecurity";
+import { hardenBrowserAnnotationWebviewPreferences } from "../../../desktop/src/browserAnnotations/webviewSecurity";
 import { BROWSER_IPC_CHANNELS } from "../../../desktop/src/ipcChannels";
 
 const required = (name: string) => {
@@ -87,7 +87,7 @@ app.whenReady().then(async () => {
       : process.env.SYNARA_EVIDENCE_ANNOTATION_PRELOAD;
     if (
       !preloadPath ||
-      !hardenIsolatedWebviewPreferences({
+      !hardenBrowserAnnotationWebviewPreferences({
         partition: params.partition,
         expectedPartition: chrome ? "synara-floating-browser-chrome" : BROWSER_SESSION_PARTITION,
         preloadPath,

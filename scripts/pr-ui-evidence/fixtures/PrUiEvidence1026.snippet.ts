@@ -82,7 +82,7 @@ it("PR UI evidence: two configured automations and three unresolved runs", async
       .getByRole("button", { name: label, exact: true });
     await expect.element(button).toHaveAttribute("aria-current", "page");
     await button.hover();
-    await expect.element(page.getByRole("tooltip")).toHaveTextContent(label);
+    await expect.element(page.getByText(label, { exact: true })).toBeVisible();
     await document.fonts.ready;
     await page.screenshot({ path: `${directory}/automation-count.png` });
   } finally {

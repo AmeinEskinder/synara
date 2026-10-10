@@ -1,0 +1,52 @@
+{
+  "pr": 1656,
+  "baseline": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+  "qualification": "Actual application command palette after the same session query completes. Baseline preserves matching Import thread and settings actions; the feature additionally searches the active workspace and shows the two session files. Fixtures and application revisions are identified separately; application source was unchanged during both captures.",
+  "captures": [
+    {
+      "pr": 1656,
+      "variant": "before",
+      "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+      "sourceTree": "f7c039cd491466f5ca735040a78e082b0ab94642",
+      "driver": "6ec0d7ce4b73e91183e2135644ae89a0f8f70996",
+      "run": 38091078978,
+      "artifactId": 11685135026,
+      "artifactDigest": "sha256:6886e5c4fae138791a7f7ba60ff0148ef3b6946eeecedc1c766bffbeb4f2b0ab",
+      "path": ".github/pr-ui-evidence/1656/f29c2cd8db65bc61b22df00e8da4b8c4d2518824/before",
+      "images": [
+        {
+          "name": "active-workspace-search.png",
+          "bytes": 47588,
+          "sha256": "be043a0d773c4805cedc7327deba527f7bb4be13e35bfa49ed50ceee2683ff02"
+        }
+      ]
+    },
+    {
+      "pr": 1656,
+      "variant": "after",
+      "source": "184068e413a238f9aefaf61d60f78162f563dae1",
+      "driver": "ca58be8d8a99585a65a53b5a474a533773ddfe83",
+      "run": 38087549334,
+      "path": ".github/pr-ui-evidence/1656/184068e413a238f9aefaf61d60f78162f563dae1/after",
+      "images": [
+        {
+          "name": "active-workspace-search.png",
+          "bytes": 50219,
+          "sha256": "9b79d2101cb75e3af56308ff4ffd1f406d55401e2c10cb0499b42129e3329d29"
+        }
+      ]
+    }
+  ],
+  "priorFixtureFailures": [
+    {
+      "run": 38087549334,
+      "target": "pr1656-before",
+      "reason": "Generic status locator was ambiguous."
+    },
+    {
+      "run": 38090364772,
+      "target": "pr1656-before",
+      "reason": "The fixture incorrectly expected no results, although the baseline query matched existing actions. The repaired fixture preserves those matches and waits for the real query completion."
+    }
+  ]
+}

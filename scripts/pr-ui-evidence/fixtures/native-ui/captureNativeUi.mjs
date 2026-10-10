@@ -49,7 +49,9 @@ const server = await createServer({
 await server.listen();
 const address = server.httpServer.address();
 if (!address || typeof address === "string") throw new Error("Missing isolated Vite listener");
+const uiUrl = "http://127.0.0.1:" + address.port + "/e2e/evidence/nativeUi.html";
 let app;
+let hostWindowId;
 const errors = [];
 const images = [];
 try {
@@ -64,13 +66,36 @@ try {
       ...(hasChrome ? { SYNARA_EVIDENCE_CHROME_PRELOAD: chromePath } : {}),
       SYNARA_EVIDENCE_UI_PRELOAD: resolve(web, "e2e/evidence/nativeUiPreload.cjs"),
       SYNARA_EVIDENCE_PAGE_URL: site.appUrl,
-      SYNARA_EVIDENCE_UI_URL: "http://127.0.0.1:" + address.port + "/e2e/evidence/nativeUi.html",
+      SYNARA_EVIDENCE_UI_URL: uiUrl,
     },
     recordVideo: { dir: join(output, label + "-video"), size: { width: 1280, height: 900 } },
     timeout: 120000,
   });
-  const shell = await app.firstWindow();
-  shell.on("pageerror", (error) => errors.push(String(error)));
+  const observedPages = new WeakSet();
+  const recordPageErrors = (page) => {
+    if (observedPages.has(page)) return;
+    observedPages.add(page);
+    page.on("pageerror", (error) => errors.push(String(error)));
+  };
+  app.on("window", recordPageErrors);
+  app.windows().forEach(recordPageErrors);
+  // Native priming creates guest targets before the React host loads. Identify
+  // the host by its exact URL and marker, never by target creation order.
+  await expect
+    .poll(() => app.windows().filter((page) => page.url() === uiUrl).length, {
+      timeout: 120000,
+    })
+    .toBe(1);
+  const shell = app.windows().find((page) => page.url() === uiUrl);
+  await expect(shell).toHaveURL(uiUrl);
+  await expect(shell.locator("[data-synara-native-ui-host]")).toBeVisible();
+  hostWindowId = await app.evaluate(({ BrowserWindow }, url) => {
+    const matches = BrowserWindow.getAllWindows().filter(
+      (window) => window.webContents.getURL() === url,
+    );
+    if (matches.length !== 1) throw new Error("Expected one native evidence host window");
+    return matches[0].id;
+  }, uiUrl);
   await expect(shell.locator("[data-floating-browser-panel]")).toBeVisible({ timeout: 120000 });
   await expect
     .poll(
@@ -90,9 +115,11 @@ try {
     () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))),
   );
   async function capture(name) {
-    const png = await app.evaluate(async ({ BrowserWindow }) =>
-      (await BrowserWindow.getAllWindows()[0].capturePage()).toPNG().toString("base64"),
-    );
+    const png = await app.evaluate(async ({ BrowserWindow }, id) => {
+      const host = BrowserWindow.fromId(id);
+      if (!host) throw new Error("Native evidence host window was closed");
+      return (await host.capturePage()).toPNG().toString("base64");
+    }, hostWindowId);
     const path = join(output, label + "-" + name + ".png");
     writeFileSync(path, Buffer.from(png, "base64"));
     images.push(path);
@@ -151,14 +178,17 @@ try {
           return { x: Math.round(rect.x + point.x), y: Math.round(rect.y + point.y) };
         }, point);
         await app.evaluate(
-          ({ BrowserWindow }, point) =>
-            BrowserWindow.getAllWindows()[0].webContents.sendInputEvent({
+          ({ BrowserWindow }, { id, point }) => {
+            const host = BrowserWindow.fromId(id);
+            if (!host) throw new Error("Native evidence host window was closed");
+            host.webContents.sendInputEvent({
               type: "mouseUp",
               button: "left",
               clickCount: 1,
               ...point,
-            }),
-          hostPoint,
+            });
+          },
+          { id: hostWindowId, point: hostPoint },
         );
         await expect(shell.locator("body > [data-panel-resize-overlay]")).toHaveCount(0);
       }
@@ -204,6 +234,8 @@ try {
       {
         testedHead,
         label,
+        hostUrl: uiUrl,
+        hostWindowId,
         images,
         errors,
         boundary:

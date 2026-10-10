@@ -184,6 +184,50 @@ it("PR UI evidence: Working activity uses the actual status and disclosure compo
       await working.click();
       await expect.element(working).toHaveAttribute("aria-expanded", "true");
       await expect.element(screen.getByText(busy.title, { exact: true })).toBeVisible();
+      await expect.element(screen.getByText(pending.title, { exact: true })).toBeVisible();
+      const finiteAnimations = () =>
+        host
+          .getAnimations({ subtree: true })
+          .filter((animation) => Number.isFinite(animation.effect?.getTiming().iterations ?? 1));
+      await Promise.all(
+        finiteAnimations().map((animation) => animation.finished.catch(() => undefined)),
+      );
+      // A visible title can still be faded or clipped while the shared grid
+      // disclosure opens. Capture only after both complete rows have settled.
+      await vi.waitFor(
+        () => {
+          expect(finiteAnimations()).toHaveLength(0);
+          const hostRect = host.getBoundingClientRect();
+          for (const thread of [busy, pending]) {
+            const row = screen.getByTestId(`activity-thread-${thread.id}`).element();
+            const rect = row.getBoundingClientRect();
+            expect(rect.width).toBeGreaterThan(0);
+            expect(rect.height).toBeGreaterThan(0);
+            expect(rect.top).toBeGreaterThanOrEqual(hostRect.top);
+            expect(rect.bottom).toBeLessThanOrEqual(hostRect.bottom);
+            expect(rect.left).toBeGreaterThanOrEqual(hostRect.left);
+            expect(rect.right).toBeLessThanOrEqual(hostRect.right);
+            for (
+              let ancestor: Element | null = row;
+              ancestor && host.contains(ancestor);
+              ancestor = ancestor.parentElement
+            ) {
+              const style = getComputedStyle(ancestor);
+              expect(Number(style.opacity)).toBe(1);
+              const clip = ancestor.getBoundingClientRect();
+              if (style.overflowY !== "visible") {
+                expect(rect.top).toBeGreaterThanOrEqual(clip.top - 1);
+                expect(rect.bottom).toBeLessThanOrEqual(clip.bottom + 1);
+              }
+              if (style.overflowX !== "visible") {
+                expect(rect.left).toBeGreaterThanOrEqual(clip.left - 1);
+                expect(rect.right).toBeLessThanOrEqual(clip.right + 1);
+              }
+            }
+          }
+        },
+        { timeout: 5_000 },
+      );
       await page.screenshot({ path: `${directory}/activity-expanded.png`, element: host });
     }
   } finally {
