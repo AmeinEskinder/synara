@@ -153,8 +153,10 @@ export function buildProviderChildEnvironment(input: {
     if (
       normalizedKey.startsWith("SYNARA_") &&
       !allowedSynaraKeys.has(normalizedKey) &&
-      !(hasTruthyVitest &&
-        (normalizedKey.startsWith("SYNARA_FAKE_") || normalizedKey.startsWith("SYNARA_ACP_")))
+      !(
+        hasTruthyVitest &&
+        (normalizedKey.startsWith("SYNARA_FAKE_") || normalizedKey.startsWith("SYNARA_ACP_"))
+      )
     ) {
       continue;
     }

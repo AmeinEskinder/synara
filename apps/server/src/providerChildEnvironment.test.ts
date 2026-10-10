@@ -73,7 +73,7 @@ describe("buildProviderChildEnvironment", () => {
     expect(env).toEqual({ PATH: "/usr/bin" });
   });
 
-  it.each([undefined, ""]) ("does not trust an empty test harness marker: %s", (vitest) => {
+  it.each([undefined, ""])("does not trust an empty test harness marker: %s", (vitest) => {
     const env = buildProviderChildEnvironment({
       provider: "codex",
       baseEnv: { VITEST: vitest, SYNARA_FAKE_PROVIDER_KEY: "secret" },

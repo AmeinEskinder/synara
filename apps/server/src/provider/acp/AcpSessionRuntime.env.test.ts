@@ -46,7 +46,6 @@ describe("buildAcpSpawnProcessEnv", () => {
     expect(env.HTTPS_PROXY).toBe("http://proxy.example");
   });
 
-
   it("grants declared Cursor credentials from selected provider environment", () => {
     const env = buildAcpSpawnProcessEnv(
       {
