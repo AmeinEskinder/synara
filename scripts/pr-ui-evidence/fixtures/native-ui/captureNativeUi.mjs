@@ -55,6 +55,7 @@ let app;
 let hostWindowId;
 const errors = [];
 const images = [];
+const captureStates = [];
 try {
   app = await electron.launch({
     executablePath: resolve(web, "../desktop/node_modules/electron/dist/electron"),
@@ -111,24 +112,44 @@ try {
       { timeout: 120000 },
     )
     .toBe(true);
-  // The controlled fixture page has a transparent default background. Give
-  // that synthetic content the same readable colors on both source revisions;
-  // no production host, browser chrome or component styles are changed.
-  await app.evaluate(
-    async ({ webContents }, { url, css }) => {
-      const guests = webContents
-        .getAllWebContents()
-        .filter((guest) => guest.getType() === "webview" && guest.getURL() === url);
-      if (guests.length !== 1) throw new Error("Expected one loaded synthetic fixture page");
-      await guests[0].insertCSS(css);
-    },
-    { url: site.appUrl, css: fixturePageCss },
-  );
   await shell.evaluate(() => document.fonts.ready);
   await shell.evaluate(
     () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))),
   );
   async function capture(name) {
+    // Baseline handoff can replace the page guest. Apply the identical fixture
+    // colors to the currently loaded guest at every capture, not just the first
+    // webContents. Production host and browser-control styles stay untouched.
+    await expect
+      .poll(() =>
+        app.evaluate(({ webContents }, url) => {
+          const guests = webContents
+            .getAllWebContents()
+            .filter((guest) => guest.getType() === "webview" && guest.getURL() === url);
+          return guests.length === 1 && !guests[0].isLoading();
+        }, site.appUrl),
+      )
+      .toBe(true);
+    const guestState = await app.evaluate(
+      async ({ webContents }, { url, css }) => {
+        const guests = webContents
+          .getAllWebContents()
+          .filter((guest) => guest.getType() === "webview" && guest.getURL() === url);
+        if (guests.length !== 1) throw new Error("Expected one loaded synthetic fixture page");
+        const guest = guests[0];
+        await guest.insertCSS(css);
+        const colors = await guest.executeJavaScript(
+          "document.fonts.ready.then(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(() => done({ background: getComputedStyle(document.body).backgroundColor, color: getComputedStyle(document.body).color })))))",
+        );
+        return { id: guest.id, url: guest.getURL(), ...colors };
+      },
+      { url: site.appUrl, css: fixturePageCss },
+    );
+    expect(guestState.background).toBe("rgb(255, 255, 255)");
+    expect(guestState.color).toBe("rgb(17, 17, 17)");
+    await shell.evaluate(
+      () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))),
+    );
     const png = await app.evaluate(async ({ BrowserWindow }, id) => {
       const host = BrowserWindow.fromId(id);
       if (!host) throw new Error("Native evidence host window was closed");
@@ -137,6 +158,7 @@ try {
     const path = join(output, label + "-" + name + ".png");
     writeFileSync(path, Buffer.from(png, "base64"));
     images.push(path);
+    captureStates.push({ name, fixtureGuest: guestState });
   }
   await capture("floating");
   const nativeChrome = await app.evaluate(
@@ -219,6 +241,35 @@ try {
         ),
       )
       .toBe("true");
+    await expect(shell.locator("[data-floating-browser-chrome-thread]")).toHaveAttribute(
+      "data-floating-browser-chrome-expanded",
+      "true",
+    );
+    // aria-expanded changes before the disclosure transition and native-view
+    // resize paint. Wait for the actual pop control to be fully visible in the
+    // guest viewport, then allow that guest to render its completed state.
+    await expect
+      .poll(() =>
+        app.evaluate(
+          ({ webContents }, id) =>
+            webContents
+              .fromId(id)
+              .executeJavaScript(
+                "(() => { const e=document.querySelector('#pop'); const r=e.getBoundingClientRect(); const actions=document.querySelector('#actions'); const hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2); return document.visibilityState === 'visible' && document.getAnimations().length === 0 && actions.clientWidth >= actions.scrollWidth && r.x >= 0 && r.right <= innerWidth && r.y >= 0 && r.bottom <= innerHeight && (hit === e || e.contains(hit)); })()",
+              ),
+          nativeChrome,
+        ),
+      )
+      .toBe(true);
+    await app.evaluate(
+      ({ webContents }, id) =>
+        webContents
+          .fromId(id)
+          .executeJavaScript(
+            "new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))",
+          ),
+      nativeChrome,
+    );
     await capture("controls");
     await clickChrome("#pop");
   } else {
@@ -251,6 +302,7 @@ try {
         hostUrl: uiUrl,
         hostWindowId,
         fixturePageCss,
+        captureStates,
         images,
         errors,
         boundary:
