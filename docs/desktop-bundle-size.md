@@ -11,6 +11,12 @@ uses Linux x64; the macOS and Windows variants use `mac`/`dmg` and `win`/`nsis`
 respectively, with the matching architecture. Choose one build version and use
 it consistently for the build, measurement and startup check.
 
+Prepare the native prerequisites from the [release guide](release.md) first:
+the pinned Rust toolchain and Linux native development libraries, or the macOS
+15/Xcode 16.4 build host with a same-source Icon Composer catalog compiled on
+macOS 26. Linux startup checks also require Xvfb and the desktop runtime libraries.
+The workflow below provisions these requirements explicitly.
+
 ```sh
 bun install --frozen-lockfile --ignore-scripts --filter '!@synara/marketing'
 node --test .github/scripts/measure-bundle-size.test.mjs
@@ -49,7 +55,9 @@ The read-only **Verify production bundle size** workflow performs native
 packaging at the exact workflow SHA, records source/tree/lock/target provenance
 and these inventories, then launches each packaged app in an isolated temporary
 profile. Its four native hosts are macOS arm64, macOS x64, Linux x64 and Windows
-x64. It never publishes, updates a release or uses signing credentials. Download
+x64. A separate macOS 26 job compiles the production icon; consumers verify its
+source commit and SHA-256 before packaging with the macOS 15 native toolchain.
+It never publishes, updates a release or uses signing credentials. Download
 the evidence before its 14-day artifact expiry. A failed build, measurement or
 startup check remains a failed qualification; retained logs are evidence of that
 failure, not a successful size comparison.
