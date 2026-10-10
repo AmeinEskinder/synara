@@ -598,7 +598,7 @@ async function buildWorkspaceIndexFromGit(cwd: string): Promise<WorkspaceIndex |
   // ENOENT. Drop them, and fall back to the filesystem walk if this listing fails.
   const deletedFiles = await runProcess(
     "git",
-    [...WORKSPACE_GIT_HARDENED_CONFIG_ARGS, "ls-files", "--deleted", "-z"],
+    [...WORKSPACE_GIT_CONFIG_ARGS, "ls-files", "--deleted", "-z"],
     {
       cwd,
       allowNonZeroExit: true,

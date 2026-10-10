@@ -1,5 +1,7 @@
 import type { ProjectScript } from "@synara/contracts";
+import { readCodexConfigContent } from "@synara/shared/codexConfig";
 
+import { registerCodexProviderCredentials } from "./codexProviderCredentials.ts";
 import { runProcess } from "./processRunner.ts";
 import { buildProviderChildEnvironment } from "./providerChildEnvironment.ts";
 
@@ -26,6 +28,9 @@ export async function runWorktreeSetupScript(
       : (process.env.SHELL ?? "/bin/sh");
   const args =
     process.platform === "win32" ? ["/d", "/s", "/c", script.command] : ["-lc", script.command];
+  // Setup precedes provider startup, so credential classification must not rely
+  // on a Codex child having already registered arbitrary configured env_key names.
+  registerCodexProviderCredentials(readCodexConfigContent() ?? "");
   await runProcess(shell, args, {
     cwd,
     env: buildProviderChildEnvironment({ provider: "worktree-setup" }),
