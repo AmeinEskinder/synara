@@ -125,6 +125,10 @@ import { hasActiveComposerSend } from "../lib/composerSendOwnership";
 import { useProjectAgentSummariesStore } from "./chat/project/useProjectAgentSummaries";
 import { useThreadDispatchStore } from "./chat/useChatLocalDispatch";
 import { hasUnseenSnoozeReturn } from "./Sidebar.logic";
+import {
+  beginTranscriptFollowTrace,
+  readTranscriptFollowDiagnostic,
+} from "../test/transcriptFollowDiagnostic";
 // Pre-transform the compiler-heavy component outside the first case's timeout.
 // The router's auto-split route otherwise requests this module on first mount.
 import "./ChatView";
@@ -6564,6 +6568,7 @@ describe("ChatView transcript geometry (full app)", () => {
       };
     }
     const mounted = await mountChatView({ viewport: DEFAULT_VIEWPORT, snapshot });
+    const trace = action === "thread switch" ? beginTranscriptFollowTrace() : undefined;
     const messageId = MessageId.makeUnsafe("follow-live-response");
     const turnId = TurnId.makeUnsafe("follow-live-turn");
     const syncThread = (
@@ -6831,6 +6836,7 @@ describe("ChatView transcript geometry (full app)", () => {
         // the reader is looking at must remain at the same viewport position.
         expect(readAnchorTop()).toBeCloseTo(detachedTop, 0);
         if (action === "thread switch") {
+          trace?.mark("before-thread-switch");
           await mounted.router.navigate({
             to: "/$threadId",
             params: { threadId: OTHER_THREAD_ID },
@@ -6843,6 +6849,7 @@ describe("ChatView transcript geometry (full app)", () => {
             const next = document.querySelector<HTMLElement>("[data-chat-scroll-container='true']");
             return next?.querySelector(`[data-message-id='${messageId}']`) ? next : null;
           }, "Streaming transcript did not remount.");
+          trace?.mark("remounted");
           await waitForLayout();
         } else if (action === "arrow" || keyboardKey !== null || action === "find") {
           const arrow = await waitForElement(
@@ -6871,6 +6878,7 @@ describe("ChatView transcript geometry (full app)", () => {
         );
         await new Promise<void>((resolve) => setTimeout(resolve, 250));
       }
+      trace?.mark("final-growth");
       for (let index = 0; index < 8; index += 1) {
         grow();
         await waitForLayout();
@@ -6894,6 +6902,33 @@ describe("ChatView transcript geometry (full app)", () => {
         expect(getScrollContainerDistanceFromBottom(container)).toBeLessThanOrEqual(4),
       );
     } finally {
+      if (trace) {
+        try {
+          const container = document.querySelector<HTMLElement>(
+            "[data-chat-scroll-container='true']",
+          );
+          console.info(
+            "SYNARA_FOLLOW_FINAL_STATE",
+            JSON.stringify(readTranscriptFollowDiagnostic(container)),
+          );
+        } catch (error) {
+          console.info(
+            "SYNARA_FOLLOW_CAPTURE_ERROR",
+            error instanceof Error ? error.message : "capture failed",
+          );
+        } finally {
+          console.info("SYNARA_FOLLOW_SCALAR_TRACE", JSON.stringify(trace.finish()));
+        }
+        try {
+          const evidenceDirectory = import.meta.env.VITE_FOLLOW_DIAGNOSTIC_DIR;
+          if (evidenceDirectory) await page.screenshot({ path: `${evidenceDirectory}/final.png` });
+        } catch (error) {
+          console.info(
+            "SYNARA_FOLLOW_CAPTURE_ERROR",
+            error instanceof Error ? error.message : "capture failed",
+          );
+        }
+      }
       await mounted.cleanup();
       restoreNativeApi();
     }
@@ -6902,6 +6937,7 @@ describe("ChatView transcript geometry (full app)", () => {
   it("follows the final text batch when the assistant turn settles", async () => {
     let snapshot = createSnapshotWithLongAssistantResponse();
     const mounted = await mountChatView({ viewport: DEFAULT_VIEWPORT, snapshot });
+    const trace = beginTranscriptFollowTrace();
     const messageId = MessageId.makeUnsafe("msg-final-text-batch");
     const turnId = TurnId.makeUnsafe("turn-final-text-batch");
     const syncReply = (text: string, streaming: boolean) => {
@@ -6960,6 +6996,7 @@ describe("ChatView transcript geometry (full app)", () => {
       await vi.waitFor(() => expect(container.textContent).toContain("The reply starts."));
       await waitForTranscriptLayoutToSettle(container);
       expect(getScrollContainerDistanceFromBottom(container)).toBeLessThanOrEqual(4);
+      trace.mark("final-settle");
       syncReply(
         `${Array.from(
           { length: 40 },
@@ -6973,6 +7010,31 @@ describe("ChatView transcript geometry (full app)", () => {
         expect(getScrollContainerDistanceFromBottom(container)).toBeLessThanOrEqual(4),
       );
     } finally {
+      try {
+        const container = document.querySelector<HTMLElement>(
+          "[data-chat-scroll-container='true']",
+        );
+        console.info(
+          "SYNARA_FOLLOW_SETTLE_FINAL_STATE",
+          JSON.stringify(readTranscriptFollowDiagnostic(container)),
+        );
+      } catch (error) {
+        console.info(
+          "SYNARA_FOLLOW_CAPTURE_ERROR",
+          error instanceof Error ? error.message : "capture failed",
+        );
+      } finally {
+        console.info("SYNARA_FOLLOW_SETTLE_SCALAR_TRACE", JSON.stringify(trace.finish()));
+      }
+      try {
+        const evidenceDirectory = import.meta.env.VITE_FOLLOW_DIAGNOSTIC_DIR;
+        if (evidenceDirectory) await page.screenshot({ path: `${evidenceDirectory}/final.png` });
+      } catch (error) {
+        console.info(
+          "SYNARA_FOLLOW_CAPTURE_ERROR",
+          error instanceof Error ? error.message : "capture failed",
+        );
+      }
       await mounted.cleanup();
     }
   });

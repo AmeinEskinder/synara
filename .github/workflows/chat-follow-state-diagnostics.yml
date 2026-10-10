@@ -1,0 +1,90 @@
+name: Chat follow virtualizer state diagnostics
+
+on:
+  push:
+    branches:
+      - cleanup/20261010/chat-follow-1776-diagnostics
+
+permissions:
+  contents: read
+
+env:
+  NODE_OPTIONS: --max-old-space-size=4096
+
+jobs:
+  follow:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact isolated diagnostic source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Record exact source provenance
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          mkdir -p output/follow-diagnostics
+          {
+            printf 'failing_source=97f9b7fc314d93bda8117249fe89cdeca66bf6cf\n'
+            printf 'failing_source_tree=f510e8923dad83cff52a62fc13eb7fcac1b97855\n'
+            printf 'timer_correction_donor=d7f803e87b0ef832aa78b4505cd39e16fdb1e896\n'
+            printf 'original_failure_run=38089702898\n'
+            printf 'original_failure_job=114323654856\n'
+            printf 'head='; git rev-parse HEAD
+            printf 'tree='; git rev-parse HEAD^{tree}
+            printf 'chat_view_test_blob='; git rev-parse HEAD:apps/web/src/components/ChatView.browser.tsx
+            printf 'diagnostic_helper_blob='; git rev-parse HEAD:apps/web/src/test/transcriptFollowDiagnostic.ts
+            printf 'instrumenter_blob='; git rev-parse HEAD:.github/scripts/prepare-follow-state-trace.mjs
+            printf 'trace_config_blob='; git rev-parse HEAD:apps/web/vitest.browser.follow-trace.config.ts
+            printf 'follow_hook_blob='; git rev-parse HEAD:apps/web/src/components/chat/useChatTranscriptScroll.ts
+            printf 'follow_hook_test_blob='; git rev-parse HEAD:apps/web/src/components/chat/useChatTranscriptScroll.browser.tsx
+          } > output/follow-diagnostics/provenance.txt
+          test "$(git rev-parse HEAD:apps/web/src/components/chat/useChatTranscriptScroll.ts)" = a88d19da5ece9a2168686347f940873ae870eb76
+          test "$(git rev-parse HEAD:apps/web/src/components/chat/useChatTranscriptScroll.browser.tsx)" = ab8ef7cb3e39499681feb58b62d0cc508bbe808d
+
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
+
+      - name: Prepare isolated scalar trace without modifying installed dependencies
+        run: node .github/scripts/prepare-follow-state-trace.mjs
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('bun.lock') }}
+
+      - name: Install browser test runtime
+        working-directory: apps/web
+        run: ./node_modules/.bin/playwright install chromium
+
+      - name: Run each unchanged case and lane once with scalar tracing
+        shell: bash
+        working-directory: apps/web
+        run: |
+          evidence="$GITHUB_WORKSPACE/output/follow-diagnostics"
+          mkdir -p "$evidence/full" "$evidence/isolated" "$evidence/final-settle"
+          set +e
+          VITE_FOLLOW_DIAGNOSTIC_DIR="$evidence/full" ./node_modules/.bin/vitest run --config vitest.browser.follow-trace.config.ts --project=chat-follow --shard=1/1 2>&1 | tee "$evidence/full-lane.log"
+          full_status=${PIPESTATUS[0]}
+          cp -R src/components/__screenshots__ "$evidence/full-screenshots" 2>/dev/null || true
+          VITE_FOLLOW_DIAGNOSTIC_DIR="$evidence/isolated" ./node_modules/.bin/vitest run --config vitest.browser.follow-trace.config.ts --project=chat-follow -t 'restores streaming follow after thread switch in the full ChatView' 2>&1 | tee "$evidence/isolated-case.log"
+          isolated_status=${PIPESTATUS[0]}
+          cp -R src/components/__screenshots__ "$evidence/isolated-screenshots" 2>/dev/null || true
+          VITE_FOLLOW_DIAGNOSTIC_DIR="$evidence/final-settle" ./node_modules/.bin/vitest run --config vitest.browser.follow-trace.config.ts --project=chat-workflows -t 'follows the final text batch when the assistant turn settles' 2>&1 | tee "$evidence/final-settle.log"
+          final_settle_status=${PIPESTATUS[0]}
+          cp -R src/components/__screenshots__ "$evidence/final-settle-screenshots" 2>/dev/null || true
+          printf 'full_lane=%s\nisolated_case=%s\nfinal_settle=%s\n' "$full_status" "$isolated_status" "$final_settle_status" > "$evidence/results.txt"
+          if [ "$full_status" -ne 0 ] || [ "$isolated_status" -ne 0 ] || [ "$final_settle_status" -ne 0 ]; then exit 1; fi
+
+      - name: Preserve all diagnostic results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chat-follow-1776-scalar-state
+          path: output/follow-diagnostics
+          if-no-files-found: error
+          retention-days: 7
