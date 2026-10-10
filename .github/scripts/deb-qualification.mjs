@@ -15,6 +15,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
+import { stripTypeScriptTypes } from "node:module";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -121,11 +122,13 @@ async function qualify() {
     assert.equal(run("git", ["status", "--porcelain=v1", "--untracked-files=all"]).trim(), "");
     const canonical = readFileSync(canonicalPath, "utf8");
     writeFileSync(join(evidence, "canonical-startup.ts"), canonical);
-    writeFileSync(
-      join(evidence, "installed-deb-startup.ts"),
-      createInstalledStartupAdapter(canonical),
-    );
-    run(process.execPath, ["--check", join(evidence, "installed-deb-startup.ts")]);
+    const adapter = createInstalledStartupAdapter(canonical);
+    writeFileSync(join(evidence, "installed-deb-startup.ts"), adapter);
+    // Node's --check does not support TypeScript. Validate a type-stripped copy;
+    // the actual startup still runs the retained TypeScript adapter unchanged.
+    const syntaxPath = join(evidence, "installed-deb-startup.syntax.mjs");
+    writeFileSync(syntaxPath, stripTypeScriptTypes(adapter, { mode: "strip" }));
+    run(process.execPath, ["--check", syntaxPath]);
     save("provenance.json", {
       sourceSha,
       driverSha,
@@ -137,6 +140,7 @@ async function qualify() {
       driverWorkflowSha256: await sha256(join(driver, ".github/workflows/deb-qualification.yml")),
       canonicalStartupSha256: await sha256(canonicalPath),
       installedStartupAdapterSha256: await sha256(join(evidence, "installed-deb-startup.ts")),
+      installedStartupSyntaxSha256: await sha256(syntaxPath),
       runner: { os: process.platform, arch: process.arch, node: process.version },
       limits:
         "Unsigned Linux x64 on Ubuntu 24.04; isolated startup uses Xvfb with --no-sandbox. Does not qualify sandbox policy, provider sessions, upgrades, every Debian distribution, signing or release publication.",
