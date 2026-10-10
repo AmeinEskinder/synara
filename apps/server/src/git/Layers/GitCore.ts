@@ -3702,11 +3702,11 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
         // reflect the real boundary between the two.
         if (newBranch) {
           yield* onPhase("branch");
-          yield* executeGit("GitCore.createDetachedWorktree.createBranch", input.cwd, [
-            "branch",
-            newBranch,
-            resolvedRef,
-          ]);
+          yield* executeGit(
+            "GitCore.createDetachedWorktree.createBranch",
+            input.cwd,
+            disableGitHooksForInvocationArgs(["branch", newBranch, resolvedRef]),
+          );
         }
         yield* onPhase("worktree");
         const addWorktree = executeGit(

@@ -116,8 +116,8 @@ describe("buildProviderChildEnvironment", () => {
     },
   );
 
-  it.each(["codex", "opencode", "pi"] as const)(
-    "preserves upstream credential discovery for multi-provider %s",
+  it.each(["opencode-server", "kilo-server"] as const)(
+    "preserves upstream credential discovery for server %s",
     (provider) => {
       const env = buildProviderChildEnvironment({
         provider,
@@ -133,6 +133,24 @@ describe("buildProviderChildEnvironment", () => {
       expect(env.OPENAI_API_KEY).toBe("openai-secret");
     },
   );
+
+  it("requires explicit Codex custom-provider grants", () => {
+    const env = buildProviderChildEnvironment({
+      provider: "codex",
+      baseEnv: { OPENAI_API_KEY: "openai", ANTHROPIC_API_KEY: "custom" },
+      additionalCredentialKeys: ["ANTHROPIC_API_KEY"],
+    });
+    expect(env).toEqual({ ANTHROPIC_API_KEY: "custom" });
+  });
+
+  it("keeps Pi probe credentials isolated", () => {
+    const env = buildProviderChildEnvironment({
+      provider: "pi",
+      baseEnv: { OPENAI_API_KEY: "openai", ANTHROPIC_API_KEY: "anthropic" },
+    });
+    expect(env.OPENAI_API_KEY).toBeUndefined();
+    expect(env.ANTHROPIC_API_KEY).toBeUndefined();
+  });
 
   it("keeps stripped authority absent in descendants", () => {
     const env = buildProviderChildEnvironment({
