@@ -76,8 +76,8 @@ const PROVIDER_CREDENTIAL_GRANTS: Record<ProviderChildKind, "all" | ReadonlySet<
   codex: new Set(),
   // Server daemons discover arbitrary upstream providers; short-lived probes do not.
   opencode: new Set(),
-  pi: new Set(),
-  omp: new Set(),
+  pi: "all",
+  omp: "all",
   "opencode-server": "all",
   "kilo-server": "all",
   // Commands launched by model runtimes and repository setup are separate boundaries.

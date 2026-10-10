@@ -27,7 +27,9 @@ export function disableGitHooksForInvocationArgs(
 export function gitHardenedConfigEnvironment(
   inheritedEnv: NodeJS.ProcessEnv = process.env,
 ): NodeJS.ProcessEnv {
-  const inheritedCountText = inheritedEnv.GIT_CONFIG_COUNT?.trim();
+  const inheritedCountText = Object.entries(inheritedEnv).find(
+    ([key]) => key.toUpperCase() === "GIT_CONFIG_COUNT",
+  )?.[1]?.trim();
   const inheritedCount =
     inheritedCountText !== undefined && /^\d+$/u.test(inheritedCountText)
       ? Number(inheritedCountText)
