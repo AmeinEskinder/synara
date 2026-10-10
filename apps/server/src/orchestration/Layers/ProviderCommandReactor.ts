@@ -7163,33 +7163,12 @@ const make = Effect.gen(function* () {
           threadSessionModelSelections.set(event.payload.threadId, event.payload.modelSelection);
           return;
         }
-        case "thread.runtime-mode-set": {
-          const thread = yield* resolveThread(event.payload.threadId);
-          if (!thread?.session || thread.session.status === "stopped") {
-            return;
-          }
-          if (
-            thread.session.activeTurnId !== null ||
-            Array.from(pendingClaudeCacheResponses.values()).some(
-              (response) => response.threadId === event.payload.threadId,
-            )
-          ) {
-            // Ensuring now would restart the provider session and invalidate
-            // the active turn or cache worker's reviewed context. The projected thread already carries the desired
-            // runtime mode; the next turn's ensure compares it against the
-            // session's spawn mode and restarts between turns instead.
-            return;
-          }
-          const cachedProviderOptions = threadProviderOptions.get(event.payload.threadId);
-          yield* ensureSessionForThread(event.payload.threadId, event.occurredAt, {
-            ...(cachedProviderOptions !== undefined
-              ? { providerOptions: cachedProviderOptions }
-              : {}),
-            modelSelection: thread.modelSelection,
-            runtimeMode: event.payload.runtimeMode,
-          });
+        case "thread.runtime-mode-set":
+          // The projection already saves the desired mode. Apply it when the
+          // next turn ensures its session, even if the thread is idle: eagerly
+          // restarting here publishes `starting` without a turn and makes the
+          // composer and finished work log briefly look active.
           return;
-        }
         case "thread.interaction-mode-set": {
           if (
             event.payload.previousInteractionMode !== "plan" ||
