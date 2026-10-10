@@ -48,6 +48,7 @@ export function useChatTranscriptScroll({
     top: number;
   } | null>(null);
   const pendingInteractionAnchorFrameRef = useRef<number | null>(null);
+  const pendingFollowCorrectionFrameRef = useRef<number | null>(null);
   const showScrollDebouncer = useRef(
     new Debouncer(() => setShowScrollToBottom(true), { wait: 150 }),
   );
@@ -56,6 +57,9 @@ export function useChatTranscriptScroll({
     const scrollDebouncer = showScrollDebouncer.current;
     return () => {
       scrollDebouncer.cancel();
+      if (pendingFollowCorrectionFrameRef.current !== null) {
+        window.cancelAnimationFrame(pendingFollowCorrectionFrameRef.current);
+      }
       const pendingFrame = pendingInteractionAnchorFrameRef.current;
       if (pendingFrame !== null) {
         window.cancelAnimationFrame(pendingFrame);
@@ -192,11 +196,14 @@ export function useChatTranscriptScroll({
           !isScrollContainerNearBottom(container, 1) &&
           !tailAnchorScrollInFlightRef.current &&
           !settledScrollInFlightRef.current &&
-          performance.now() >= programmaticScrollUntilRef.current
+          pendingFollowCorrectionFrameRef.current === null
         ) {
+          // A row can grow during the native-scroll guard. That guard protects
+          // ownership, but must not discard the only notification of a live
+          // layout change. Coalesce corrections and recheck reader ownership.
           const request = settledScrollRequestRef.current;
-          programmaticScrollUntilRef.current = performance.now() + 200;
-          window.requestAnimationFrame(() => {
+          pendingFollowCorrectionFrameRef.current = window.requestAnimationFrame(() => {
+            pendingFollowCorrectionFrameRef.current = null;
             if (
               request === settledScrollRequestRef.current &&
               !isUserScrollDetachedRef.current &&
