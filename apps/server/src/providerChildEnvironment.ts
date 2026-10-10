@@ -144,16 +144,16 @@ export function buildProviderChildEnvironment(input: {
     (input.additionalCredentialKeys ?? []).map((key) => key.trim().toUpperCase()),
   );
   const childEnv: NodeJS.ProcessEnv = {};
-  const normalizedEnvKeys = new Set(Object.keys(baseEnv).map((envKey) => envKey.toUpperCase()));
+  const hasTruthyVitest = Boolean(
+    Object.entries(baseEnv).find(([envKey]) => envKey.toUpperCase() === "VITEST")?.[1],
+  );
 
   for (const [key, value] of Object.entries(baseEnv)) {
     const normalizedKey = key.toUpperCase();
     if (
       normalizedKey.startsWith("SYNARA_") &&
       !allowedSynaraKeys.has(normalizedKey) &&
-      !(Boolean(
-          Object.entries(baseEnv).find(([envKey]) => envKey.toUpperCase() === "VITEST")?.[1],
-        ) &&
+      !(hasTruthyVitest &&
         (normalizedKey.startsWith("SYNARA_FAKE_") || normalizedKey.startsWith("SYNARA_ACP_")))
     ) {
       continue;
