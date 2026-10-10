@@ -3,7 +3,18 @@ name: Verify production bundle size
 on:
   push:
     branches: [perf/bundle-size-081dbbc9]
-    paths: [.github/workflows/bundle-size-verify.yml]
+    paths:
+      - .github/workflows/bundle-size-verify.yml
+      - .github/scripts/measure-bundle-size*.mjs
+      - docs/desktop-bundle-size.md
+      - scripts/**
+      - apps/desktop/**
+      - apps/server/**
+      - apps/web/**
+      - packages/**
+      - patches/**
+      - package.json
+      - bun.lock
   workflow_dispatch:
     inputs:
       build_version:
@@ -48,9 +59,13 @@ jobs:
       ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
       SYNARA_DESKTOP_SIGNED: "false"
       AUDIT_VERSION: ${{ inputs.build_version || '0.8.4' }}
+      AUDIT_FLAVOR: production
+      AUDIT_PLATFORM: ${{ matrix.platform }}
+      AUDIT_ARCH: ${{ matrix.arch }}
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: ${{ github.sha }}
           persist-credentials: false
       - uses: oven-sh/setup-bun@v2
         with:
@@ -60,16 +75,43 @@ jobs:
           node-version: ${{ matrix.node }}
       - name: Install frozen release build dependencies
         run: bun install --frozen-lockfile --ignore-scripts --filter '!@synara/marketing'
+      - name: Verify measurement attribution and byte accounting
+        run: node --test .github/scripts/measure-bundle-size.test.mjs
+      - name: Bind an isolated build stage to this exact source
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { execFileSync } from 'node:child_process';
+          import { createHash } from 'node:crypto';
+          import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+          import { tmpdir } from 'node:os';
+          import { join } from 'node:path';
+          const sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+          if (sourceCommit !== process.env.GITHUB_SHA) throw new Error('Checked-out source does not match this workflow head.');
+          const sourceTree = execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { encoding: 'utf8' }).trim();
+          const lockfileSha256 = createHash('sha256').update(readFileSync('bun.lock')).digest('hex');
+          const stageParent = mkdtempSync(join(tmpdir(), 'synara-bundle-audit-'));
+          appendFileSync(process.env.GITHUB_ENV, `AUDIT_TEMP_ROOT=${stageParent}\nAUDIT_LOCKFILE_SHA256=${lockfileSha256}\n`);
+          const evidence = join(process.env.RUNNER_TEMP, 'size-evidence');
+          mkdirSync(evidence, { recursive: true });
+          writeFileSync(join(evidence, 'build-provenance.json'), `${JSON.stringify({
+            sourceCommit, sourceTree, lockfileSha256, stageParent,
+            flavor: process.env.AUDIT_FLAVOR, platform: process.env.AUDIT_PLATFORM,
+            arch: process.env.AUDIT_ARCH, version: process.env.AUDIT_VERSION,
+            workflowRun: process.env.GITHUB_RUN_ID, workflowAttempt: process.env.GITHUB_RUN_ATTEMPT,
+            signed: false,
+          }, null, 2)}\n`);
+          NODE
       - name: Build unsigned production candidate
         shell: bash
         run: |
           set -o pipefail
-          mkdir -p "$RUNNER_TEMP/size-evidence"
-          bun run dist:desktop:artifact -- --platform '${{ matrix.platform }}' --target '${{ matrix.target }}' --arch '${{ matrix.arch }}' --build-version "$AUDIT_VERSION" --keep-stage --verbose --output-dir "$RUNNER_TEMP/size-artifacts" 2>&1 | tee "$RUNNER_TEMP/size-evidence/build.log"
+          TMPDIR="$AUDIT_TEMP_ROOT" TMP="$AUDIT_TEMP_ROOT" TEMP="$AUDIT_TEMP_ROOT" \
+            bun run dist:desktop:artifact -- --platform "$AUDIT_PLATFORM" --flavor "$AUDIT_FLAVOR" --target '${{ matrix.target }}' --arch "$AUDIT_ARCH" --build-version "$AUDIT_VERSION" --source-commit "$GITHUB_SHA" --lockfile-sha256 "$AUDIT_LOCKFILE_SHA256" --keep-stage --verbose --output-dir "$RUNNER_TEMP/size-artifacts" 2>&1 | tee "$RUNNER_TEMP/size-evidence/build.log"
       - name: Measure installed files and download archives
         shell: bash
         run: |
-          node .github/scripts/measure-bundle-size.mjs "$GITHUB_WORKSPACE" "$RUNNER_TEMP/size-evidence" '${{ matrix.platform }}' > "$RUNNER_TEMP/size-evidence/measurement.log"
+          node .github/scripts/measure-bundle-size.mjs --source "$GITHUB_WORKSPACE" --output "$RUNNER_TEMP/size-evidence" --stage-parent "$AUDIT_TEMP_ROOT" --platform "$AUDIT_PLATFORM" --flavor "$AUDIT_FLAVOR" --arch "$AUDIT_ARCH" --version "$AUDIT_VERSION" > "$RUNNER_TEMP/size-evidence/measurement.log"
       - name: Verify packaged imports and isolated desktop startup
         shell: bash
         run: |

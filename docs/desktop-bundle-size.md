@@ -6,30 +6,53 @@ platform, architecture, toolchain and signing mode in the evidence.
 
 ## Reproduce a measurement
 
-Run on the matching native release host. This example uses Linux x64; the macOS
-and Windows variants use `mac`/`dmg` and `win`/`nsis` respectively.
+Run from a clean commit on the matching native release host. This Bash example
+uses Linux x64; the macOS and Windows variants use `mac`/`dmg` and `win`/`nsis`
+respectively, with the matching architecture. Choose one build version and use
+it consistently for the build, measurement and startup check.
 
 ```sh
 bun install --frozen-lockfile --ignore-scripts --filter '!@synara/marketing'
-bun run dist:desktop:artifact -- --platform linux --target AppImage --arch x64 \
-  --build-version 0.8.4 --keep-stage --verbose --output-dir /tmp/synara-size-artifacts
-node .github/scripts/measure-bundle-size.mjs "$PWD" /tmp/synara-size-evidence linux
-node scripts/verify-packaged-desktop-startup.ts --assets-dir /tmp/synara-size-artifacts \
-  --platform linux --arch x64 --version 0.8.4
+node --test .github/scripts/measure-bundle-size.test.mjs
+audit_version=0.8.4
+audit_source_commit="$(git rev-parse HEAD)"
+audit_lockfile_sha256="$(node --input-type=module -e 'import { createHash } from "node:crypto"; import { readFileSync } from "node:fs"; console.log(createHash("sha256").update(readFileSync("bun.lock")).digest("hex"));')"
+audit_temp="$(node --input-type=module -e 'import { mkdtempSync } from "node:fs"; import { tmpdir } from "node:os"; import { join } from "node:path"; console.log(mkdtempSync(join(tmpdir(), "synara-bundle-audit-")));')"
+SYNARA_DESKTOP_SIGNED=false TMPDIR="$audit_temp" TMP="$audit_temp" TEMP="$audit_temp" \
+  bun run dist:desktop:artifact -- --platform linux --flavor production --target AppImage --arch x64 \
+  --build-version "$audit_version" --source-commit "$audit_source_commit" \
+  --lockfile-sha256 "$audit_lockfile_sha256" --keep-stage --verbose \
+  --output-dir "$audit_temp/artifacts"
+node .github/scripts/measure-bundle-size.mjs --source "$PWD" --output "$audit_temp/evidence" \
+  --stage-parent "$audit_temp" --platform linux --flavor production --arch x64 --version "$audit_version"
+node scripts/verify-packaged-desktop-startup.ts --assets-dir "$audit_temp/artifacts" \
+  --platform linux --arch x64 --version "$audit_version"
 ```
 
-The measurement helper selects the most recent retained stage for that platform.
-Run it immediately after the build, without concurrent builds in the same temp
-folder. `installed.bytes` sums regular-file lengths without following symlinks;
+Use a new temporary parent for every build. All three temp variables point the
+builder at that parent on native macOS, Linux and Windows. The measurement helper
+requires exactly one retained `synara-desktop-FLAVOR-PLATFORM-stage-*` directory
+there. Missing or ambiguous candidates fail; it never selects by modification
+time or searches the global temp directory. Staged package metadata must match
+the checkout's full commit and lockfile digest, the requested flavor and version,
+and the packaged directory must match the requested platform and architecture.
+The builder's explicit provenance flags also reject a dirty source checkout.
+
+`bundle-size.json` records the selected stage, requested target and host/toolchain
+metadata. `installed.bytes` sums regular-file lengths without following symlinks;
 it includes the ASAR once and its unpacked files once. The logical ASAR inventory
 is a separate breakdown, not another amount to add. Installer/ZIP lengths and
 SHA-256 hashes are recorded separately. Disk allocation reported by Finder or
 `du` can differ because of block sizes, compression, symlinks and hard links.
 
 The read-only **Verify production bundle size** workflow performs native
-packaging, records these inventories and launches each packaged app in an
-isolated temporary profile. It never publishes, updates a release or uses
-signing credentials. Download the evidence before its 14-day artifact expiry.
+packaging at the exact workflow SHA, records source/tree/lock/target provenance
+and these inventories, then launches each packaged app in an isolated temporary
+profile. Its four native hosts are macOS arm64, macOS x64, Linux x64 and Windows
+x64. It never publishes, updates a release or uses signing credentials. Download
+the evidence before its 14-day artifact expiry. A failed build, measurement or
+startup check remains a failed qualification; retained logs are evidence of that
+failure, not a successful size comparison.
 
 ## Packaging policy
 
