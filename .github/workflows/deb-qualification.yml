@@ -1,0 +1,103 @@
+name: Qualify Linux Debian package
+
+on:
+  push:
+    branches: [cleanup/20261010/deb-evidence]
+    paths:
+      - .github/workflows/deb-qualification.yml
+      - .github/scripts/deb-qualification.mjs
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deb-qualification-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  linux-deb:
+    name: Build and install Linux x64 packages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      DEB_QUALIFICATION_SOURCE_SHA: 339faf89bbf0c6cb1de86dbe8f83ad5d2ccd0eee
+      DEB_QUALIFICATION_DRIVER_SHA: ${{ github.sha }}
+      NODE_OPTIONS: --max-old-space-size=4096
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+      SYNARA_DESKTOP_SIGNED: "false"
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      SYNARA_DISABLE_AUTO_UPDATE: "1"
+    defaults:
+      run:
+        shell: bash
+        working-directory: source
+    steps:
+      - name: Checkout immutable qualification driver
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          path: driver
+          persist-credentials: false
+      - name: Checkout exact feature source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.DEB_QUALIFICATION_SOURCE_SHA }}
+          path: source
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: source/package.json
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: source/package.json
+      - name: Record and verify source and driver provenance
+        run: node ../driver/.github/scripts/deb-qualification.mjs prepare "$PWD" "$RUNNER_TEMP/deb-evidence"
+      - name: Install pinned native toolchain and Linux build dependencies
+        run: |
+          set -euo pipefail
+          deb_rust_version=$(node -p 'require("./packages/shared/src/cuaDriverRelease.json").rustVersion')
+          rustup toolchain install "$deb_rust_version" --profile minimal
+          echo "RUSTUP_TOOLCHAIN=$deb_rust_version" >> "$GITHUB_ENV"
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential pkg-config libssl-dev libx11-dev libxtst-dev libxrandr-dev libxfixes-dev libxrender-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libwayland-dev xvfb xauth dbus-x11 libgtk-3-0t64 libnss3 libasound2t64 libgbm1 libsecret-1-0 xz-utils
+      - name: Install frozen production build dependencies
+        run: |
+          set -euo pipefail
+          bun install --frozen-lockfile --ignore-scripts --filter '!@synara/marketing' 2>&1 | tee "$RUNNER_TEMP/deb-evidence/install-build-dependencies.log"
+      - name: Build AppImage and Debian package together once
+        id: build
+        timeout-minutes: 35
+        run: |
+          set -euo pipefail
+          deb_build_version=$(node -p 'require("./apps/server/package.json").version')
+          deb_lock_sha=$(sha256sum bun.lock | cut -d ' ' -f 1)
+          bun run dist:desktop:artifact -- \
+            --platform linux --target AppImage,deb --arch x64 --flavor production \
+            --build-version "$deb_build_version" \
+            --source-commit "$DEB_QUALIFICATION_SOURCE_SHA" --lockfile-sha256 "$deb_lock_sha" \
+            --keep-stage --verbose --output-dir "$RUNNER_TEMP/deb-packages" \
+            2>&1 | tee "$RUNNER_TEMP/deb-evidence/build.log"
+      - name: Inspect real package metadata and retain payload hashes
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: node ../driver/.github/scripts/deb-qualification.mjs inspect "$PWD" "$RUNNER_TEMP/deb-evidence"
+      - name: Preserve canonical AppImage startup and runtime dependency check
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          deb_build_version=$(node -p 'require("./apps/server/package.json").version')
+          node scripts/verify-packaged-desktop-startup.ts \
+            --assets-dir "$RUNNER_TEMP/deb-packages" --platform linux --arch x64 \
+            --version "$deb_build_version" 2>&1 | tee "$RUNNER_TEMP/deb-evidence/appimage-startup.log"
+      - name: Install Debian package and verify its actual installed runtime
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        timeout-minutes: 7
+        run: node ../driver/.github/scripts/deb-qualification.mjs verify "$PWD" "$RUNNER_TEMP/deb-evidence"
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-deb-${{ env.DEB_QUALIFICATION_SOURCE_SHA }}-driver-${{ github.sha }}
+          path: ${{ runner.temp }}/deb-evidence
+          retention-days: 14
+          if-no-files-found: error
