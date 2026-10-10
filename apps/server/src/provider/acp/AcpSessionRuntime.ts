@@ -328,10 +328,17 @@ export function buildAcpSpawnProcessEnv(
     : spawn.env
       ? { ...env, ...overlay }
       : env;
+  const declaredDriverKeys = spawn.providerEnvironment
+    ? providerCredentialKeysFor(spawn.providerEnvironment.driver)
+    : [];
+  const selectedEnvironmentKeys = spawn.providerEnvironment
+    ? Object.keys(spawn.providerEnvironment.environment ?? {}).filter(isProviderCredentialKey)
+    : [];
+  const overlayKeys = Object.keys(overlay ?? {}).filter(isProviderCredentialKey);
   return buildProviderChildEnvironment({
     provider: "acp",
     baseEnv: accountIsolatedEnv,
-    additionalCredentialKeys: spawn.env ? Object.keys(overlay ?? {}).filter(isProviderCredentialKey) : [],
+    additionalCredentialKeys: [...declaredDriverKeys, ...selectedEnvironmentKeys, ...overlayKeys],
   });
 }
 

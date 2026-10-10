@@ -29,6 +29,35 @@ describe("buildAcpSpawnProcessEnv", () => {
     expect(env.HTTPS_PROXY).toBe("http://proxy.example");
   });
 
+
+  it("grants declared Cursor credentials from selected provider environment", () => {
+    const env = buildAcpSpawnProcessEnv(
+      {
+        command: "cursor-agent",
+        args: [],
+        env: { NO_BROWSER: "true" },
+        providerEnvironment: {
+          driver: "cursor",
+          instanceId: "cursor_work",
+          environment: { cursor_api_key: "selected-cursor" },
+        },
+      },
+      { PATH: "/usr/bin", CURSOR_API_KEY: "ambient-cursor", ANTHROPIC_API_KEY: "unrelated" },
+      "win32",
+    );
+    expect(env.cursor_api_key).toBe("selected-cursor");
+    expect(env.CURSOR_API_KEY).toBe("ambient-cursor");
+    expect(env.ANTHROPIC_API_KEY).toBeUndefined();
+  });
+
+  it("does not restore credentials for a generic ACP process without provider authority", () => {
+    const env = buildAcpSpawnProcessEnv(
+      { command: "custom-acp", args: [] },
+      { PATH: "/usr/bin", OPENAI_API_KEY: "ambient-openai" },
+    );
+    expect(env.OPENAI_API_KEY).toBeUndefined();
+  });
+
   it("preserves legacy generic ACP environment overlay behavior", () => {
     const env = buildAcpSpawnProcessEnv(
       { command: "custom-acp", args: [], env: { CUSTOM_VALUE: "selected" } },
