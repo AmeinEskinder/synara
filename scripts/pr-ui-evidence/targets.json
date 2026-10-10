@@ -1,22 +1,22 @@
 [
   {
-    "id": "pr1783-before",
-    "pr": 1783,
-    "original": 787,
+    "id": "pr1803-before",
+    "pr": 1803,
+    "original": 1206,
     "variant": "before",
-    "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
-    "mode": "native",
-    "fixture": "native-ui",
-    "destination": "apps/web/e2e/evidence"
+    "source": "fa8aa49e14855999c37315dd4c6dcab34efbdf58",
+    "mode": "append-describe",
+    "fixture": "PrUiEvidence1206.snippet.ts",
+    "destination": "apps/web/src/components/ChatView.browser.tsx"
   },
   {
-    "id": "pr1783-after",
-    "pr": 1783,
-    "original": 787,
+    "id": "pr1803-after",
+    "pr": 1803,
+    "original": 1206,
     "variant": "after",
-    "source": "6a3b281e2238d42add2ba7c37bacbb1723f46577",
-    "mode": "native",
-    "fixture": "native-ui",
-    "destination": "apps/web/e2e/evidence"
+    "source": "83af8eb3e04321453c4f42f55a4a8def8866a2fd",
+    "mode": "append-describe",
+    "fixture": "PrUiEvidence1206.snippet.ts",
+    "destination": "apps/web/src/components/ChatView.browser.tsx"
   }
 ]
