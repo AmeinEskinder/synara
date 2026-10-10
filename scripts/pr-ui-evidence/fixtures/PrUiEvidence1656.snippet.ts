@@ -31,12 +31,13 @@ it("PR UI evidence: active-workspace files in the actual sidebar search", async 
       ],
       truncated: false,
     }));
+    const searchThreads = vi.fn(async () => ({ matches: [] }));
     Object.defineProperty(window, "nativeApi", {
       configurable: true,
       value: {
         ...api,
         projects: { ...api.projects, searchEntries },
-        orchestration: { ...api.orchestration, searchThreads: async () => ({ matches: [] }) },
+        orchestration: { ...api.orchestration, searchThreads },
       },
     });
     await page.getByRole("button", { name: "Search", exact: true }).click();
@@ -50,10 +51,17 @@ it("PR UI evidence: active-workspace files in the actual sidebar search", async 
         kind: "file",
       });
     } else {
-      await expect.element(page.getByText("No results", { exact: true })).toBeVisible();
+      await vi.waitFor(
+        () =>
+          expect(searchThreads).toHaveBeenCalledWith(expect.objectContaining({ query: "session" })),
+        { timeout: 10_000 },
+      );
+      await expect(searchThreads.mock.results.at(-1)?.value).resolves.toEqual({ matches: [] });
+      await expect.element(page.getByRole("option", { name: /Import thread from/ })).toBeVisible();
       await expect
         .element(page.getByRole("option", { name: /session\.ts/ }))
         .not.toBeInTheDocument();
+      expect(searchEntries).not.toHaveBeenCalled();
     }
     await document.fonts.ready;
     await page.screenshot({ path: `${directory}/active-workspace-search.png` });
