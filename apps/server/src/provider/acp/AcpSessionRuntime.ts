@@ -329,10 +329,17 @@ export function buildAcpSpawnProcessEnv(
       ? { ...env, ...overlay }
       : env;
   const declaredDriverKeys = spawn.providerEnvironment
-    ? providerCredentialKeysFor(spawn.providerEnvironment.driver)
+    ? providerCredentialKeysFor(
+        spawn.providerEnvironment.driver === "gemini"
+          ? "antigravity"
+          : spawn.providerEnvironment.driver,
+      )
     : [];
   const selectedEnvironmentKeys = spawn.providerEnvironment
-    ? Object.keys(spawn.providerEnvironment.environment ?? {}).filter(isProviderCredentialKey)
+    ? Object.keys(spawn.providerEnvironment.environment ?? {}).flatMap((key) => {
+        registerProviderCredentialKey(key);
+        return isProviderCredentialKey(key) ? [key] : [];
+      })
     : [];
   const overlayKeys = Object.keys(overlay ?? {}).filter(isProviderCredentialKey);
   return buildProviderChildEnvironment({
