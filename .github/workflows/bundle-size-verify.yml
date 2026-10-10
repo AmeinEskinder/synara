@@ -153,13 +153,13 @@ jobs:
           import { execFileSync } from 'node:child_process';
           import { createHash } from 'node:crypto';
           import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-          import { tmpdir } from 'node:os';
           import { join } from 'node:path';
           const sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
           if (sourceCommit !== process.env.GITHUB_SHA) throw new Error('Checked-out source does not match this workflow head.');
           const sourceTree = execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { encoding: 'utf8' }).trim();
           const lockfileSha256 = createHash('sha256').update(readFileSync('bun.lock')).digest('hex');
-          const stageParent = mkdtempSync(join(tmpdir(), 'synara-bundle-audit-'));
+          // Keep native compiler tracking paths short on Windows.
+          const stageParent = mkdtempSync(join(process.env.RUNNER_TEMP, 'ba-'));
           appendFileSync(process.env.GITHUB_ENV, `AUDIT_TEMP_ROOT=${stageParent}\nAUDIT_LOCKFILE_SHA256=${lockfileSha256}\n`);
           const evidence = join(process.env.RUNNER_TEMP, 'size-evidence');
           mkdirSync(evidence, { recursive: true });
