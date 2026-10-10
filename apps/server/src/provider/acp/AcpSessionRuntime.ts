@@ -328,7 +328,11 @@ export function buildAcpSpawnProcessEnv(
     : spawn.env
       ? { ...env, ...overlay }
       : env;
-  return buildProviderChildEnvironment({ provider: "acp", baseEnv: accountIsolatedEnv });
+  return buildProviderChildEnvironment({
+    provider: "acp",
+    baseEnv: accountIsolatedEnv,
+    additionalCredentialKeys: spawn.env ? Object.keys(overlay ?? {}).filter(isProviderCredentialKey) : [],
+  });
 }
 
 /**
@@ -1485,7 +1489,7 @@ const makeAcpSessionRuntime = (
     // provider boundary. Merging process.env here would silently restore
     // stripped control-plane credentials and launcher capabilities.
     const env = yield* Effect.try({
-      try: () => buildAcpSpawnEnvironment(options.spawn.env, process.env),
+      try: () => buildAcpSpawnProcessEnv(options.spawn),
       catch: (cause) => new AcpErrors.AcpSpawnError({ command: options.spawn.command, cause }),
     });
     const child = yield* spawnProviderProcess(spawner, options.spawn.command, options.spawn.args, {
