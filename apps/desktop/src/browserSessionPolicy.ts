@@ -4,6 +4,7 @@
 
 import {
   app,
+  net,
   session,
   type BrowserWindow,
   type BrowserWindowConstructorOptions,
@@ -16,8 +17,10 @@ import {
   buildChromeClientHints,
   deriveChromeUserAgent,
 } from "@synara/shared/browserSession";
+import { LOCAL_HTML_PREVIEW_SCHEME, LocalHtmlPreviewRegistry } from "./localHtmlPreviewProtocol";
 
 export const BROWSER_SESSION_PARTITION = "persist:synara-browser";
+const MAX_WEB_MCP_POLICY_ENTRIES = 512;
 
 export interface BrowserSessionDownloadEvent {
   readonly event: Electron.Event;
@@ -26,6 +29,48 @@ export interface BrowserSessionDownloadEvent {
 }
 
 export type BrowserSessionDownloadListener = (event: BrowserSessionDownloadEvent) => void;
+
+type ResponseHeaders = Readonly<Record<string, string | readonly string[] | undefined>>;
+
+export function isWebMcpCompatibilityAllowedByHeaders(
+  url: string,
+  headers: ResponseHeaders | undefined,
+): boolean {
+  const values = Object.entries(headers ?? {})
+    .filter(([name]) => name.toLowerCase() === "permissions-policy")
+    .flatMap(([, value]) => (Array.isArray(value) ? value : value ? [value] : []));
+  if (values.length === 0) return true;
+
+  const policy = values.join(",");
+  const explicitToolsDirective = /(?:^|,)\s*tools\s*=/iu.test(policy);
+  const directives = [...policy.matchAll(/(?:^|,)\s*tools\s*=\s*(\*|\([^)]*\))/giu)];
+  if (!explicitToolsDirective) return true;
+  if (directives.length !== 1) return false;
+  const allowList = directives[0]?.[1];
+  if (allowList === "*") return true;
+  if (!allowList?.startsWith("(") || !allowList.endsWith(")")) return false;
+
+  const entries =
+    allowList
+      .slice(1, -1)
+      .match(/(?:^|\s)(self|'self'|"[^"]+")(?=\s|$)/giu)
+      ?.map((entry) => entry.trim()) ?? [];
+  if (entries.some((entry) => /^(?:self|'self')$/iu.test(entry))) return true;
+  let pageOrigin: string;
+  try {
+    pageOrigin = new URL(url).origin;
+  } catch {
+    return false;
+  }
+  return entries.some((entry) => {
+    if (!entry.startsWith('"') || !entry.endsWith('"')) return false;
+    try {
+      return new URL(entry.slice(1, -1)).origin === pageOrigin;
+    } catch {
+      return false;
+    }
+  });
+}
 
 function replaceRequestHeadersCaseInsensitive(
   headers: Record<string, string>,
@@ -46,6 +91,8 @@ function replaceRequestHeadersCaseInsensitive(
 }
 
 export class BrowserSessionPolicy {
+  private readonly localHtmlPreviews = new LocalHtmlPreviewRegistry();
+  private readonly webMcpCompatibilityAllowedByWebContentsId = new Map<number, boolean>();
   private spoofedUserAgent: string | null = null;
   private configured = false;
   private configuredSession: Session | null = null;
@@ -81,15 +128,45 @@ export class BrowserSessionPolicy {
         });
         callback({ requestHeaders });
       });
+      partitionSession.webRequest.onHeadersReceived((details, callback) => {
+        const webContentsId = details.webContentsId;
+        if (
+          details.resourceType === "mainFrame" &&
+          typeof webContentsId === "number" &&
+          webContentsId >= 0
+        ) {
+          this.webMcpCompatibilityAllowedByWebContentsId.delete(webContentsId);
+          this.webMcpCompatibilityAllowedByWebContentsId.set(
+            webContentsId,
+            isWebMcpCompatibilityAllowedByHeaders(details.url, details.responseHeaders),
+          );
+          while (this.webMcpCompatibilityAllowedByWebContentsId.size > MAX_WEB_MCP_POLICY_ENTRIES) {
+            this.webMcpCompatibilityAllowedByWebContentsId.delete(
+              this.webMcpCompatibilityAllowedByWebContentsId.keys().next().value as number,
+            );
+          }
+        }
+        callback({});
+      });
+      partitionSession.protocol.handle(LOCAL_HTML_PREVIEW_SCHEME, async (request) => {
+        if (request.method !== "GET" && request.method !== "HEAD") {
+          return new Response("Method not allowed", { status: 405 });
+        }
+        const fileUrl = await this.localHtmlPreviews.resolveRequestFileUrl(request.url);
+        if (!fileUrl) {
+          return new Response("Not found", { status: 404 });
+        }
+        return net.fetch(fileUrl, { method: request.method });
+      });
       const onWillDownload = this.onWillDownload;
       if (onWillDownload) {
         const listener = (event: Electron.Event, item: DownloadItem, webContents: WebContents) => {
           onWillDownload({ event, item, webContents });
         };
         partitionSession.on("will-download", listener);
-        this.configuredSession = partitionSession;
         this.willDownloadListener = listener;
       }
+      this.configuredSession = partitionSession;
       this.configured = true;
     } catch {
       // Session creation can race Electron readiness. Retrying the next call preserves the
@@ -104,11 +181,17 @@ export class BrowserSessionPolicy {
     this.configuredSession = null;
     this.willDownloadListener = null;
     this.configured = false;
-    if (!partitionSession || !listener) {
+    this.localHtmlPreviews.clear();
+    this.webMcpCompatibilityAllowedByWebContentsId.clear();
+    if (!partitionSession) {
       return;
     }
     try {
-      partitionSession.removeListener("will-download", listener);
+      if (listener) {
+        partitionSession.removeListener("will-download", listener);
+      }
+      partitionSession.webRequest.onHeadersReceived(null);
+      partitionSession.protocol.unhandle(LOCAL_HTML_PREVIEW_SCHEME);
     } catch {
       // Electron may already be tearing the session down during app quit.
       // The manager reference is cleared above, so no retained callback remains here.
@@ -117,6 +200,18 @@ export class BrowserSessionPolicy {
 
   applyUserAgent(webContents: Pick<WebContents, "setUserAgent">): void {
     webContents.setUserAgent(this.resolveUserAgent());
+  }
+
+  isWebMcpCompatibilityAllowed(webContentsId: number): boolean {
+    return this.webMcpCompatibilityAllowedByWebContentsId.get(webContentsId) === true;
+  }
+
+  resolveRuntimeUrl(url: string): string {
+    return this.localHtmlPreviews.toRuntimeUrl(url);
+  }
+
+  resolveDisplayUrl(url: string): string {
+    return this.localHtmlPreviews.toDisplayUrl(url);
   }
 
   buildOAuthPopupWindowOptions(parent: BrowserWindow | null): BrowserWindowConstructorOptions {
@@ -132,6 +227,8 @@ export class BrowserSessionPolicy {
       title: "Sign in",
       ...(parent ? { parent } : {}),
       webPreferences: {
+        // Apply before Electron creates the child that the browser manager adopts.
+        focusOnNavigation: false,
         partition: BROWSER_SESSION_PARTITION,
         contextIsolation: true,
         nodeIntegration: false,
