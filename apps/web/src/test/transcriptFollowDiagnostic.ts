@@ -57,6 +57,25 @@ export function beginTranscriptFollowTrace() {
           }
           const props = state.props as Record<string, unknown> | undefined;
           event.maintainScrollAtEnd = Boolean(props?.maintainScrollAtEnd);
+          event.maintainVisibleContentPosition = Boolean(props?.maintainVisibleContentPosition);
+          event.preservingEndAnchor = Boolean(state.preservedEndAnchorCorrection);
+          if (typeof state.maintainingScrollAtEnd === "string")
+            event.maintainingScrollAtEnd = state.maintainingScrollAtEnd;
+          for (const key of ["initialScroll", "scrollingTo"] as const) {
+            const target = state[key] as Record<string, unknown> | undefined;
+            event[`${key}Present`] = Boolean(target);
+            for (const property of [
+              "index",
+              "offset",
+              "viewPosition",
+              "targetOffset",
+              "isInitialScroll",
+            ]) {
+              const item = target?.[property];
+              if (typeof item === "number" || typeof item === "boolean")
+                event[`${key}:${property}`] = item;
+            }
+          }
           event.itemCount = Array.isArray(props?.data) ? props.data.length : null;
         }
         for (const key of [
@@ -67,6 +86,11 @@ export function beginTranscriptFollowTrace() {
           "syncObservedOffset",
           "context",
           "enabled",
+          "positionDiff",
+          "dataChanged",
+          "clampedOffset",
+          "maxOffset",
+          "animated",
         ]) {
           const item = extra[key];
           if (item === null || typeof item === "number" || typeof item === "boolean")
@@ -90,7 +114,18 @@ export function beginTranscriptFollowTrace() {
   };
   host.__SYNARA_FOLLOW_DIAGNOSTIC_TRACE__ = sink;
   return {
-    mark: (label: "before-thread-switch" | "remounted" | "final-growth" | "final-settle") => {
+    mark: (
+      label:
+        | "before-thread-switch"
+        | "remounted"
+        | "final-growth"
+        | "final-settle"
+        | "measured-growth"
+        | "data-growth"
+        | "before-detachment"
+        | "detached"
+        | "detached-growth",
+    ) => {
       phase = label;
       sink.record("phase", null);
     },

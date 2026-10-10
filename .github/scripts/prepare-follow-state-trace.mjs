@@ -69,6 +69,49 @@ insertOnce(
   "scroll-processing-toggle",
 );
 
+// Separate end-follow, preserved initial-end correction, and visible-content
+// adjustment without adding geometry reads or changing callback scheduling.
+insertOnce(
+  "function doMaintainScrollAtEnd(ctx) {",
+  `function doMaintainScrollAtEnd(ctx) {\n  ${record("maintain-end-request", "ctx.state")}`,
+  "maintain-end-request",
+);
+insertOnce(
+  "      state.maintainingScrollAtEnd = pendingState;",
+  `      ${record("maintain-end-schedule", "state")}\n      state.maintainingScrollAtEnd = pendingState;`,
+  "maintain-end-schedule",
+);
+insertOnce(
+  '        if (state.props.maintainScrollAtEnd && peek$(ctx, "isWithinMaintainScrollAtEndThreshold")) {',
+  `        ${record("maintain-end-frame", "state")}\n        if (state.props.maintainScrollAtEnd && peek$(ctx, "isWithinMaintainScrollAtEndThreshold")) {`,
+  "maintain-end-frame",
+);
+insertOnce(
+  "function schedulePreservedEndAnchorCorrectionFrame(ctx, correction) {",
+  `function schedulePreservedEndAnchorCorrectionFrame(ctx, correction) {\n  ${record("preserved-end-schedule", "ctx.state")}`,
+  "preserved-end-schedule",
+);
+insertOnce(
+  "    const activeCorrection = state.preservedEndAnchorCorrection;",
+  `    const activeCorrection = state.preservedEndAnchorCorrection;\n    ${record("preserved-end-frame", "state")}`,
+  "preserved-end-frame",
+);
+insertOnce(
+  "function requestAdjust(ctx, positionDiff, dataChanged) {",
+  `function requestAdjust(ctx, positionDiff, dataChanged) {\n  ${record("visible-content-adjust", "ctx.state", "{ positionDiff, dataChanged }")}`,
+  "visible-content-adjust",
+);
+insertOnce(
+  "      target.scrollTo(options);",
+  `      ${record("native-scroll-dispatch", "ctx.state", "{ offset, clampedOffset, maxOffset, animated }")}\n      target.scrollTo(options);`,
+  "native-scroll-dispatch",
+);
+insertOnce(
+  "function retargetActiveInitialScrollAtEnd(ctx) {",
+  `function retargetActiveInitialScrollAtEnd(ctx) {\n  ${record("retarget-initial-end", "ctx.state")}`,
+  "retarget-initial-end",
+);
+
 const output = join(sourceRoot, "output/follow-instrumented");
 const evidence = join(sourceRoot, "output/follow-diagnostics");
 mkdirSync(output, { recursive: true });

@@ -1,9 +1,14 @@
 import "../../index.css";
 
 import { MessageId } from "@synara/contracts";
+import { page } from "vitest/browser";
 import { expect, it } from "vitest";
 import { render } from "vitest-browser-react";
 
+import {
+  beginTranscriptFollowTrace,
+  readTranscriptFollowDiagnostic,
+} from "../../test/transcriptFollowDiagnostic";
 import { MessagesTimeline } from "./MessagesTimeline";
 
 it.each([960, 430])(
@@ -72,6 +77,7 @@ it.each([960, 430])(
 );
 
 it("keeps attached follow through a large measured tail growth and yields to reader detachment", async () => {
+  const trace = beginTranscriptFollowTrace();
   const now = "2026-10-04T12:00:00.000Z";
   const timeline = (text: string, following: boolean) => (
     <div style={{ width: 500, height: 400 }}>
@@ -120,11 +126,13 @@ it("keeps attached follow through a large measured tail growth and yields to rea
       .poll(() => node.scrollHeight - node.clientHeight - node.scrollTop)
       .toBeLessThanOrEqual(4);
     const tail = node.querySelector<HTMLElement>("[data-message-id='growing-reply'] p:last-child")!;
+    trace.mark("measured-growth");
     tail.style.paddingBottom = "1800px";
     await expect
       .poll(() => node.scrollHeight - node.clientHeight - node.scrollTop)
       .toBeLessThanOrEqual(4);
     tail.style.paddingBottom = "";
+    trace.mark("data-growth");
     await screen.rerender(timeline("Large new paragraph.\n\n".repeat(100), true));
     await expect
       .poll(
@@ -137,10 +145,13 @@ it("keeps attached follow through a large measured tail growth and yields to rea
     await expect
       .poll(() => node.scrollHeight - node.clientHeight - node.scrollTop)
       .toBeLessThanOrEqual(4);
+    trace.mark("before-detachment");
     await screen.rerender(timeline("Large new paragraph.\n\n".repeat(100), false));
+    trace.mark("detached");
     node.scrollTop = 200;
     node.dispatchEvent(new Event("scroll"));
     const readingTop = node.scrollTop;
+    trace.mark("detached-growth");
     await screen.rerender(timeline("Large new paragraph.\n\n".repeat(140), false));
     await expect
       .poll(
@@ -155,6 +166,30 @@ it("keeps attached follow through a large measured tail growth and yields to rea
     );
     expect(node.scrollTop).toBeCloseTo(readingTop, 0);
   } finally {
+    try {
+      const node = document.querySelector<HTMLElement>("[data-chat-scroll-container]");
+      console.info(
+        "SYNARA_FOLLOW_FINAL_STATE",
+        JSON.stringify(readTranscriptFollowDiagnostic(node)),
+      );
+    } catch (error) {
+      console.info(
+        "SYNARA_FOLLOW_CAPTURE_ERROR",
+        error instanceof Error ? error.message : "capture failed",
+      );
+    } finally {
+      console.info("SYNARA_FOLLOW_SCALAR_TRACE", JSON.stringify(trace.finish()));
+    }
+    try {
+      const evidenceDirectory = import.meta.env.VITE_FOLLOW_DIAGNOSTIC_DIR;
+      if (evidenceDirectory)
+        await page.screenshot({ path: `${evidenceDirectory}/detached-final.png` });
+    } catch (error) {
+      console.info(
+        "SYNARA_FOLLOW_CAPTURE_ERROR",
+        error instanceof Error ? error.message : "capture failed",
+      );
+    }
     await screen.unmount();
   }
 });
