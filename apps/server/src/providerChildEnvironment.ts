@@ -40,7 +40,20 @@ const PROVIDER_CREDENTIAL_KEYS = new Set([
   "DEVIN_API_KEY",
   "WINDSURF_API_KEY",
   "DOCKER_AUTH_CONFIG",
+  "AWS_CONTAINER_CREDENTIALS_FULL_URI",
+  "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI",
+  "AWS_CONTAINER_AUTHORIZATION_TOKEN",
+  "AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE",
 ]);
+
+const PROVIDER_CREDENTIAL_SUFFIXES = [
+  "_ACCESS_TOKEN",
+  "_API_KEY",
+  "_API_TOKEN",
+  "_AUTH_TOKEN",
+  "_BEARER_TOKEN",
+  "_CLIENT_SECRET",
+] as const;
 
 export function registerProviderCredentialKey(key: string): void {
   const normalized = key.trim().toUpperCase();
@@ -50,7 +63,11 @@ export function registerProviderCredentialKey(key: string): void {
 }
 
 export function isProviderCredentialKey(key: string): boolean {
-  return PROVIDER_CREDENTIAL_KEYS.has(key.trim().toUpperCase());
+  const normalized = key.trim().toUpperCase();
+  return (
+    PROVIDER_CREDENTIAL_KEYS.has(normalized) ||
+    PROVIDER_CREDENTIAL_SUFFIXES.some((suffix) => normalized.endsWith(suffix))
+  );
 }
 
 /** Removes ambient provider credentials while retaining ordinary process state. */
@@ -101,9 +118,6 @@ const INHERITED_NATIVE_CAPABILITY_KEYS = new Set([
   "NODE_REPL_SANDBOX_ALLOWED_UNIX_SOCKETS",
 ]);
 
-const isTestHarnessKey = (key: string, env: NodeJS.ProcessEnv): boolean =>
-  Boolean(env.VITEST) && (key.startsWith("SYNARA_FAKE_") || key.startsWith("SYNARA_ACP_"));
-
 export function buildProviderChildEnvironment(input: {
   readonly provider: ProviderChildKind;
   readonly baseEnv?: NodeJS.ProcessEnv;
@@ -116,30 +130,40 @@ export function buildProviderChildEnvironment(input: {
     ...(input.baseEnv ?? process.env),
     ...input.overrides,
   };
-  const allowedSynaraKeys = new Set(input.inheritedSynaraKeys ?? []);
-  const allowedNativeCapabilities = new Set(input.inheritedNativeCapabilityKeys ?? []);
+  const allowedSynaraKeys = new Set(
+    (input.inheritedSynaraKeys ?? []).map((key) => key.toUpperCase()),
+  );
+  const allowedNativeCapabilities = new Set(
+    (input.inheritedNativeCapabilityKeys ?? []).map((key) => key.toUpperCase()),
+  );
   const credentialGrants = PROVIDER_CREDENTIAL_GRANTS[input.provider];
   const additionalCredentialGrants = new Set(
     (input.additionalCredentialKeys ?? []).map((key) => key.trim().toUpperCase()),
   );
   const childEnv: NodeJS.ProcessEnv = {};
+  const normalizedEnvKeys = new Set(Object.keys(baseEnv).map((envKey) => envKey.toUpperCase()));
 
   for (const [key, value] of Object.entries(baseEnv)) {
+    const normalizedKey = key.toUpperCase();
     if (
-      key.startsWith("SYNARA_") &&
-      !allowedSynaraKeys.has(key) &&
-      !isTestHarnessKey(key, baseEnv)
+      normalizedKey.startsWith("SYNARA_") &&
+      !allowedSynaraKeys.has(normalizedKey) &&
+      !(normalizedEnvKeys.has("VITEST") &&
+        (normalizedKey.startsWith("SYNARA_FAKE_") || normalizedKey.startsWith("SYNARA_ACP_")))
     ) {
       continue;
     }
-    if (INHERITED_NATIVE_CAPABILITY_KEYS.has(key) && !allowedNativeCapabilities.has(key)) {
+    if (
+      INHERITED_NATIVE_CAPABILITY_KEYS.has(normalizedKey) &&
+      !allowedNativeCapabilities.has(normalizedKey)
+    ) {
       continue;
     }
     if (
       isProviderCredentialKey(key) &&
       credentialGrants !== "all" &&
-      !credentialGrants.has(key.toUpperCase()) &&
-      !additionalCredentialGrants.has(key.toUpperCase())
+      !credentialGrants.has(normalizedKey) &&
+      !additionalCredentialGrants.has(normalizedKey)
     ) {
       continue;
     }

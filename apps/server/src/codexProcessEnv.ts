@@ -40,7 +40,6 @@ import {
 } from "./codexPathIdentity.ts";
 import {
   buildProviderChildEnvironment,
-  registerProviderCredentialKey,
 } from "./providerChildEnvironment.ts";
 
 const CODEX_PROCESS_SHELL_ENV_NAMES = ["PATH", "SSH_AUTH_SOCK"] as const;
@@ -2773,9 +2772,6 @@ export async function buildCodexProcessEnv(
   const codexConfig = readCodexConfigContent(configuredEnv) ?? "";
   const activeProvider = parseCodexConfigModelProvider(codexConfig);
   const providerEnvKey = parseCodexConfigActiveProviderEnvKey(codexConfig);
-  if (providerEnvKey) {
-    registerProviderCredentialKey(providerEnvKey);
-  }
   const grantedCredentialKey =
     activeProvider === undefined || activeProvider === "openai" ? "OPENAI_API_KEY" : providerEnvKey;
   const effectiveEnv = buildProviderChildEnvironment({
