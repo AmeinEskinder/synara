@@ -1485,7 +1485,7 @@ const makeAcpSessionRuntime = (
     // provider boundary. Merging process.env here would silently restore
     // stripped control-plane credentials and launcher capabilities.
     const env = yield* Effect.try({
-      try: () => buildAcpSpawnProcessEnv(options.spawn),
+      try: () => buildAcpSpawnEnvironment(options.spawn.env, process.env),
       catch: (cause) => new AcpErrors.AcpSpawnError({ command: options.spawn.command, cause }),
     });
     const child = yield* spawnProviderProcess(spawner, options.spawn.command, options.spawn.args, {

@@ -12,8 +12,12 @@ export type ProviderChildKind =
   | "droid"
   | "grok"
   | "opencode"
+  | "opencode-server"
   | "pi"
-  | "omp";
+  | "pi-shell"
+  | "omp"
+  | "kilo-server"
+  | "worktree-setup";
 
 const PROVIDER_CREDENTIAL_KEYS = new Set([
   "ANTHROPIC_API_KEY",
@@ -66,12 +70,19 @@ const PROVIDER_CREDENTIAL_GRANTS: Record<ProviderChildKind, "all" | ReadonlySet<
   devin: new Set(["DEVIN_API_KEY", "WINDSURF_API_KEY"]),
   droid: new Set(["FACTORY_API_KEY"]),
   grok: new Set(["XAI_API_KEY", "GROK_CODE_XAI_API_KEY"]),
-  // These profiles deliberately support arbitrary upstream model providers.
-  acp: "all",
-  codex: "all",
-  opencode: "all",
-  pi: "all",
-  omp: "all",
+  // Generic ACP startup receives only credentials explicitly granted by its caller.
+  acp: new Set(),
+  // Codex receives OpenAI or its active custom provider credential explicitly.
+  codex: new Set(),
+  // Server daemons discover arbitrary upstream providers; short-lived probes do not.
+  opencode: new Set(),
+  pi: new Set(),
+  omp: new Set(),
+  "opencode-server": "all",
+  "kilo-server": "all",
+  // Commands launched by model runtimes and repository setup are separate boundaries.
+  "pi-shell": new Set(),
+  "worktree-setup": new Set(),
 };
 
 export function providerCredentialKeysFor(provider: ProviderChildKind): readonly string[] {
@@ -95,6 +106,7 @@ export function buildProviderChildEnvironment(input: {
   readonly baseEnv?: NodeJS.ProcessEnv;
   readonly inheritedSynaraKeys?: ReadonlyArray<string>;
   readonly inheritedNativeCapabilityKeys?: ReadonlyArray<string>;
+  readonly additionalCredentialKeys?: ReadonlyArray<string>;
   readonly overrides?: NodeJS.ProcessEnv;
 }): NodeJS.ProcessEnv {
   const baseEnv = {
@@ -104,6 +116,9 @@ export function buildProviderChildEnvironment(input: {
   const allowedSynaraKeys = new Set(input.inheritedSynaraKeys ?? []);
   const allowedNativeCapabilities = new Set(input.inheritedNativeCapabilityKeys ?? []);
   const credentialGrants = PROVIDER_CREDENTIAL_GRANTS[input.provider];
+  const additionalCredentialGrants = new Set(
+    (input.additionalCredentialKeys ?? []).map((key) => key.trim().toUpperCase()),
+  );
   const childEnv: NodeJS.ProcessEnv = {};
 
   for (const [key, value] of Object.entries(baseEnv)) {
@@ -120,7 +135,8 @@ export function buildProviderChildEnvironment(input: {
     if (
       isProviderCredentialKey(key) &&
       credentialGrants !== "all" &&
-      !credentialGrants.has(key.toUpperCase())
+      !credentialGrants.has(key.toUpperCase()) &&
+      !additionalCredentialGrants.has(key.toUpperCase())
     ) {
       continue;
     }

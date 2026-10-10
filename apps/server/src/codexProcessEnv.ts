@@ -10,7 +10,11 @@ import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import { parse as parseToml } from "smol-toml";
 
-import { readActiveCodexProviderEnvKey } from "@synara/shared/codexConfig";
+import {
+  parseCodexConfigActiveProviderEnvKey,
+  parseCodexConfigModelProvider,
+  readCodexConfigContent,
+} from "@synara/shared/codexConfig";
 import {
   readEnvironmentFromLoginShell,
   resolveLoginShell,
@@ -2766,13 +2770,20 @@ export async function buildCodexProcessEnv(
     [CODEX_SQLITE_HOME_ENV_NAME]: path.resolve(sourceHomePath),
   };
   const platform = input.platform ?? process.platform;
+  const codexConfig = readCodexConfigContent(configuredEnv) ?? "";
+  const activeProvider = parseCodexConfigModelProvider(codexConfig);
+  const providerEnvKey = parseCodexConfigActiveProviderEnvKey(codexConfig);
+  if (providerEnvKey) {
+    registerProviderCredentialKey(providerEnvKey);
+  }
+  const grantedCredentialKey =
+    activeProvider === undefined || activeProvider === "openai" ? "OPENAI_API_KEY" : providerEnvKey;
   const effectiveEnv = buildProviderChildEnvironment({
     provider: "codex",
     baseEnv: configuredEnv,
+    additionalCredentialKeys: grantedCredentialKey ? [grantedCredentialKey] : [],
   });
-  const providerEnvKey = readActiveCodexProviderEnvKey(effectiveEnv);
   if (providerEnvKey) {
-    registerProviderCredentialKey(providerEnvKey);
     if (
       input.isolateProviderCredentials === true &&
       !Object.hasOwn(input.explicitProviderEnvironment ?? {}, providerEnvKey)

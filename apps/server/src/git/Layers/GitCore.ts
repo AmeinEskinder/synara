@@ -39,6 +39,10 @@ import { isWorkspaceRelativePathSafe } from "@synara/shared/path";
 import { decodeJsonResult } from "@synara/shared/schemaJson";
 
 import { GitCheckoutDirtyWorktreeError, GitCommandError } from "../Errors.ts";
+import {
+  disableGitHooksForInvocationArgs,
+  hardenGitInvocationArgs,
+} from "../gitInvocationSecurity.ts";
 import { parseGitBlamePorcelain } from "../gitBlameParsing.ts";
 import {
   countTextFileLines,
@@ -828,7 +832,7 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
           );
           const child = yield* commandSpawner
             .spawn(
-              makeEffectProcessCommand("git", commandInput.args, {
+              makeEffectProcessCommand("git", hardenGitInvocationArgs(commandInput.args), {
                 cwd: commandInput.cwd,
                 env: {
                   ...process.env,
@@ -3708,9 +3712,11 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
         const addWorktree = executeGit(
           "GitCore.createDetachedWorktree",
           input.cwd,
-          newBranch
-            ? ["worktree", "add", worktreePath, newBranch]
-            : ["worktree", "add", "--detach", worktreePath, resolvedRef],
+          disableGitHooksForInvocationArgs(
+            newBranch
+              ? ["worktree", "add", worktreePath, newBranch]
+              : ["worktree", "add", "--detach", worktreePath, resolvedRef],
+          ),
         );
         yield* newBranch
           ? addWorktree.pipe(
@@ -3718,7 +3724,7 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
                 executeGit(
                   "GitCore.createDetachedWorktree.rollbackBranch",
                   input.cwd,
-                  ["branch", "-D", newBranch],
+                  disableGitHooksForInvocationArgs(["branch", "-D", newBranch]),
                   { allowNonZeroExit: true },
                 ).pipe(Effect.ignore),
               ),
@@ -3740,7 +3746,7 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
                     ? executeGit(
                         "GitCore.createDetachedWorktree.rollbackBranch",
                         input.cwd,
-                        ["branch", "-D", newBranch],
+                        disableGitHooksForInvocationArgs(["branch", "-D", newBranch]),
                         { allowNonZeroExit: true },
                       )
                     : Effect.void,

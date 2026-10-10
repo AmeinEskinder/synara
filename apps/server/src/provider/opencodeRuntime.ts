@@ -859,7 +859,7 @@ export function buildOpenCodeServerProcessEnv(input: {
 }): NodeJS.ProcessEnv {
   const cliSpec = input.cliSpec ?? OPENCODE_CLI_SPEC;
   const accountIsolatedEnv = buildProviderProcessEnv({
-    driver: cliSpec.configContentEnvVar === KILO_CLI_SPEC.configContentEnvVar ? "kilo" : "opencode",
+    driver: cliSpec.configContentEnvVar === KILO_CLI_SPEC.configContentEnvVar ? "kilo-server" : "opencode-server",
     ...(input.baseEnv !== undefined ? { env: input.baseEnv } : {}),
     ...(input.environment !== undefined ? { environment: input.environment } : {}),
     ...(input.instanceId !== undefined ? { instanceId: input.instanceId } : {}),
