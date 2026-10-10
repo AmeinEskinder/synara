@@ -49,6 +49,8 @@ export const MODEL_PROVIDER_API_KEY_ENV_MAPPINGS: ReadonlyArray<{
   { provider: "perplexity", envKeys: ["PERPLEXITY_API_KEY"] },
   { provider: "cohere", envKeys: ["COHERE_API_KEY"] },
   { provider: "together-ai", envKeys: ["TOGETHER_AI_API_KEY"] },
+  { provider: "cloudflare-workers-ai-token", envKeys: ["CLOUDFLARE_API_TOKEN"] },
+  { provider: "aws-bedrock", envKeys: ["AWS_BEARER_TOKEN_BEDROCK"] },
   { provider: "xiaomi", envKeys: ["XIAOMI_API_KEY"] },
   { provider: "xiaomi-token-plan-cn", envKeys: ["XIAOMI_TOKEN_PLAN_CN_API_KEY"] },
   { provider: "xiaomi-token-plan-ams", envKeys: ["XIAOMI_TOKEN_PLAN_AMS_API_KEY"] },
