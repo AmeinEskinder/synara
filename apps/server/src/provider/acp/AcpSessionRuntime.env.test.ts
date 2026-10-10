@@ -1,6 +1,22 @@
-import { describe, expect, it } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+import { afterEach, describe, expect, it } from "vitest";
 
 import { buildAcpSpawnProcessEnv } from "./AcpSessionRuntime.ts";
+
+const testHomes: string[] = [];
+
+afterEach(() => {
+  for (const home of testHomes.splice(0)) rmSync(home, { recursive: true, force: true });
+});
+
+function isolatedPaths() {
+  const root = mkdtempSync(path.join(os.tmpdir(), "synara-acp-env-test-"));
+  testHomes.push(root);
+  return { homeDir: path.join(root, "home"), isolationRootDir: path.join(root, "isolation") };
+}
 
 describe("buildAcpSpawnProcessEnv", () => {
   it("scrubs ambient provider credentials before applying ACP flags and selected credentials", () => {
@@ -12,8 +28,7 @@ describe("buildAcpSpawnProcessEnv", () => {
         providerEnvironment: {
           driver: "grok",
           instanceId: "grok_work",
-          homeDir: "/tmp/synara-acp-test-home",
-          isolationRootDir: "/tmp/synara-acp-test-isolation",
+          ...isolatedPaths(),
           environment: { GROK_CODE_XAI_API_KEY: "selected-account-b" },
         },
       },
@@ -41,8 +56,7 @@ describe("buildAcpSpawnProcessEnv", () => {
         providerEnvironment: {
           driver: "cursor",
           instanceId: "cursor_work",
-          homeDir: "/tmp/synara-acp-test-home",
-          isolationRootDir: "/tmp/synara-acp-test-isolation",
+          ...isolatedPaths(),
           environment: { cursor_api_key: "selected-cursor" },
         },
       },
