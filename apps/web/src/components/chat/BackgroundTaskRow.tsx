@@ -66,14 +66,12 @@ export function BackgroundTaskRow(props: { task: WorkLogBackgroundTask; fontSize
           MUTED_LABEL_TEXT_CLASS_NAME,
         )}
       >
-        {running ? null : (
-          <span
-            className={cn(task.status === "failed" && "text-destructive")}
-            data-background-task-label="true"
-          >
-            {status.label}
-          </span>
-        )}
+        <span
+          className={cn(running && "sr-only", task.status === "failed" && "text-destructive")}
+          data-background-task-label="true"
+        >
+          {status.label}
+        </span>
         {running ? (
           <LiveElapsedTimer startedAt={task.startedAt} />
         ) : status.elapsed ? (
