@@ -1,0 +1,82 @@
+[
+  {
+    "pr": 1773,
+    "variant": "before",
+    "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+    "driver": "ca58be8d8a99585a65a53b5a474a533773ddfe83",
+    "run": 38087549334,
+    "path": ".github/pr-ui-evidence/1773/f29c2cd8db65bc61b22df00e8da4b8c4d2518824/before",
+    "images": [
+      {
+        "name": "review-settings.png",
+        "bytes": 105690,
+        "sha256": "9e216e5cbbd4992e9da5942188a1a55497170f2e859f6c3d30e370f18aa07cc8"
+      }
+    ]
+  },
+  {
+    "pr": 1656,
+    "variant": "after",
+    "source": "184068e413a238f9aefaf61d60f78162f563dae1",
+    "driver": "ca58be8d8a99585a65a53b5a474a533773ddfe83",
+    "run": 38087549334,
+    "path": ".github/pr-ui-evidence/1656/184068e413a238f9aefaf61d60f78162f563dae1/after",
+    "images": [
+      {
+        "name": "active-workspace-search.png",
+        "bytes": 50219,
+        "sha256": "9b79d2101cb75e3af56308ff4ffd1f406d55401e2c10cb0499b42129e3329d29"
+      }
+    ]
+  },
+  {
+    "pr": 1773,
+    "variant": "after",
+    "source": "053f8dba36740540cd8f2d17a9ea238baf3be1cf",
+    "driver": "ca58be8d8a99585a65a53b5a474a533773ddfe83",
+    "run": 38087549334,
+    "path": ".github/pr-ui-evidence/1773/053f8dba36740540cd8f2d17a9ea238baf3be1cf/after",
+    "images": [
+      {
+        "name": "review-settings-reset.png",
+        "bytes": 105346,
+        "sha256": "6021538a8bf4943454658b3915079bd02fd86a092ddc1f87b7fc9dfc19ac220c"
+      },
+      {
+        "name": "review-settings.png",
+        "bytes": 105736,
+        "sha256": "42b093967e2b2a70cd8d5304992e6e2a90ff2b88eabb3ae692cdf93623149018"
+      }
+    ]
+  },
+  {
+    "pr": 1763,
+    "variant": "before",
+    "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+    "driver": "ca58be8d8a99585a65a53b5a474a533773ddfe83",
+    "run": 38087549334,
+    "path": ".github/pr-ui-evidence/1763/f29c2cd8db65bc61b22df00e8da4b8c4d2518824/before",
+    "images": [
+      {
+        "name": "mermaid.png",
+        "bytes": 29440,
+        "sha256": "29be8a5f238b37ddf1f269504ac4d4d74c7c7e83de6fde91a3b747377780b5ff"
+      }
+    ]
+  },
+  {
+    "pr": 1763,
+    "variant": "after",
+    "source": "d6765bb7ce4bfa6d8ac3e6dbdd636af627207f81",
+    "driver": "ca58be8d8a99585a65a53b5a474a533773ddfe83",
+    "run": 38087549334,
+    "path": ".github/pr-ui-evidence/1763/d6765bb7ce4bfa6d8ac3e6dbdd636af627207f81/after",
+    "images": [
+      {
+        "name": "mermaid.png",
+        "bytes": 26592,
+        "sha256": "e3c2350fe439efaa9801741c743a51133a795da9836827a57400160a8d4adeb7"
+      }
+    ]
+  }
+]

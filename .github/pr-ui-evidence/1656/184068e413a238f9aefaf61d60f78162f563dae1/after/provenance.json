@@ -1,0 +1,28 @@
+{
+  "target": {
+    "id": "pr1656-after",
+    "pr": 1656,
+    "variant": "after",
+    "source": "184068e413a238f9aefaf61d60f78162f563dae1",
+    "fixture": "PrUiEvidence1656.snippet.ts",
+    "mode": "append-describe",
+    "destination": "apps/web/src/components/ChatView.browser.tsx"
+  },
+  "source": "184068e413a238f9aefaf61d60f78162f563dae1",
+  "sourceTree": "b11ec552c1ba08b8a0a0db0a18d6157ac4a8b46b",
+  "driver": "ca58be8d8a99585a65a53b5a474a533773ddfe83",
+  "fixtureSha256": "21b7658f392f3c4c200e8b9da93d99b1edfa00c5c998ee4c13f2613d0d8246c8",
+  "originalTestSha256": "d0f39ab7acdc35bdcdc9d5057cc6704955571750152b7938addd0a085db349bc",
+  "overlaidTestSha256": "2c44e2ce1afd768669b1bd2b4c5f476dd3b3527e39eefc5345d29fa4c1b992f5",
+  "configSha256": "f142102d7d8fc9aa6c53fd665967a2851160d46ab190f1dc88d4252581ac6240",
+  "applicationCodeModified": false,
+  "createdAt": "2026-10-10T21:41:20.732Z",
+  "images": [
+    {
+      "name": "active-workspace-search.png",
+      "bytes": 50219,
+      "sha256": "9b79d2101cb75e3af56308ff4ffd1f406d55401e2c10cb0499b42129e3329d29"
+    }
+  ],
+  "completedAt": "2026-10-10T21:43:12.218Z"
+}

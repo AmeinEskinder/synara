@@ -1,5 +1,145 @@
 [
   {
+    "id": "pr1784-before",
+    "pr": 1784,
+    "original": 982,
+    "variant": "before",
+    "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+    "mode": "standalone",
+    "fixture": "PrUiEvidence982.browser.tsx",
+    "destination": "apps/web/src/components/PrUiEvidence982.browser.tsx"
+  },
+  {
+    "id": "pr1784-after",
+    "pr": 1784,
+    "original": 982,
+    "variant": "after",
+    "source": "58a85235577096df64e1b8e365dbbe885acedc3e",
+    "mode": "standalone",
+    "fixture": "PrUiEvidence982.browser.tsx",
+    "destination": "apps/web/src/components/PrUiEvidence982.browser.tsx"
+  },
+  {
+    "id": "pr1785-before",
+    "pr": 1785,
+    "original": 1026,
+    "variant": "before",
+    "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+    "mode": "append-describe",
+    "fixture": "PrUiEvidence1026.snippet.ts",
+    "destination": "apps/web/src/components/ChatView.browser.tsx"
+  },
+  {
+    "id": "pr1785-after",
+    "pr": 1785,
+    "original": 1026,
+    "variant": "after",
+    "source": "adf3d989af888da770a6b948b1c9612b1944819d",
+    "mode": "append-describe",
+    "fixture": "PrUiEvidence1026.snippet.ts",
+    "destination": "apps/web/src/components/ChatView.browser.tsx"
+  },
+  {
+    "id": "pr1786-before",
+    "pr": 1786,
+    "original": 1416,
+    "variant": "before",
+    "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+    "mode": "append-describe",
+    "fixture": "PrUiEvidence1416.snippet.ts",
+    "destination": "apps/web/src/components/ChatView.browser.tsx"
+  },
+  {
+    "id": "pr1786-after",
+    "pr": 1786,
+    "original": 1416,
+    "variant": "after",
+    "source": "de518d8d550fcb05795d76962a4b0814978c3317",
+    "mode": "append-describe",
+    "fixture": "PrUiEvidence1416.snippet.ts",
+    "destination": "apps/web/src/components/ChatView.browser.tsx"
+  },
+  {
+    "id": "pr1787-before",
+    "pr": 1787,
+    "original": 1700,
+    "variant": "before",
+    "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+    "mode": "append-describe",
+    "fixture": "PrUiEvidence1700.snippet.ts",
+    "destination": "apps/web/src/components/ChatView.browser.tsx"
+  },
+  {
+    "id": "pr1787-after",
+    "pr": 1787,
+    "original": 1700,
+    "variant": "after",
+    "source": "e48fdc252e17e7787baeb511eb08e1f0a7d96af7",
+    "mode": "append-describe",
+    "fixture": "PrUiEvidence1700.snippet.ts",
+    "destination": "apps/web/src/components/ChatView.browser.tsx"
+  },
+  {
+    "id": "pr1788-before",
+    "pr": 1788,
+    "original": 1703,
+    "variant": "before",
+    "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+    "mode": "append-describe",
+    "fixture": "PrUiEvidence1703.snippet.ts",
+    "destination": "apps/web/src/components/ChatView.browser.tsx"
+  },
+  {
+    "id": "pr1788-after",
+    "pr": 1788,
+    "original": 1703,
+    "variant": "after",
+    "source": "4e33e715b81415e65a69fcc3810e82b0276a020e",
+    "mode": "append-describe",
+    "fixture": "PrUiEvidence1703.snippet.ts",
+    "destination": "apps/web/src/components/ChatView.browser.tsx"
+  },
+  {
+    "id": "pr1789-before",
+    "pr": 1789,
+    "original": 1696,
+    "variant": "before",
+    "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+    "mode": "standalone",
+    "fixture": "PrUiEvidence1696.browser.tsx",
+    "destination": "apps/web/src/components/PrUiEvidence1696.browser.tsx"
+  },
+  {
+    "id": "pr1789-after",
+    "pr": 1789,
+    "original": 1696,
+    "variant": "after",
+    "source": "495c5f8b3c9af27e2bacd15df51f02326f165498",
+    "mode": "standalone",
+    "fixture": "PrUiEvidence1696.browser.tsx",
+    "destination": "apps/web/src/components/PrUiEvidence1696.browser.tsx"
+  },
+  {
+    "id": "pr1783-before",
+    "pr": 1783,
+    "original": 787,
+    "variant": "before",
+    "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+    "mode": "native",
+    "fixture": "native-ui",
+    "destination": "apps/web/e2e/evidence"
+  },
+  {
+    "id": "pr1783-after",
+    "pr": 1783,
+    "original": 787,
+    "variant": "after",
+    "source": "6a3b281e2238d42add2ba7c37bacbb1723f46577",
+    "mode": "native",
+    "fixture": "native-ui",
+    "destination": "apps/web/e2e/evidence"
+  },
+  {
     "id": "pr1656-before",
     "pr": 1656,
     "variant": "before",
@@ -7,50 +147,5 @@
     "fixture": "PrUiEvidence1656.snippet.ts",
     "mode": "append-describe",
     "destination": "apps/web/src/components/ChatView.browser.tsx"
-  },
-  {
-    "id": "pr1656-after",
-    "pr": 1656,
-    "variant": "after",
-    "source": "184068e413a238f9aefaf61d60f78162f563dae1",
-    "fixture": "PrUiEvidence1656.snippet.ts",
-    "mode": "append-describe",
-    "destination": "apps/web/src/components/ChatView.browser.tsx"
-  },
-  {
-    "id": "pr1773-before",
-    "pr": 1773,
-    "variant": "before",
-    "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
-    "fixture": "PrUiEvidence1773.snippet.ts",
-    "mode": "append-describe",
-    "destination": "apps/web/src/components/ChatView.browser.tsx"
-  },
-  {
-    "id": "pr1773-after",
-    "pr": 1773,
-    "variant": "after",
-    "source": "053f8dba36740540cd8f2d17a9ea238baf3be1cf",
-    "fixture": "PrUiEvidence1773.snippet.ts",
-    "mode": "append-describe",
-    "destination": "apps/web/src/components/ChatView.browser.tsx"
-  },
-  {
-    "id": "pr1763-before",
-    "pr": 1763,
-    "variant": "before",
-    "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
-    "fixture": "PrUiEvidence1763.browser.tsx",
-    "mode": "standalone",
-    "destination": "apps/web/src/components/PrUiEvidence1763.browser.tsx"
-  },
-  {
-    "id": "pr1763-after",
-    "pr": 1763,
-    "variant": "after",
-    "source": "d6765bb7ce4bfa6d8ac3e6dbdd636af627207f81",
-    "fixture": "PrUiEvidence1763.browser.tsx",
-    "mode": "standalone",
-    "destination": "apps/web/src/components/PrUiEvidence1763.browser.tsx"
   }
 ]

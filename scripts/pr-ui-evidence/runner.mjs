@@ -22,14 +22,18 @@ if (!Array.isArray(targets) || targets.length < 1 || targets.length > 30) {
 }
 const ids = new Set();
 for (const target of targets) {
+  const native = target.mode === "native";
   if (
     !/^pr\d+-(before|after)$/.test(target.id) ||
     ids.has(target.id) ||
     !/^[a-f0-9]{40}$/.test(target.source) ||
     !["before", "after"].includes(target.variant) ||
-    !["standalone", "append-describe"].includes(target.mode) ||
-    !/^[A-Za-z0-9.]+\.(tsx|ts)$/.test(target.fixture) ||
-    !/^apps\/web\/src\/components\/[A-Za-z0-9.]+\.browser\.tsx$/.test(target.destination)
+    !target.id.endsWith(`-${target.variant}`) ||
+    !["standalone", "append-describe", "native"].includes(target.mode) ||
+    (native
+      ? target.fixture !== "native-ui" || target.destination !== "apps/web/e2e/evidence"
+      : !/^[A-Za-z0-9.]+\.(tsx|ts)$/.test(target.fixture) ||
+        !/^apps\/web\/src\/components\/[A-Za-z0-9.]+\.browser\.tsx$/.test(target.destination))
   ) {
     throw new Error(`Invalid evidence target ${JSON.stringify(target)}`);
   }
@@ -38,7 +42,13 @@ for (const target of targets) {
 
 const command = process.argv[2];
 if (command === "matrix") {
-  const matrix = JSON.stringify({ include: targets.map(({ id, source }) => ({ id, source })) });
+  const matrix = JSON.stringify({
+    include: targets.map(({ id, source, mode }) => ({
+      id,
+      source,
+      kind: mode === "native" ? "native" : "web",
+    })),
+  });
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${matrix}\n`);
   else console.log(matrix);
 } else if (command === "prepare") {
@@ -51,35 +61,71 @@ if (command === "matrix") {
   const output = resolve(root, ".pr-ui-evidence-output", target.id);
   mkdirSync(output, { recursive: true });
   const destination = resolve(root, target.destination);
-  const fixture = readFileSync(resolve(driver, "fixtures", target.fixture), "utf8");
-  let original = null;
-  if (target.mode === "append-describe") {
-    original = readFileSync(destination, "utf8");
-    if (!original.endsWith("\n});\n")) throw new Error("Unexpected outer describe boundary.");
-    writeFileSync(destination, `${original.slice(0, -5)}\n${fixture}\n});\n`);
-  } else {
+  const overlays = [];
+  function assertUntracked(path) {
     try {
-      execFileSync("git", ["ls-files", "--error-unmatch", target.destination], {
+      execFileSync("git", ["ls-files", "--error-unmatch", path], {
         cwd: root,
         stdio: "ignore",
       });
-      throw new Error("Standalone evidence must not replace an application file.");
+      throw new Error(`Standalone evidence must not replace an application file: ${path}`);
     } catch (error) {
       if (error.status !== 1) throw error;
     }
-    copyFileSync(resolve(driver, "fixtures", target.fixture), destination);
   }
-  const config = "apps/web/vitest.pr-ui-evidence.config.ts";
-  copyFileSync(resolve(driver, "vitest.pr-ui-evidence.config.ts"), resolve(root, config));
+  if (target.mode === "native") {
+    mkdirSync(destination, { recursive: true });
+    const nativeRoot = resolve(driver, "fixtures", target.fixture);
+    const names = readdirSync(nativeRoot).toSorted();
+    if (
+      names.length !== 5 ||
+      names.some((name) => !/^[A-Za-z0-9]+\.(ts|tsx|mjs|cjs|html)$/.test(name))
+    ) {
+      throw new Error("Expected the five reviewed native fixture files.");
+    }
+    for (const name of names) {
+      const path = `${target.destination}/${name}`;
+      assertUntracked(path);
+      copyFileSync(resolve(nativeRoot, name), resolve(root, path));
+      overlays.push({
+        path,
+        originalSha256: null,
+        sha256: digest(readFileSync(resolve(root, path))),
+      });
+    }
+  } else {
+    const fixture = readFileSync(resolve(driver, "fixtures", target.fixture), "utf8");
+    let original = null;
+    if (target.mode === "append-describe") {
+      original = readFileSync(destination, "utf8");
+      if (!original.endsWith("\n});\n")) throw new Error("Unexpected outer describe boundary.");
+      writeFileSync(destination, `${original.slice(0, -5)}\n${fixture}\n});\n`);
+    } else {
+      assertUntracked(target.destination);
+      copyFileSync(resolve(driver, "fixtures", target.fixture), destination);
+    }
+    overlays.push({
+      path: target.destination,
+      originalSha256: original === null ? null : digest(original),
+      fixtureSha256: digest(fixture),
+      sha256: digest(readFileSync(destination)),
+    });
+    const config = "apps/web/vitest.pr-ui-evidence.config.ts";
+    assertUntracked(config);
+    copyFileSync(resolve(driver, "vitest.pr-ui-evidence.config.ts"), resolve(root, config));
+    overlays.push({
+      path: config,
+      originalSha256: null,
+      sha256: digest(readFileSync(resolve(root, config))),
+    });
+  }
   const manifest = {
     target,
     source,
     sourceTree: git("rev-parse", "HEAD^{tree}"),
     driver: execFileSync("git", ["rev-parse", "HEAD"], { cwd: driver, encoding: "utf8" }).trim(),
-    fixtureSha256: digest(fixture),
-    originalTestSha256: original === null ? null : digest(original),
-    overlaidTestSha256: digest(readFileSync(destination)),
-    configSha256: digest(readFileSync(resolve(root, config))),
+    overlays,
+    status: "prepared",
     applicationCodeModified: false,
     createdAt: new Date().toISOString(),
   };
@@ -87,7 +133,9 @@ if (command === "matrix") {
   const env = {
     VITE_PR_UI_EVIDENCE_VARIANT: target.variant,
     VITE_PR_UI_EVIDENCE_DIR: output,
-    VITE_PR_UI_EVIDENCE_TEST: target.destination.replace("apps/web/", ""),
+    ...(target.mode === "native"
+      ? { SYNARA_EVIDENCE_LABEL: target.id, SYNARA_EVIDENCE_OUTPUT: output }
+      : { VITE_PR_UI_EVIDENCE_TEST: target.destination.replace("apps/web/", "") }),
   };
   if (!process.env.GITHUB_ENV) throw new Error("GITHUB_ENV is required for the isolated job.");
   for (const [key, value] of Object.entries(env)) {
@@ -109,10 +157,10 @@ if (command === "matrix") {
   if (changed.some((path) => !allowed.includes(path))) {
     throw new Error(`Unexpected application modifications: ${changed.join(", ")}`);
   }
-  if (
-    digest(readFileSync(resolve(root, manifest.target.destination))) !== manifest.overlaidTestSha256
-  ) {
-    throw new Error("The reviewed fixture changed during capture.");
+  for (const overlay of manifest.overlays) {
+    if (digest(readFileSync(resolve(root, overlay.path))) !== overlay.sha256) {
+      throw new Error(`The reviewed fixture changed during capture: ${overlay.path}`);
+    }
   }
   const pngs = readdirSync(output).filter((name) => name.endsWith(".png"));
   if (pngs.length === 0) throw new Error("The capture produced no PNG files.");
@@ -125,7 +173,7 @@ if (command === "matrix") {
   });
   writeFileSync(
     manifestPath,
-    `${JSON.stringify({ ...manifest, images, completedAt: new Date().toISOString() }, null, 2)}\n`,
+    `${JSON.stringify({ ...manifest, status: "completed", images, completedAt: new Date().toISOString() }, null, 2)}\n`,
   );
   console.log(JSON.stringify({ source: manifest.source, images, applicationCodeModified: false }));
 } else {

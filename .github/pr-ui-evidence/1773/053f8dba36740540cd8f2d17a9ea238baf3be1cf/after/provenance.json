@@ -1,0 +1,33 @@
+{
+  "target": {
+    "id": "pr1773-after",
+    "pr": 1773,
+    "variant": "after",
+    "source": "053f8dba36740540cd8f2d17a9ea238baf3be1cf",
+    "fixture": "PrUiEvidence1773.snippet.ts",
+    "mode": "append-describe",
+    "destination": "apps/web/src/components/ChatView.browser.tsx"
+  },
+  "source": "053f8dba36740540cd8f2d17a9ea238baf3be1cf",
+  "sourceTree": "665f742419929e30b8bfeafac0f3b07e66a5ab4d",
+  "driver": "ca58be8d8a99585a65a53b5a474a533773ddfe83",
+  "fixtureSha256": "246e8faadd40502e3ccbf116c56b2e1f2d2f7d366836fbed30cbc6aa2f3316f5",
+  "originalTestSha256": "d0f39ab7acdc35bdcdc9d5057cc6704955571750152b7938addd0a085db349bc",
+  "overlaidTestSha256": "cc8bd8cd4764c03970b548a2dd3ef7935e886f38c62272216d69969b534ecb05",
+  "configSha256": "f142102d7d8fc9aa6c53fd665967a2851160d46ab190f1dc88d4252581ac6240",
+  "applicationCodeModified": false,
+  "createdAt": "2026-10-10T21:47:40.502Z",
+  "images": [
+    {
+      "name": "review-settings-reset.png",
+      "bytes": 105346,
+      "sha256": "6021538a8bf4943454658b3915079bd02fd86a092ddc1f87b7fc9dfc19ac220c"
+    },
+    {
+      "name": "review-settings.png",
+      "bytes": 105736,
+      "sha256": "42b093967e2b2a70cd8d5304992e6e2a90ff2b88eabb3ae692cdf93623149018"
+    }
+  ],
+  "completedAt": "2026-10-10T21:49:23.499Z"
+}

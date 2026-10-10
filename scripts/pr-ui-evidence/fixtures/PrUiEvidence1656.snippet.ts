@@ -50,7 +50,7 @@ it("PR UI evidence: active-workspace files in the actual sidebar search", async 
         kind: "file",
       });
     } else {
-      await expect.element(page.getByRole("status")).toHaveTextContent("No results");
+      await expect.element(page.getByText("No results", { exact: true })).toBeVisible();
       await expect
         .element(page.getByRole("option", { name: /session\.ts/ }))
         .not.toBeInTheDocument();

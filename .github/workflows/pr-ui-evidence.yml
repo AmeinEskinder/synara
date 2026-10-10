@@ -57,6 +57,19 @@ jobs:
 
       - name: Setup workspace
         uses: ./.github/actions/setup-workspace
+        with:
+          electron: ${{ matrix.kind == 'native' && 'true' || 'false' }}
+
+      - name: Configure Electron sandbox helper
+        if: matrix.kind == 'native'
+        run: |
+          node <<'NODE'
+          const { execFileSync } = require('node:child_process');
+          const { dirname, join } = require('node:path');
+          const helper = join(dirname(require('./apps/desktop/node_modules/electron')), 'chrome-sandbox');
+          execFileSync('sudo', ['chown', 'root:root', helper], { stdio: 'inherit' });
+          execFileSync('sudo', ['chmod', '4755', helper], { stdio: 'inherit' });
+          NODE
 
       - name: Cache Playwright browsers
         uses: actions/cache@v5
@@ -75,9 +88,16 @@ jobs:
         run: node .pr-ui-evidence-driver/scripts/pr-ui-evidence/runner.mjs prepare
 
       - name: Capture actual browser UI
+        if: matrix.kind == 'web'
         timeout-minutes: 10
         working-directory: apps/web
         run: bunx vitest run --config vitest.pr-ui-evidence.config.ts
+
+      - name: Capture actual native browser UI
+        if: matrix.kind == 'native'
+        timeout-minutes: 10
+        working-directory: apps/web
+        run: xvfb-run -a bun e2e/evidence/captureNativeUi.mjs
 
       - name: Verify captured files and unchanged application source
         run: node .pr-ui-evidence-driver/scripts/pr-ui-evidence/runner.mjs verify

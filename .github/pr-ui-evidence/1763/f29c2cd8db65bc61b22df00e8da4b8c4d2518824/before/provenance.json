@@ -1,0 +1,28 @@
+{
+  "target": {
+    "id": "pr1763-before",
+    "pr": 1763,
+    "variant": "before",
+    "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+    "fixture": "PrUiEvidence1763.browser.tsx",
+    "mode": "standalone",
+    "destination": "apps/web/src/components/PrUiEvidence1763.browser.tsx"
+  },
+  "source": "f29c2cd8db65bc61b22df00e8da4b8c4d2518824",
+  "sourceTree": "f7c039cd491466f5ca735040a78e082b0ab94642",
+  "driver": "ca58be8d8a99585a65a53b5a474a533773ddfe83",
+  "fixtureSha256": "4dc82d405712396bb1ca1b6936c26be27117cab91e920c97bc9d4c6234de13a7",
+  "originalTestSha256": null,
+  "overlaidTestSha256": "4dc82d405712396bb1ca1b6936c26be27117cab91e920c97bc9d4c6234de13a7",
+  "configSha256": "f142102d7d8fc9aa6c53fd665967a2851160d46ab190f1dc88d4252581ac6240",
+  "applicationCodeModified": false,
+  "createdAt": "2026-10-10T21:48:29.288Z",
+  "images": [
+    {
+      "name": "mermaid.png",
+      "bytes": 29440,
+      "sha256": "29be8a5f238b37ddf1f269504ac4d4d74c7c7e83de6fde91a3b747377780b5ff"
+    }
+  ],
+  "completedAt": "2026-10-10T21:48:41.046Z"
+}
