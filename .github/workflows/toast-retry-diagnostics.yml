@@ -1,0 +1,86 @@
+name: Toast retry diagnostic
+
+on:
+  push:
+    branches:
+      - cleanup/20261011/toast-retry-diagnostics
+    paths:
+      - .github/workflows/toast-retry-diagnostics.yml
+      - scripts/toast-retry-diagnostics/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: toast-retry-diagnostics-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_OPTIONS: --max-old-space-size=4096
+
+jobs:
+  diagnostic:
+    name: Original EventRouter (${{ matrix.mode }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        mode: [control, trace]
+    env:
+      SYNARA_TOAST_DIAGNOSTIC_MODE: ${{ matrix.mode }}
+    steps:
+      - name: Checkout exact source of the failed canonical job
+        uses: actions/checkout@v6
+        with:
+          ref: 2c305f13ddc665bb10c483ab883f06d4f185cc5e
+          persist-credentials: false
+
+      - name: Checkout reviewed diagnostic driver
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          path: .toast-diagnostic-driver
+          persist-credentials: false
+
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('bun.lock') }}
+
+      - name: Install browser runtime
+        timeout-minutes: 10
+        run: ./apps/web/node_modules/.bin/playwright install chromium
+
+      - name: Prepare source proof and isolated diagnostic arm
+        run: node .toast-diagnostic-driver/scripts/toast-retry-diagnostics/runner.mjs prepare
+
+      - name: Run original full EventRouter regression file once
+        working-directory: apps/web
+        timeout-minutes: 15
+        run: |
+          set +e
+          bunx vitest run --config vitest.toast-retry-diagnostic.config.ts 2>&1 | tee "$GITHUB_WORKSPACE/.toast-retry-diagnostics/$SYNARA_TOAST_DIAGNOSTIC_MODE/vitest.log"
+          diagnostic_status=${PIPESTATUS[0]}
+          set -e
+          printf '%s\n' "$diagnostic_status" > "$GITHUB_WORKSPACE/.toast-retry-diagnostics/$SYNARA_TOAST_DIAGNOSTIC_MODE/vitest-exit-code.txt"
+          exit "$diagnostic_status"
+
+      - name: Verify source and preserve the original test result
+        if: always()
+        run: node .toast-diagnostic-driver/scripts/toast-retry-diagnostics/runner.mjs verify
+
+      - name: Upload actual result and bounded trace
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: toast-retry-${{ matrix.mode }}-2c305f13
+          path: .toast-retry-diagnostics/${{ matrix.mode }}/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30

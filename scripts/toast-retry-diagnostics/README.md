@@ -1,0 +1,9 @@
+# Bounded EventRouter retry diagnostic
+
+This utility investigates the original failure in PR #1235 canonical job `114334052483`. The checkout is exactly the failed synthetic merge `2c305f13ddc665bb10c483ab883f06d4f185cc5e`, whose tree is identical to feature head `7e956fd3fd7ee1deca1c034057705675857100d3`. This is historical failure evidence, not current-head CI certification.
+
+Two independent jobs run the complete original 41-case EventRouter file once. Control leaves every tracked file unchanged. Trace adds only read-only observations around the existing two-attempt thread/shell retry regression. The original overflow events, Playwright click, title visibility/deduplication assertions, cleanup, and 90-second test/hook timeout remain unchanged. No force click, automatic retry, or production patch is used.
+
+Trace records bounded toast manager requests, observed DOM node identities and transition attributes/geometry, and existing subscription counters. Base UI 1.7.0's typed internal provider subscription is used without wrapping or replacing manager actions. A requested transition and an actual DOM transition are labelled separately; manager IDs are not guessed from DOM order. DOM reads and observers can affect timing, so a passing traced arm does not override a failing control or the historical failure. A passing control also does not explain an intermittent failure.
+
+The source, source tree, four boundary blobs, driver commit, overlay hashes/diff, original Vitest exit status/log, and trace journals are uploaded for both success and failure. Only the diagnostic helper, config, and traced test overlay are added to the application checkout. The runner verifies that production files and the lockfile remain unchanged. The utility workflow has read-only permissions, immutable source/driver checkouts, no persisted Git credentials, two bounded jobs, and no effect on canonical workflows or feature branches.
