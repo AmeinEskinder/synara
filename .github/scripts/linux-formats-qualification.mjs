@@ -3,6 +3,8 @@ import { strict as assert } from "node:assert";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
+  chmodSync,
+  copyFileSync,
   createReadStream,
   existsSync,
   mkdirSync,
@@ -138,7 +140,7 @@ async function qualify() {
     run("git", ["-C", driver, "status", "--porcelain=v1", "--untracked-files=all"]).trim(),
     "",
   );
-  assert.equal(run("git", ["diff", "--exit-code"]).trim(), "");
+  assert.equal(run("git", ["diff", "--exit-code", "HEAD", "--"]).trim(), "");
   const version = JSON.parse(
     readFileSync(join(source, "apps/server/package.json"), "utf8"),
   ).version;
@@ -238,6 +240,47 @@ async function qualify() {
     assert.equal(rpmFields.PACKAGER, "Emanuele Di Pietro <feedback@trysynara.com>");
     assert.equal(rpmFields.URL, "https://www.trysynara.com");
     assert.ok(rpmDependencies.trim().length > 0, "RPM runtime dependencies are absent");
+    const temporary = mkdtempSync(join(tmpdir(), "synara-appimage-identity-"));
+    try {
+      const copied = join(temporary, basename(appImage));
+      copyFileSync(appImage, copied);
+      chmodSync(copied, 0o755);
+      run(copied, ["--appimage-extract"], {
+        cwd: temporary,
+        log: "appimage-extraction.txt",
+        timeout: 120_000,
+      });
+      const application = join(temporary, "squashfs-root");
+      const executable = join(application, "synara");
+      const asar = join(application, "resources/app.asar");
+      const env = { ...process.env, ELECTRON_RUN_AS_NODE: "1" };
+      delete env.NODE_OPTIONS;
+      delete env.NODE_PATH;
+      const embedded = JSON.parse(
+        run(
+          executable,
+          [
+            "--eval",
+            `process.stdout.write(require("node:fs").readFileSync(${JSON.stringify(join(asar, "package.json"))}, "utf8"))`,
+          ],
+          { env, cwd: application },
+        ),
+      );
+      save("appimage-embedded-package.json", embedded);
+      assert.equal(embedded.synaraCommitHash, sourceSha);
+      assert.equal(embedded.synaraLockfileSha256, lockfileSha256);
+      assert.equal(embedded.version, version);
+      assert.equal(embedded.synaraDesktopFlavor, "production");
+      save("appimage-payload-identity.json", {
+        sourceSha,
+        lockfileSha256,
+        version,
+        asarSha256: await sha256(asar),
+        executableSha256: await sha256(executable),
+      });
+    } finally {
+      rmSync(temporary, { recursive: true, force: true });
+    }
     console.log("Actual AppImage, Debian and RPM metadata and SHA-256 inventory verified.");
     return;
   }
@@ -333,6 +376,14 @@ async function qualify() {
   const temporary = mkdtempSync(join(tmpdir(), "synara-linux-installed-"));
   try {
     const installedAsar = join(dirname(installedExecutable), "resources/app.asar");
+    const appImageIdentity = JSON.parse(
+      readFileSync(join(evidence, "appimage-payload-identity.json"), "utf8"),
+    );
+    assert.equal(appImageIdentity.sourceSha, sourceSha);
+    assert.equal(appImageIdentity.lockfileSha256, lockfileSha256);
+    assert.equal(appImageIdentity.version, version);
+    assert.equal(await sha256(installedAsar), appImageIdentity.asarSha256);
+    assert.equal(await sha256(installedExecutable), appImageIdentity.executableSha256);
     if (!isRpm) {
       run("dpkg-deb", ["--extract", deb, join(temporary, "payload")], { timeout: 120_000 });
       const packageAsar = join(temporary, "payload", relative("/", installedAsar));
@@ -429,7 +480,8 @@ async function qualify() {
       installedExecutable,
       executableSha256,
       installedAsarSha256,
-      installedAsarMatchesVerifiedDebianPayload: true,
+      installedAsarMatchesAppImageAndVerifiedDebianPayload: true,
+      installedExecutableMatchesAppImage: true,
       runtimeDependencySmoke: "passed",
       startupProofs: [
         "app ready",
