@@ -1,9 +1,9 @@
-name: Native browser stack evidence
+name: Native browser stack startup diagnosis
 
 on:
   push:
     branches:
-      - cleanup/20261011/native-stack-evidence
+      - cleanup/20261011/native-stack-diagnostic
     paths:
       - .github/workflows/native-stack-evidence.yml
       - scripts/native-stack-evidence/**
@@ -17,6 +17,7 @@ concurrency:
 
 env:
   NODE_OPTIONS: --max-old-space-size=4096
+  NATIVE_STACK_ONLY: pr1790-after
 
 jobs:
   targets:
@@ -86,3 +87,4 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
+

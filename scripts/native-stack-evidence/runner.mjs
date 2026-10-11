@@ -40,7 +40,9 @@ for (const target of targets) {
 }
 const command = process.argv[2];
 if (command === "matrix") {
-  const matrix = JSON.stringify({ include: targets });
+  const only = process.env.NATIVE_STACK_ONLY;
+  if (only && !ids.has(only)) throw new Error("Unknown isolated native target");
+  const matrix = JSON.stringify({ include: only ? targets.filter((target) => target.id === only) : targets });
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${matrix}\n`);
   else console.log(matrix);
 } else if (command === "prepare") {
@@ -175,3 +177,4 @@ if (command === "matrix") {
 } else {
   throw new Error("Use matrix, prepare, or verify");
 }
+

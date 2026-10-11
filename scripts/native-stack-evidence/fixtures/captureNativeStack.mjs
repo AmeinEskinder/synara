@@ -111,6 +111,13 @@ async function launch(phase) {
   const address = server.httpServer.address();
   if (!address || typeof address === "string") throw new Error("Missing isolated Vite listener");
   const uiUrl = `http://127.0.0.1:${address.port}/e2e/nativeStack/nativeStack.html`;
+  const metadata = { phase, hostUrl: uiUrl };
+  launches.push(metadata);
+  const response = await fetch(uiUrl, { signal: AbortSignal.timeout(15000) });
+  const hostHtml = await response.text();
+  metadata.http = { status: response.status, htmlSha256: sha256(hostHtml) };
+  expect(response.ok).toBe(true);
+  expect(hostHtml).toContain('src="./nativeStack.tsx"');
   const app = await electron.launch({
     executablePath: resolve(web, "../desktop/node_modules/electron/dist/electron"),
     args: [mainPath],
@@ -131,8 +138,7 @@ async function launch(phase) {
     },
     timeout: 120000,
   });
-  const metadata = { phase, pid: app.process().pid, hostUrl: uiUrl };
-  launches.push(metadata);
+  metadata.pid = app.process().pid;
   const current = { app, metadata, closed: false };
   active = current;
   const observed = new WeakSet();
@@ -150,6 +156,21 @@ async function launch(phase) {
   app
     .process()
     .once("exit", () => writeFileSync(join(output, `${label}-${phase}-electron.log`), stderr));
+  metadata.startup = await app.evaluate(({ app, BrowserWindow, webContents }) => ({
+    ready: app.isReady(),
+    managerRegistered: Boolean(globalThis.__synaraNativeStackEvidence),
+    windows: BrowserWindow.getAllWindows().map((window) => ({
+      id: window.id,
+      url: window.webContents.getURL(),
+      loading: window.webContents.isLoading(),
+    })),
+    contents: webContents.getAllWebContents().map((contents) => ({
+      id: contents.id,
+      type: contents.getType(),
+      url: contents.getURL(),
+    })),
+  }));
+  console.log(JSON.stringify({ nativeStartup: metadata }));
   await expect
     .poll(() => app.windows().filter((page) => page.url() === uiUrl).length, { timeout: 120000 })
     .toBe(1);
@@ -595,7 +616,7 @@ async function restart(first) {
 try {
   bundle("e2e/nativeStack/nativeStackMain.ts", mainPath, [
     "--external=betterwright",
-    "--banner=module.paths.unshift(" +
+    "--banner=process.on('uncaughtException',error=>{console.error(error);process.exit(1)});process.on('unhandledRejection',error=>{console.error(error);process.exit(1)});module.paths.unshift(" +
       JSON.stringify(resolve(web, "../desktop/node_modules")) +
       ");",
   ]);
@@ -658,3 +679,4 @@ try {
   );
   rmSync(home, { recursive: true, force: true });
 }
+
