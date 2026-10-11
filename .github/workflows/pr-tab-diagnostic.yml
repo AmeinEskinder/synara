@@ -1,9 +1,9 @@
-name: Source-pinned chat tab frame diagnostic
+name: Source-pinned cached tab control
 
 on:
   push:
     branches:
-      - cleanup/20261011/chat-tab-frame-diagnostic
+      - cleanup/20261011/chat-tab-cache-control
     paths:
       - .github/workflows/pr-tab-diagnostic.yml
       - scripts/pr-tab-diagnostic/**
@@ -26,7 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: [focused, lane]
+        mode: [cache-hold]
     steps:
       - name: Checkout exact failing application head
         uses: actions/checkout@v6
@@ -68,7 +68,7 @@ jobs:
           PR_TAB_DIAGNOSTIC_MODE: ${{ matrix.mode }}
         run: |
           args=(run --config vitest.browser.ci.config.ts --project chat-workflows)
-          if [ "$PR_TAB_DIAGNOSTIC_MODE" = focused ]; then
+          if [ "$PR_TAB_DIAGNOSTIC_MODE" != lane ]; then
             args+=(-t 'switches horizontal tabs without blanking the header or composer')
           fi
           set +e

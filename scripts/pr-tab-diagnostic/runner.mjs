@@ -21,7 +21,8 @@ const command = process.argv[2];
 
 if (command === "prepare") {
   const mode = process.env.PR_TAB_DIAGNOSTIC_MODE;
-  if (!["focused", "lane"].includes(mode)) throw new Error("Unknown diagnostic mode.");
+  if (!["focused", "lane", "cache-hold"].includes(mode))
+    throw new Error("Unknown diagnostic mode.");
   if (
     git("rev-parse", "HEAD") !== spec.source ||
     git("rev-parse", "HEAD^{tree}") !== spec.sourceTree
@@ -39,7 +40,11 @@ if (command === "prepare") {
   if (start < 0 || end < start || original.indexOf(spec.start, start + 1) !== -1)
     throw new Error("Unknown exact test boundary.");
   let observed = original.slice(start, end);
-  for (const { before, after } of spec.replacements) {
+  const replacements = [
+    ...spec.replacements,
+    ...(mode === "cache-hold" ? spec.fixtureReplacements : []),
+  ];
+  for (const { before, after } of replacements) {
     if (!after.includes(before) || observed.split(before).length !== 2)
       throw new Error("Observer must only add text at one exact original statement.");
     observed = observed.replace(before, after);
@@ -65,8 +70,11 @@ if (command === "prepare") {
     productionCodeModified: false,
     originalAssertionsPreserved: true,
     originalRoundsAndWaitsPreserved: true,
+    controlledCacheFixture: mode === "cache-hold",
     qualification:
-      "Diagnostic observer only. Exact original test and canonical project configuration; no production repair or flake classification.",
+      mode === "cache-hold"
+        ? "Controlled diagnostic fixture: seed the target durable cache and hold its authoritative snapshot until a retained read-only cached editor is observed, or a 2-second fallback deadline. Original zero-frame and draft/undo assertions remain; their actual exit is preserved. No production repair or canonical-CI claim."
+        : "Diagnostic observer only. Exact original test and canonical project configuration; no production repair or flake classification.",
     status: "prepared",
   };
   writeFileSync(resolve(output, "provenance.json"), `${JSON.stringify(manifest, null, 2)}\n`);

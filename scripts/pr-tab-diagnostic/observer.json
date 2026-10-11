@@ -23,5 +23,31 @@
       "before": "        expect(samples.every((sample) => sample.missingHeaderFrames === 0)).toBe(true);\n",
       "after": "        console.info(`TAB_FRAME_DIAGNOSTIC ${JSON.stringify({ source: \"5e34d553e582a05cadc1343c6d29684fad3b2161\", targetKind, samples })}`);\n        expect(samples.every((sample) => sample.missingHeaderFrames === 0)).toBe(true);\n"
     }
+  ],
+  "fixtureReplacements": [
+    {
+      "before": "      try {\n",
+      "after": "      let releaseDiagnosticSnapshot: (() => void) | undefined;\n      let diagnosticSnapshotTimeout: ReturnType<typeof setTimeout> | undefined;\n      let diagnosticReleaseReason: string | null = null;\n      try {\n"
+    },
+    {
+      "before": "        useComposerDraftStore.getState().setPrompt(THREAD_ID, \"Draft in first tab\");\n",
+      "after": "        await writeThreadDetailCache(\n          { origin: location.origin, serverInstanceId: \"browser-test-server\" },\n          { snapshotSequence: snapshot.snapshotSequence, thread: snapshot.threads.find((thread) => thread.id === OTHER_THREAD_ID)! },\n        );\n        useComposerDraftStore.getState().setPrompt(THREAD_ID, \"Draft in first tab\");\n"
+    },
+    {
+      "before": "          tabButtons[toSecond ? 1 : 0]!.click();\n",
+      "after": "          if (index === 0) {\n            threadDetailSnapshotBarrier = new Promise<void>((resolve) => { releaseDiagnosticSnapshot = resolve; });\n            diagnosticSnapshotTimeout = setTimeout(() => {\n              diagnosticReleaseReason = \"fallback-deadline\";\n              releaseDiagnosticSnapshot?.();\n              threadDetailSnapshotBarrier = null;\n            }, 2_000);\n          }\n          tabButtons[toSecond ? 1 : 0]!.click();\n"
+    },
+    {
+      "before": "              const state = useStore.getState();\n",
+      "after": "              const state = useStore.getState();\n              if (index === 0 && retainedEditor?.getAttribute(\"contenteditable\") === \"false\" && state.threadDetailSyncById?.[targetId] === \"cached\") {\n                diagnosticReleaseReason = \"observed-retained-readonly-cached-editor\";\n                releaseDiagnosticSnapshot?.();\n                clearTimeout(diagnosticSnapshotTimeout);\n                threadDetailSnapshotBarrier = null;\n              }\n"
+    },
+    {
+      "before": "            diagnosticFrames,\n",
+      "after": "            diagnosticFrames,\n            diagnosticReleaseReason,\n"
+    },
+    {
+      "before": "        await mounted.cleanup();\n",
+      "after": "        releaseDiagnosticSnapshot?.();\n        clearTimeout(diagnosticSnapshotTimeout);\n        threadDetailSnapshotBarrier = null;\n        await mounted.cleanup();\n"
+    }
   ]
 }
