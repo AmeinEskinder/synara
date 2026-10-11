@@ -34,6 +34,10 @@ import { ProviderAdapterValidationError } from "../Errors.ts";
 import { CodexAdapter } from "../Services/CodexAdapter.ts";
 import { ProviderSessionDirectory } from "../Services/ProviderSessionDirectory.ts";
 import { makeCodexAdapterLive } from "./CodexAdapter.ts";
+import {
+  assertAdapterCleanupConformance,
+  assertTerminalOutcomeConformance,
+} from "../testSupport/adapterLifecycleConformance.ts";
 
 const asThreadId = (value: string): ThreadId => ThreadId.makeUnsafe(value);
 const asTurnId = (value: string): TurnId => TurnId.makeUnsafe(value);
@@ -218,6 +222,40 @@ const providerSessionDirectoryTestLayer = Layer.succeed(ProviderSessionDirectory
 });
 
 const validationManager = new FakeCodexManager();
+it("satisfies shared adapter cleanup conformance", async () => {
+  const manager = new FakeCodexManager();
+  manager.startSession = async (input) => {
+    const session = await manager.startSessionImpl(input);
+    manager.sessionSnapshots.push(session);
+    return session;
+  };
+  manager.hasSession = (id) => manager.sessionSnapshots.some((session) => session.threadId === id);
+  manager.stopSession = async (id) => {
+    manager.sessionSnapshots = manager.sessionSnapshots.filter(
+      (session) => session.threadId !== id,
+    );
+  };
+  manager.stopAll = async () => {
+    manager.sessionSnapshots = [];
+  };
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      const adapter = yield* CodexAdapter;
+      yield* assertAdapterCleanupConformance(adapter, {
+        provider: "codex",
+        runtimeMode: "full-access",
+      });
+    }).pipe(
+      Effect.provide(
+        makeCodexAdapterLive({ manager }).pipe(
+          Layer.provideMerge(ServerConfig.layerTest(process.cwd(), process.cwd())),
+          Layer.provideMerge(providerSessionDirectoryTestLayer),
+          Layer.provideMerge(NodeServices.layer),
+        ),
+      ),
+    ),
+  );
+});
 const validationLayer = it.layer(
   makeCodexAdapterLive({ manager: validationManager }).pipe(
     Layer.provideMerge(ServerConfig.layerTest(process.cwd(), process.cwd())),
@@ -1843,6 +1881,7 @@ lifecycleLayer("CodexAdapterLive lifecycle", (it) => {
           release();
           const events = yield* Fiber.join(collected);
           assert.equal(events.length, 3);
+          assertTerminalOutcomeConformance(Array.from(events));
           for (const event of events) {
             assert.equal(event.type, "turn.completed");
             assert.equal(event.providerInstanceId, "codex_work");

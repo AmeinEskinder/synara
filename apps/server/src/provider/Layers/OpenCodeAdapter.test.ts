@@ -10,6 +10,11 @@ import type {
 } from "@opencode-ai/sdk/v2";
 import { Deferred, Effect, Exit, Fiber, Layer, Option, Scope, Stream } from "effect";
 import { TestClock } from "effect/testing";
+import {
+  assertAdapterCleanupConformance,
+  assertTerminalOutcomeConformance,
+  assertSessionTeardownConformance,
+} from "../testSupport/adapterLifecycleConformance.ts";
 import { describe, it, expect, vi } from "vitest";
 
 import { ServerConfig } from "../../config.ts";
@@ -1892,22 +1897,17 @@ describe("OpenCodeAdapter runtime lifecycle", () => {
     }
   });
 
-  it("treats missing and repeated session stops as successful cleanup", async () => {
+  it("satisfies shared adapter cleanup conformance", async () => {
     const runtime = createMockOpenCodeRuntime();
-    const threadId = asThreadId("thread-idempotent-stop");
 
     await Effect.runPromise(
       Effect.gen(function* () {
         const adapter = yield* OpenCodeAdapter;
-        yield* adapter.stopSession(threadId);
-        yield* adapter.startSession({
+        yield* assertAdapterCleanupConformance(adapter, {
           provider: "opencode",
-          threadId,
           runtimeMode: "full-access",
           cwd: "/repo",
         });
-        yield* adapter.stopSession(threadId);
-        yield* adapter.stopSession(threadId);
       }).pipe(
         Effect.provide(
           makeOpenCodeAdapterLive({ runtime: runtime.runtime }).pipe(
@@ -1920,7 +1920,7 @@ describe("OpenCodeAdapter runtime lifecycle", () => {
       ),
     );
 
-    expect(runtime.abortCalls).toHaveLength(1);
+    expect(runtime.abortCalls).toHaveLength(2);
   });
 
   it("does not touch an external OpenCode MCP registry when its setup hook would fail", async () => {
@@ -2759,9 +2759,13 @@ describe("OpenCodeAdapter runtime lifecycle", () => {
     const result = await Effect.runPromise(
       Effect.gen(function* () {
         const adapter = yield* OpenCodeAdapter;
-        const eventsFiber = yield* Stream.runCollect(Stream.take(adapter.streamEvents, 4)).pipe(
-          Effect.forkChild,
-        );
+        const eventsFiber = yield* Stream.runCollect(
+          Stream.takeUntil(
+            adapter.streamEvents,
+            (event) =>
+              event.type === "session.started" && event.threadId === asThreadId("teardown-fence"),
+          ),
+        ).pipe(Effect.forkChild);
 
         yield* adapter.startSession({
           provider: "opencode",
@@ -2788,6 +2792,14 @@ describe("OpenCodeAdapter runtime lifecycle", () => {
         yield* adapter.interruptTurn(asThreadId("thread-1"));
 
         const [readySession] = yield* adapter.listSessions();
+        yield* adapter.interruptTurn(asThreadId("thread-1"));
+        yield* adapter.stopSession(asThreadId("thread-1"));
+        yield* adapter.startSession({
+          provider: "opencode",
+          threadId: asThreadId("teardown-fence"),
+          lifecycleGeneration: "generation-opencode-a",
+          runtimeMode: "full-access",
+        });
         const events = Array.from(yield* Fiber.join(eventsFiber));
 
         return { events, readySession, runningSession };
@@ -2818,6 +2830,8 @@ describe("OpenCodeAdapter runtime lifecycle", () => {
     });
     expect(runtime.abortCalls.length).toBeGreaterThanOrEqual(1);
     expect(runtime.abortCalls[0]).toEqual({ sessionID: "opencode-session-1" });
+    assertTerminalOutcomeConformance(result.events);
+    assertSessionTeardownConformance(result.events, asThreadId("thread-1"));
     expect(result.runningSession?.status).toBe("running");
     expect(result.runningSession?.activeTurnId).toBeDefined();
     expect(result.readySession).toMatchObject({
@@ -2831,6 +2845,8 @@ describe("OpenCodeAdapter runtime lifecycle", () => {
       "thread.started",
       "turn.started",
       "turn.aborted",
+      "session.exited",
+      "session.started",
     ]);
     expect(
       result.events.every((event) => event.lifecycleGeneration === "generation-opencode-a"),
