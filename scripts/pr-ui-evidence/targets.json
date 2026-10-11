@@ -1,20 +1,54 @@
 [
   {
-    "id": "pr1817-before",
-    "pr": 1817,
+    "id": "pr1713-before",
+    "pr": 1713,
     "variant": "before",
-    "source": "09bba9fa4cb1f109d6fe0763f59311317817f5db",
-    "mode": "standalone",
-    "fixture": "PrUiEvidence1817.browser.tsx",
-    "destination": "apps/web/src/components/PrUiEvidence1817.browser.tsx"
+    "source": "907161a60bbb4b16d53feec693eafd2c7e1b66a0",
+    "mode": "append-describe",
+    "fixture": "PrUiEvidence1713.snippet.tsx",
+    "destination": "apps/web/src/components/ChatView.browser.tsx",
+    "expectedObservations": 1
   },
   {
-    "id": "pr1817-after",
-    "pr": 1817,
+    "id": "pr1713-after",
+    "pr": 1713,
     "variant": "after",
-    "source": "8e165a40165ddeb3c6384deca97a967eb569d380",
+    "source": "4112a2f6e9f7eaf100dd874f5be4ff0469a9ce40",
+    "mode": "append-describe",
+    "fixture": "PrUiEvidence1713.snippet.tsx",
+    "destination": "apps/web/src/components/ChatView.browser.tsx",
+    "expectedObservations": 1
+  },
+  {
+    "id": "pr1809-before",
+    "pr": 1809,
+    "variant": "before",
+    "source": "22bcafdc965ce7e4ef253b2cd5bd05dc5671cc05",
     "mode": "standalone",
-    "fixture": "PrUiEvidence1817.browser.tsx",
-    "destination": "apps/web/src/components/PrUiEvidence1817.browser.tsx"
+    "fixture": "PrUiEvidence1809.browser.tsx",
+    "destination": "apps/web/src/components/PrUiEvidence1809.browser.tsx",
+    "expectedObservations": 2
+  },
+  {
+    "id": "pr1809-after",
+    "pr": 1809,
+    "variant": "after",
+    "source": "869e40c4bf989f936fca4c59c32dac0ab4bcb27b",
+    "mode": "standalone",
+    "fixture": "PrUiEvidence1809.browser.tsx",
+    "destination": "apps/web/src/components/PrUiEvidence1809.browser.tsx",
+    "expectedObservations": 2
+  },
+  {
+    "id": "pr1809-control",
+    "pr": 1809,
+    "variant": "control",
+    "source": "22bcafdc965ce7e4ef253b2cd5bd05dc5671cc05",
+    "sourceTree": "8bb6019499c3d9cf29b0022fdcb2406419a4d2d9",
+    "mode": "standalone",
+    "purpose": "regression-control",
+    "fixture": "PrUiEvidence1809Control.browser.tsx",
+    "fixtureSha256": "ada04ac36a21653fa23cd590a6822b9c984d6bd1385a85944cc8e22d33924ea0",
+    "destination": "apps/web/src/components/PrUiEvidence1809Control.browser.tsx"
   }
 ]

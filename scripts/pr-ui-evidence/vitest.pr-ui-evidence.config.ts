@@ -9,7 +9,7 @@ if (!fixture || !/^src\/components\/[A-Za-z0-9.]+\.browser\.tsx$/.test(fixture))
 }
 
 const directory = process.env.VITE_PR_UI_EVIDENCE_DIR;
-if (!directory?.startsWith("/")) throw new Error("Explicit permission video output is required.");
+if (!directory?.startsWith("/")) throw new Error("Explicit review video output is required.");
 
 export default defineConfig({
   ...browserConfig,
@@ -20,11 +20,11 @@ export default defineConfig({
       ...browserConfig.test?.browser,
       provider: playwright({
         contextOptions: {
-          recordVideo: { dir: `${directory}/video`, size: { width: 760, height: 680 } },
+          recordVideo: { dir: `${directory}/video`, size: { width: 1280, height: 900 } },
         },
       }),
     },
-    testNamePattern: /PR UI evidence/,
+    testNamePattern: fixture.includes("Control") ? undefined : /PR UI evidence/,
     passWithNoTests: false,
     fileParallelism: false,
     maxWorkers: 1,

@@ -35,6 +35,10 @@ for (const target of targets) {
         !/^[a-f0-9]{40}$/.test(target.sourceTree) ||
         !/^[a-f0-9]{64}$/.test(target.fixtureSha256))) ||
     !target.id.endsWith(`-${target.variant}`) ||
+    (!control &&
+      (!Number.isInteger(target.expectedObservations) ||
+        target.expectedObservations < 1 ||
+        target.expectedObservations > 2)) ||
     !["standalone", "append-describe", "native"].includes(target.mode) ||
     (native
       ? target.fixture !== "native-ui" || target.destination !== "apps/web/e2e/evidence"
@@ -203,26 +207,41 @@ if (command === "matrix") {
     }
     return { name, bytes: content.length, sha256: digest(content) };
   });
-  const videoNames = readdirSync(resolve(output, "video")).filter((name) => name.endsWith(".webm"));
-  if (videoNames.length !== 1) throw new Error("Expected one actual permission interaction video");
-  const videoName = `video/${videoNames[0]}`;
-  const videoBytes = readFileSync(resolve(output, videoName));
-  if (videoBytes.subarray(0, 4).toString("hex") !== "1a45dfa3" || videoBytes.length < 1024)
-    throw new Error("Invalid permission interaction video");
-  const videos = [{ name: videoName, bytes: videoBytes.length, sha256: digest(videoBytes) }];
   const log = readFileSync(resolve(output, "vitest.log"), "utf8");
-  const prefix = "PR_PERMISSION_MENU_RESULT ";
-  const observations = log.split("\n").filter((line) => line.includes(prefix));
-  if (observations.length !== 1)
-    throw new Error("Missing asserted permission interaction observations");
-  const interaction = JSON.parse(
-    observations[0]
-      .slice(observations[0].indexOf(prefix) + prefix.length)
-      .replace(/\x1b\[[0-9;]*m/g, "")
-      .trim(),
-  );
-  if (interaction.variant !== manifest.target.variant)
-    throw new Error("Wrong permission interaction source variant");
+  const videos = [];
+  const interaction = [];
+  if (!control) {
+    const videoNames = readdirSync(resolve(output, "video")).filter((name) =>
+      name.endsWith(".webm"),
+    );
+    if (videoNames.length !== 1) throw new Error("Expected one actual UI interaction recording");
+    const videoName = `video/${videoNames[0]}`;
+    const videoBytes = readFileSync(resolve(output, videoName));
+    if (videoBytes.subarray(0, 4).toString("hex") !== "1a45dfa3" || videoBytes.length < 1024)
+      throw new Error("Invalid UI interaction video");
+    videos.push({ name: videoName, bytes: videoBytes.length, sha256: digest(videoBytes) });
+    const prefix = "PR_UI_INTERACTION_RESULT ";
+    const observations = log.split("\n").filter((line) => line.includes(prefix));
+    if (observations.length !== manifest.target.expectedObservations)
+      throw new Error("Missing asserted UI interaction observations");
+    for (const observation of observations) {
+      const result = JSON.parse(
+        observation
+          .slice(observation.indexOf(prefix) + prefix.length)
+          .replace(/\x1b\[[0-9;]*m/g, "")
+          .trim(),
+      );
+      if (result.variant !== manifest.target.variant || result.pr !== manifest.target.pr)
+        throw new Error("Wrong UI interaction source variant");
+      interaction.push(result);
+    }
+    if (
+      manifest.target.pr === 1809 &&
+      (new Set(interaction.map((result) => result.resumeAfterRestart)).size !== 2 ||
+        interaction.some((result) => typeof result.resumeAfterRestart !== "boolean"))
+    )
+      throw new Error("Both quit resume choices must be exercised");
+  }
   const actualExitCode = controlResult
     ? controlResult.testExitCode || controlResult.logExitCode
     : 0;

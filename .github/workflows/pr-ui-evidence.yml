@@ -1,9 +1,9 @@
-name: Permission menu UI evidence
+name: Quit and retention settings UI evidence
 
 on:
   push:
     branches:
-      - cleanup/20261011/permission-menu-evidence
+      - cleanup/20261011/quit-settings-evidence
     paths:
       - .github/workflows/pr-ui-evidence.yml
       - scripts/pr-ui-evidence/**
