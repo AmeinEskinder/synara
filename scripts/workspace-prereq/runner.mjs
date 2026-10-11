@@ -13,8 +13,9 @@ import {
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 
-const expectedSource = "70620c1ce1615239635905418b19a6b77fd0a642";
+const expectedSource = "1fb80ba1bcacbee06d3dcca762a7aca8fb28559c";
 const driver = dirname(fileURLToPath(import.meta.url));
 const root = process.cwd();
 const output = resolve(process.env.SYNARA_PREREQ_OUTPUT);
@@ -24,6 +25,12 @@ const sourceFiles = [
   ".github/actions/setup-workspace/action.yml",
   "package.json",
   "apps/web/package.json",
+  "apps/server/package.json",
+  "packages/contracts/package.json",
+  "packages/shared/package.json",
+  "scripts/package.json",
+  "scripts/patch-workspace-typescript.ts",
+  "scripts/patch-workspace-typescript.test.ts",
   "bun.lock",
   "bunfig.toml",
 ];
@@ -63,7 +70,7 @@ if (process.argv[2] === "prepare") {
         preparedAt: new Date().toISOString(),
         runner: { os: process.platform, arch: process.arch, node: process.version },
         boundary:
-          "Observed unmodified frozen runtime install and canonical Windows regression commands; compiler I/O observer may affect timing and does not itself establish a fix",
+          "Observed exact repaired source's frozen runtime install and unchanged canonical Windows regression commands plus preparation regressions; compiler I/O observer may affect timing",
       },
       null,
       2,
@@ -91,9 +98,15 @@ if (process.argv[2] === "prepare") {
     "packages/shared",
     "scripts",
   ]) {
-    const installed = resolve(workspace, "node_modules/typescript");
-    if (!existsSync(installed)) continue;
-    const actual = realpathSync(installed);
+    const require = createRequire(resolve(workspace, "package.json"));
+    let installed;
+    try {
+      installed = require.resolve("typescript/package.json");
+    } catch (error) {
+      if (error.code === "MODULE_NOT_FOUND") continue;
+      throw error;
+    }
+    const actual = realpathSync(dirname(installed));
     if (seen.has(actual)) continue;
     seen.add(actual);
     const metadata = JSON.parse(readFileSync(join(actual, "package.json"), "utf8"));
@@ -110,6 +123,7 @@ if (process.argv[2] === "prepare") {
         file: target,
         bytes: bytes.length,
         sha256: sha256(bytes),
+        patchMarker: bytes.includes('"use effect-lsp-patch-version 0.75.1";'),
       });
     }
   }
@@ -134,6 +148,15 @@ if (process.argv[2] === "prepare") {
     summary.observationComplete,
     "The prerequisite observer did not record complete patcher lifetimes",
   );
+  assert.equal(summary.setupOutcome, "success");
+  assert.equal(starts.length, 1, "The shared compiler must be patched by exactly one process");
+  assert.ok(
+    exits.every((event) => event.code === 0),
+    "Every patcher must exit successfully",
+  );
+  assert.equal(snapshots.length, 2, "Both legacy compiler files must be retained");
+  assert.ok(snapshots.every((entry) => entry.bytes > 0 && entry.patchMarker));
+  assert.equal(summary.emptyReads.length, 0, "No observed compiler read may return an empty file");
 } else {
   throw new Error("Use prepare or finish");
 }

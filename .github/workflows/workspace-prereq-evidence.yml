@@ -17,10 +17,10 @@ jobs:
     env:
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
-      - name: Checkout exact failing prerequisite source
+      - name: Checkout exact repaired prerequisite source
         uses: actions/checkout@v6
         with:
-          ref: 70620c1ce1615239635905418b19a6b77fd0a642
+          ref: 1fb80ba1bcacbee06d3dcca762a7aca8fb28559c
           persist-credentials: false
       - name: Checkout immutable observation driver
         uses: actions/checkout@v6
@@ -39,13 +39,15 @@ jobs:
         env:
           SYNARA_PREREQ_OUTPUT: ${{ runner.temp }}/workspace-prereq-evidence
         run: node .prereq-driver/scripts/workspace-prereq/runner.mjs prepare
-      - name: Run unchanged canonical workspace setup
+      - name: Run canonical workspace setup from the repaired source
         id: setup
         uses: ./.github/actions/setup-workspace
         env:
           NODE_OPTIONS: --max-old-space-size=4096 --require "${{ steps.prepare.outputs.observer }}"
         with:
           scope: "runtime"
+      - name: Test serial preparation, hoisted resolution, and failure propagation
+        run: bun run --cwd scripts test patch-workspace-typescript.test.ts
       - name: Verify Windows terminal PTY native dependency under Bun
         run: bun scripts/node-pty-smoke.mjs
       - name: Test Windows shared runtime and migration recovery
@@ -90,7 +92,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: windows-prereq-70620c1-driver-${{ github.sha }}
+          name: windows-prereq-1fb80ba-driver-${{ github.sha }}
           path: ${{ runner.temp }}/workspace-prereq-evidence
           retention-days: 14
           if-no-files-found: error
