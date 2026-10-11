@@ -42,13 +42,19 @@ const command = process.argv[2];
 if (command === "matrix") {
   const only = process.env.NATIVE_STACK_ONLY;
   const scenario = process.env.NATIVE_STACK_SCENARIO;
+  const selectedScenarios = scenario?.split(",");
   if (only && !ids.has(only)) throw new Error("Unknown isolated native target");
-  if (scenario && (![...scenarios.values()].includes(scenario) || only))
+  if (
+    selectedScenarios &&
+    (selectedScenarios.some((entry) => ![...scenarios.values()].includes(entry)) ||
+      new Set(selectedScenarios).size !== selectedScenarios.length ||
+      only)
+  )
     throw new Error("Use one validated native target or scenario filter");
   const selected = only
     ? targets.filter((target) => target.id === only)
-    : scenario
-      ? targets.filter((target) => target.scenario === scenario)
+    : selectedScenarios
+      ? targets.filter((target) => selectedScenarios.includes(target.scenario))
       : targets;
   const matrix = JSON.stringify({ include: selected });
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${matrix}\n`);

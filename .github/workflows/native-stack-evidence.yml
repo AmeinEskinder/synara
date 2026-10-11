@@ -17,7 +17,7 @@ concurrency:
 
 env:
   NODE_OPTIONS: --max-old-space-size=4096
-  NATIVE_STACK_SCENARIO: parallel
+  NATIVE_STACK_SCENARIO: retention,restart
 
 jobs:
   targets:
