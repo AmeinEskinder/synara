@@ -17,6 +17,10 @@ afterEach(() => {
 function fixture(): string {
   const root = mkdtempSync(join(tmpdir(), "synara-typescript-prepare-"));
   temporaryRoots.push(root);
+  for (const workspace of LEGACY_TYPESCRIPT_WORKSPACES) {
+    mkdirSync(join(root, workspace), { recursive: true });
+    writeFileSync(join(root, workspace, "package.json"), JSON.stringify({ name: workspace }));
+  }
   return root;
 }
 
@@ -33,11 +37,13 @@ function install(root: string, workspace: string, compilerName: string, fail = f
     `const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
+const workspaceRequire = require('node:module').createRequire(path.join(process.cwd(), 'package.json'));
 assert.equal(process.argv[2], 'patch');
 assert.equal(process.argv[3], '--dir');
 assert.equal(fs.realpathSync(process.argv[4]), fs.realpathSync(${JSON.stringify(compiler)}));
-const log = path.join(process.cwd(), 'patches.jsonl');
-const marker = path.join(process.cwd(), 'active-patcher');
+assert.equal(fs.realpathSync(path.dirname(workspaceRequire.resolve('typescript/package.json'))), fs.realpathSync(${JSON.stringify(compiler)}));
+const log = path.join(${JSON.stringify(root)}, 'patches.jsonl');
+const marker = path.join(${JSON.stringify(root)}, 'active-patcher');
 const event = name => fs.appendFileSync(log, JSON.stringify({event: name, compiler: ${JSON.stringify(compilerName)}}) + '\\n');
 event('start');
 if (${fail}) process.exit(17);

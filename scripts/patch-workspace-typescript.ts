@@ -16,7 +16,7 @@ export const LEGACY_TYPESCRIPT_WORKSPACES = [
 ] as const;
 
 export function patchWorkspaceTypeScript(root: string): void {
-  const targets = new Map<string, string>();
+  const targets = new Map<string, { cli: string; cwd: string }>();
   for (const workspace of LEGACY_TYPESCRIPT_WORKSPACES) {
     // Resolve as the workspace would: hoisted installs can place dependencies
     // at the root, while isolated installs keep workspace links.
@@ -40,17 +40,19 @@ export function patchWorkspaceTypeScript(root: string): void {
     const directory = realpathSync(dirname(compiler));
     const patcher = realpathSync(cli);
     const previous = targets.get(directory);
-    if (previous !== undefined && previous !== patcher) {
+    if (previous !== undefined && previous.cli !== patcher) {
       throw new Error(`Conflicting Effect language-service patchers for ${directory}`);
     }
-    targets.set(directory, patcher);
+    if (!previous) targets.set(directory, { cli: patcher, cwd: join(root, workspace) });
   }
 
-  for (const [directory, cli] of targets) {
+  for (const [directory, { cli, cwd }] of targets) {
     // Await each real compiler's patch before starting another. execFileSync
     // propagates nonzero exits and signals, so later preparation cannot mask it.
     execFileSync(process.execPath, [cli, "patch", "--dir", directory], {
-      cwd: root,
+      // The CLI resolves its parsing API from cwd separately from --dir.
+      // Preserve the workspace context used by the former prepare hook.
+      cwd,
       stdio: "inherit",
     });
   }
