@@ -71,11 +71,23 @@ The runtime API token must grant Tunnel Edit for the selected account and DNS
 Edit for the selected zone; it is separate from Wrangler's deployment login.
 It stays in Worker secrets and the API Container, never in the desktop app.
 Set `REMOTE_TEST_USER_IDS` to the comma-separated WorkOS IDs of the enrolled
-test users; an empty list denies remote access. Restart the Container after
+test users; an empty list denies remote access. When its existing value is unavailable,
+`REMOTE_TEST_ADDITIONAL_USER_IDS` appends explicitly approved WorkOS IDs without
+replacing the primary secret. Remove a user's ID from both lists to revoke enrollment.
+Restart the Container after
 changing these bindings so the API loads them. See the
 [remote setup checklist](../../../docs/implementation/cloudflare-remote/READINESS.md)
 for DNS prerequisites and the two-Mac test. Forwarding these optional bindings
 does not provision a tunnel or enroll anyone by itself.
+
+For ActivityKit background updates, configure all five optional secrets together:
+`APNS_PRIVATE_KEY`, `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_BUNDLE_ID`, and
+`APNS_ENVIRONMENT` (`sandbox` or `production`). Partial configuration fails API
+startup. The private key is a P-256 PEM; keep it exclusively in Worker secrets.
+The trial is currently Sandbox. Migration 0021 adds private activity subscriptions
+and host snapshots; it was applied and its Drizzle journal verified on 2026-10-09.
+Secret installation alone does not prove Apple delivery. See the
+[ActivityKit operations guide](../../../docs/cloudflare-remote.md#live-activity-push-delivery-development).
 
 ## Verify and deploy
 

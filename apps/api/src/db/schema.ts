@@ -487,3 +487,38 @@ export const remotePairingBudgets = pgTable("remote_pairing_budgets", {
   attempts: integer("attempts").notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
 }).enableRLS();
+
+// Tokens are accessible only to the account API owner role; never public clients.
+export const liveActivities = pgTable(
+  "live_activities",
+  {
+    id: uuid("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    orgId: text("org_id").notNull(),
+    sessionId: text("session_id").notNull(),
+    deviceId: uuid("device_id")
+      .notNull()
+      .references(() => devices.id, { onDelete: "cascade" }),
+    request: jsonb("request").$type<import("@synara/contracts").RegisterLiveActivity>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    ended: boolean("ended").notNull().default(false),
+    dirty: boolean("dirty").notNull().default(true),
+    attempts: integer("attempts").notNull().default(0),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).notNull().defaultNow(),
+    lastTimestamp: bigint("last_timestamp", { mode: "number" }).notNull().default(0),
+    lastPayload: text("last_payload"),
+  },
+  (table) => [index("live_activities_delivery_idx").on(table.ended, table.nextAttemptAt)],
+).enableRLS();
+
+export const liveActivityHosts = pgTable("live_activity_hosts", {
+  hostId: uuid("host_id")
+    .primaryKey()
+    .references(() => hosts.id, { onDelete: "cascade" }),
+  keyGeneration: integer("key_generation").notNull(),
+  snapshot: jsonb("snapshot")
+    .$type<import("@synara/contracts").LiveActivityHostSnapshot>()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}).enableRLS();

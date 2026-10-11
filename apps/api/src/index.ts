@@ -7,7 +7,7 @@ async function main(): Promise<void> {
   const config = loadApiConfig(process.env);
   await runMigrations(config.databaseUrl);
 
-  const { app, identity, pool, cleanup } = await createApp(config);
+  const { app, identity, pool, cleanup, flushLiveActivities } = await createApp(config);
 
   const server = serve({ fetch: app.fetch, port: config.port }, (info) => {
     console.log(`[api] listening on http://localhost:${info.port}`);
@@ -17,11 +17,23 @@ async function main(): Promise<void> {
   const sweep = () => {
     if (maintenance) return;
     maintenance = cleanup()
-      .catch(() => console.warn("[api] Tunnel cleanup pending"))
+      .catch(() => console.warn("[api] Maintenance pending"))
       .finally(() => {
         maintenance = undefined;
       });
   };
+  let pushMaintenance: Promise<void> | undefined;
+  const pushSweep = () => {
+    if (pushMaintenance) return;
+    pushMaintenance = flushLiveActivities()
+      .catch(() => console.warn("[api] Push delivery pending"))
+      .finally(() => {
+        pushMaintenance = undefined;
+      });
+  };
+  const pushTimer = setInterval(pushSweep, 5_000);
+  pushTimer.unref();
+  pushSweep();
   const cleanupTimer = setInterval(sweep, 30_000);
   cleanupTimer.unref();
   sweep();
@@ -34,6 +46,8 @@ async function main(): Promise<void> {
       server.close((err) => (err ? reject(err) : resolve()));
     });
     clearInterval(cleanupTimer);
+    clearInterval(pushTimer);
+    await pushMaintenance;
     await maintenance;
     await identity.close();
     await pool.end();

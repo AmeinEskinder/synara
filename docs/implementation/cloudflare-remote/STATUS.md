@@ -510,3 +510,88 @@ of this audit. The temporary PostgreSQL server is stopped. Remaining feature gap
 documented in [Remote surface audit](../../cloudflare-remote.md#remote-surface-audit-2026-10-09):
 remote GitHub provisioning, aggregate Hub status/navigation, tracked dev-server preview,
 native computer/browser/device control, and remote MCP automation/Kanban delegation.
+
+## 2026-10-09 — APNs development implementation and qualification boundary
+
+Scope: ActivityKit updates/end for an already-started iOS activity while the app
+is suspended, including subscribed turns on multiple owned hosts. Not ordinary
+notification delivery or push-to-start. Local implementation is on
+`codex/cloudflare-remote-mvp`; matching clients are in the existing iPhone and iPad
+worktrees. No new UI primitives, model changes, key material in Git, physical
+phone use, or destructive database operations.
+
+MacBook configuration handoff reports all five APNs secrets installed on
+`synara-account-api-trial` in Synara Orgs, with all 16 pre-existing secrets
+preserved. Configuration is Sandbox only. The replacement key remains outside
+Git; the unused exposed key was revoked by that chat with specific user consent.
+This ledger deliberately contains no private key/token values.
+
+Implementation: authenticated ActivityKit registration/rotation, session/device
+and host-generation fences, two additive default-deny RLS tables (migration
+0021), durable coalesced APNs delivery, exact-turn host reporting, HTTP/2 ES256
+sender, Worker-to-container secret forwarding. Background payloads use generic
+titles. iOS transport suspension does not itself mean turn completion. Existing
+account, identity, activity renderer and native lifecycle code are reused.
+
+Checks so far: iPhone and iPad Debug simulator builds passed; four existing iOS
+Display Island lifecycle tests executed and passed. iPhone app launch and Inbox
+rendering verified on the Mini simulator using Device Hub. The unsigned test
+build initially could not read Keychain; rebuilding with ad-hoc simulator signing
+restored the existing account without a new login. The simulator and current
+Mini Dev use different accounts, so their remote access remains isolated. The optional browser
+mirror download failed TLS certificate validation; no verification was disabled.
+
+With explicit operator approval, migration 0021 was applied to the live Synara
+Supabase project on 2026-10-09. Both tables are owned by `synara_account_api`,
+have RLS enabled and deny public client roles; the original Drizzle hash and
+timestamp were verified. Worker/container deployment completed as version
+`a9611fbf-fa9c-4298-b53d-4bcb7459ae69`, image digest
+`sha256:c6287a5f3bbfafbbe448cdc13b59ee09d3563f1b01fbb0c2db029a777f3cbb33`.
+After the asynchronous container rollout, `/health` returns 200; unauthenticated
+`PUT /api/v1/live-activities` and host watch requests return 401, proving that
+the configured routes are live and protected (not the former 404). The deployed
+activity table still has zero registrations: actual Apple delivery, background
+push rendering/end, Production key and TestFlight remain unqualified. Mini
+Wrangler's TLS failure was isolated to local Node 26; Node 24 LTS refreshed the
+existing Keychain-backed OAuth session and deployed without disabling TLS. Local PostgreSQL checks use only the
+throwaway database on port 58439. Secret installation and HTTP health alone must
+not be presented as APNs success. See the operations guide for poll intervals,
+expiry, retry limits and the separate live qualification steps.
+
+Final local evidence for this pass: root `bun run test` passed all 11 packages
+(server 8,375; web 5,286; desktop 1,413; API initially 358). The final API pass
+after widget-state and expiry regressions passed 361 tests against disposable
+PostgreSQL; reporter tests passed 3/3. The widget-state regression failed first
+on lowercase host protocol states, then passed after mapping to the actual Swift
+ContentState values. `fmt:check`, `lint` (zero errors), `typecheck` (12/12), and
+`migrations:check` passed; both mobile diffs pass whitespace checks. Existing
+skips and lint warnings remain. These are local checks, not production/APNs proof.
+
+### 2026-10-10 — Real Sandbox delivery on the Mini simulator
+
+The earlier account/enrollment blocker is resolved. With operator approval, the
+simulator signed in with the Mini's account and paired through the Cloudflare
+tunnel after comparing its pinned root fingerprint. Existing trial accounts were
+preserved using the optional cumulative `REMOTE_TEST_ADDITIONAL_USER_IDS` binding.
+Worker `bee3ac73-c7fa-486f-8355-9278336d158a` and container image
+`sha256:f815437c085f016b0f5bada7f9a597dca7a28a6ac3bf717730530b014d251fce`
+are deployed. A second rolling restart was needed to load the new environment;
+the Mini test instance also restarted after its earlier authorization denial.
+
+Both mobile targets now include their existing APNs entitlements in simulator
+builds as well as device builds. Both Debug builds pass. On iPhone 18 Pro / iOS
+27 Simulator, a real provider turn requested only `sleep 45`; approval was given
+from desktop while iOS stayed in the background. ActivityKit registered a real
+update token, the live outbox recorded accepted APNs updates, and simulator
+`liveactivitiesd` recorded Apple push reception at 00:19:47, 00:19:56, 00:20:34
+and 00:21:22 CEST. At 00:21:22 ActivityKit processed the remote end event and the
+lock screen visibly changed from approval needed to Ready without reopening
+Synara. The activity disappeared automatically after the configured 60-second
+dismissal. No `simctl push`, database state injection, or physical iPhone was used.
+
+This qualifies the single-host Sandbox path, not Production/TestFlight,
+multi-host concurrent activities, revocation during delivery or network-loss
+recovery. Low-priority intermediate pushes may be coalesced by Apple; acceptance
+does not establish instant visible delivery of every intermediate state.
+The final cumulative-enrollment Worker tests pass 12/12; final `fmt:check`,
+`lint` (zero errors) and `typecheck` (12/12 packages) pass.

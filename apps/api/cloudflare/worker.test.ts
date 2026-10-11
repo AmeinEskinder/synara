@@ -110,7 +110,10 @@ describe("Cloudflare account API ingress", () => {
 describe("Cloudflare account API container configuration", () => {
   const ctx = {} as ConstructorParameters<typeof AccountApi>[0];
 
-  it("enables managed tunnels and explicit enrollment through Worker bindings", () => {
+  it.each([
+    [undefined, "user_mini, user_macbook"],
+    ["user_simulator", "user_mini, user_macbook,user_simulator"],
+  ])("preserves existing enrollment when adding trial users (%s)", (additional, expected) => {
     const { env } = setup();
     const container = new AccountApi(ctx, {
       ...env,
@@ -119,6 +122,7 @@ describe("Cloudflare account API container configuration", () => {
       CLOUDFLARE_API_TOKEN: "test-tunnel-token",
       CLOUDFLARE_TUNNEL_DOMAIN: "example.com",
       REMOTE_TEST_USER_IDS: "user_mini, user_macbook",
+      ...(additional ? { REMOTE_TEST_ADDITIONAL_USER_IDS: additional } : {}),
     });
 
     expect(container.envVars).toMatchObject({
@@ -128,7 +132,7 @@ describe("Cloudflare account API container configuration", () => {
       CLOUDFLARE_ZONE_ID: "b".repeat(32),
       CLOUDFLARE_API_TOKEN: "test-tunnel-token",
       CLOUDFLARE_TUNNEL_DOMAIN: "example.com",
-      REMOTE_TEST_USER_IDS: "user_mini, user_macbook",
+      REMOTE_TEST_USER_IDS: expected,
     });
   });
 

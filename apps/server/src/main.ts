@@ -113,6 +113,7 @@ import {
   isAccountUsageRelevantEventType,
 } from "./accountUsageReporter";
 import { registerAccountUsageReporterNudge } from "./accountUsageReporterRegistry";
+import { createAccountLiveActivityReporter } from "./accountLiveActivityReporter";
 import { createAccountInboxReporter } from "./accountInboxReporter";
 import { RecapStatsQuery } from "./recapStats";
 import { isServerBetaFeatureEnabled } from "./betaFeatureGate";
@@ -555,6 +556,15 @@ const makeServerProgram = (input: CliInput) =>
         ...(config.devUrl ? { devUrl: config.devUrl } : {}),
       });
       yield* Effect.addFinalizer(() => Effect.sync(() => inboxReporter.stop()));
+    }
+    if (isServerBetaFeatureEnabled("remoteConnections")) {
+      const activityReporter = createAccountLiveActivityReporter({
+        sql: yield* SqlClient.SqlClient,
+        baseDir: config.baseDir,
+        hostIdentityPath: config.hostIdentityPath,
+        ...(config.devUrl ? { devUrl: config.devUrl } : {}),
+      });
+      yield* Effect.addFinalizer(() => Effect.sync(() => activityReporter.stop()));
     }
     // Event-driven account usage sync: every committed usage-relevant domain
     // event nudges the reporter, which debounces, recomputes recent per-minute

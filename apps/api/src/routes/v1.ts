@@ -1,3 +1,5 @@
+import { RegisterLiveActivity, LiveActivityHostSnapshot } from "@synara/contracts";
+import type { LiveActivityService } from "../liveActivities/service";
 import {
   SOCIAL_LINK_PLATFORMS,
   normalizeSocialUsername,
@@ -363,6 +365,7 @@ function authTokensBody(auth_: AuthTokens): AuthTokensResponse {
 }
 
 export function createV1Routes(deps: {
+  liveActivities?: LiveActivityService;
   tunnels?: TunnelCoordinator;
   apiIssuer?: string;
   remoteTestUserIds?: readonly string[];
@@ -1649,6 +1652,71 @@ export function createV1Routes(deps: {
         "The host owner no longer belongs to this workspace",
       );
   }
+
+  const liveActivityLimiter = createRateLimiter({ limit: 60, windowMs: 60_000 });
+  v1.put("/live-activities", async (c) => {
+    if (!deps.liveActivities)
+      return errorResponse(c, 503, "internal_error", "Live Activity push is not configured");
+    const session = await requireOrgSession(c, { freshMembership: true });
+    if (session instanceof Response) return session;
+    const deviceSession = await getDeviceSession(c);
+    if (!deviceSession || deviceSession.userId !== session.userId)
+      return errorResponse(c, 401, "unauthorized", "Session changed");
+    if (!liveActivityLimiter.tryConsume(session.userId))
+      return errorResponse(c, 429, "rate_limited", "Too many activity updates");
+    const body = await c.req.json().catch(() => null);
+    if (!Schema.is(RegisterLiveActivity)(body))
+      return errorResponse(c, 400, "validation_failed", "Invalid Live Activity registration");
+    try {
+      await deps.liveActivities.register({ ...session, sessionId: deviceSession.sessionId }, body);
+      return c.json({ ok: true });
+    } catch (error) {
+      return hostDomainError(c, error);
+    }
+  });
+  v1.delete("/live-activities/:id", async (c) => {
+    const session = await getDeviceSession(c);
+    if (!session?.orgId) return errorResponse(c, 401, "unauthorized", "Not authenticated");
+    if (!isUuid(c.req.param("id")))
+      return errorResponse(c, 400, "validation_failed", "Invalid activity");
+    await deps.liveActivities?.remove({ ...session, orgId: session.orgId }, c.req.param("id"));
+    return c.json({ ok: true });
+  });
+  v1.get("/hosts/:id/live-activities", async (c) => {
+    if (!deps.liveActivities) return c.json({ turns: [] });
+    try {
+      const host = await hostKeys.withAuthenticatedHost(
+        c.req.header("authorization"),
+        c.req.param("id"),
+        async (host) => host,
+      );
+      await requireRemoteHostMembership(host);
+      return c.json({ turns: await deps.liveActivities.watches(host) });
+    } catch (error) {
+      return hostDomainError(c, error);
+    }
+  });
+  v1.put("/hosts/:id/live-activities", async (c) => {
+    if (!deps.liveActivities)
+      return errorResponse(c, 503, "internal_error", "Live Activity push is not configured");
+    const body = await c.req.json().catch(() => null);
+    if (!Schema.is(LiveActivityHostSnapshot)(body))
+      return errorResponse(c, 400, "validation_failed", "Invalid activity snapshot");
+    try {
+      const host = await hostKeys.withAuthenticatedHost(
+        c.req.header("authorization"),
+        c.req.param("id"),
+        async (host) => host,
+      );
+      if (!liveActivityLimiter.tryConsume(`host:${host.id}`))
+        return errorResponse(c, 429, "rate_limited", "Too many snapshots");
+      await requireRemoteHostMembership(host);
+      await deps.liveActivities.publish(host, body);
+      return c.json({ ok: true });
+    } catch (error) {
+      return hostDomainError(c, error);
+    }
+  });
 
   const rendezvous = createPairingRendezvous(db, deps.apiIssuer ?? "");
   v1.post("/hosts/:id/pairing-codes", async (c) => {

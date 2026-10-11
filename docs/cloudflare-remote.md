@@ -139,3 +139,40 @@ Run affected PostgreSQL API tests against one disposable database, then the E2E 
 The authoritative execution ledger is [STATUS.md](implementation/cloudflare-remote/STATUS.md). Record the final checks and limitations there. Root checks alone skip database/build-dependent cases when their explicit environment variables are absent.
 
 Live qualification is a separate final step: secure API/Cloudflare/WorkOS configuration, a dedicated test domain and database, the build installed on both Macs, and approved real-provider use. Test different networks, connector/network interruption, app restart, sleep/wake, revocation and a declared-duration soak covering a real credential renewal. Measure connection/recovery/transfer behavior before making performance claims. No customer rollout is authorized until a real paid-entitlement authority replaces the test allowlist.
+
+## Live Activity push delivery (development)
+
+The account API can deliver ActivityKit updates while the iOS app is suspended.
+This is separate from ordinary notification delivery and does not start tasks.
+The iOS client starts the activity in the foreground and registers its rotating
+ActivityKit token using its existing account session and registered device key.
+The API accepts only hosts owned by that same account/workspace, binds their key
+generations, and rechecks device/session revocation and membership before sending.
+
+Configure all five server-only secrets together: `APNS_PRIVATE_KEY` (P-256 PKCS#8
+PEM, real newlines or escaped newlines), `APNS_KEY_ID`, `APNS_TEAM_ID`,
+`APNS_BUNDLE_ID`, and `APNS_ENVIRONMENT` (`sandbox` or `production`). The Worker
+forwards these to the API container. No private Apple key belongs in a client or
+Git. Missing configuration leaves foreground ActivityKit behavior available;
+partial/invalid configuration fails startup. Sandbox credentials cannot qualify
+TestFlight or App Store builds.
+
+Migration `0021_woozy_dreadnoughts.sql` adds default-deny RLS tables for expiring
+activity registrations and host snapshots. The ordinary API startup migration
+runner applies it on deployment. Registrations have a four-hour maximum lifetime,
+a per-account limit of eight, and durable coalescing/retry state. Tokens are
+cleared on retirement. No prompt, output, project path, or conversation title is
+uploaded; the background widget uses the generic title “Synara task”.
+
+The Beta host reporter polls only explicitly subscribed turns (15 seconds while
+idle, 5 seconds while watched); delivery sweeps run every 5 seconds. This is
+bounded polling, not instantaneous streaming. Completion across multiple hosts
+ends the activity only once all watched turns settle. Ninety seconds without a
+fresh host report stops its displayed run; retry exhaustion retires the server
+registration, so an Apple/network outage is not proof of lock-screen dismissal.
+Foreground reconnect remains responsible for reconciling local activity state.
+
+Qualification must distinguish: database/transport tests, simulator lifecycle
+checks, Apple accepting a real APNs request, and visible background update/end on
+a device or supported simulator. `simctl push`, mocks, a successful build, and
+installed Cloudflare secrets do not prove real Apple delivery.

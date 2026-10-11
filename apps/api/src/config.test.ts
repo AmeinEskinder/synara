@@ -1,3 +1,4 @@
+import { generateKeyPairSync } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { ApiConfigError, loadApiConfig, type WorkosApiConfig } from "./config";
 
@@ -19,6 +20,26 @@ const base = {
 };
 
 describe("loadApiConfig", () => {
+  it("loads multiline and dashboard-escaped APNs keys, rejecting partial and wrong-environment configurations", () => {
+    const { privateKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+    const pem = privateKey.export({ type: "pkcs8", format: "pem" }).toString();
+    const metadata = {
+      APNS_KEY_ID: "ABCD123456",
+      APNS_TEAM_ID: "TESTTEAM12",
+      APNS_BUNDLE_ID: "com.example.synara",
+      APNS_ENVIRONMENT: "sandbox",
+    };
+    for (const key of [pem, pem.replace(/\n/g, "\\n")]) {
+      expect(loadApiConfig({ ...base, ...metadata, APNS_PRIVATE_KEY: key }).apns).toMatchObject({
+        privateKey: pem,
+        environment: "sandbox",
+      });
+    }
+    expect(() => loadApiConfig({ ...base, ...metadata })).toThrow(/APNS_PRIVATE_KEY/);
+    expect(() =>
+      loadApiConfig({ ...base, ...metadata, APNS_PRIVATE_KEY: pem, APNS_ENVIRONMENT: "test" }),
+    ).toThrow(/APNs/);
+  });
   it("throws listing every missing required var", () => {
     expect(() => loadApiConfig({})).toThrow(ApiConfigError);
     expect(() => loadApiConfig({})).toThrow(

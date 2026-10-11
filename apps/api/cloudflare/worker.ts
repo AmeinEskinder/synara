@@ -12,12 +12,18 @@ type OptionalSecrets = Partial<
     | "CLOUDFLARE_API_TOKEN"
     | "CLOUDFLARE_TUNNEL_DOMAIN"
     | "REMOTE_TEST_USER_IDS"
+    | "REMOTE_TEST_ADDITIONAL_USER_IDS"
     | "S3_ENDPOINT"
     | "S3_BUCKET"
     | "S3_ACCESS_KEY_ID"
     | "S3_SECRET_ACCESS_KEY"
     | "S3_PUBLIC_BASE_URL"
-    | "S3_REGION",
+    | "S3_REGION"
+    | "APNS_PRIVATE_KEY"
+    | "APNS_KEY_ID"
+    | "APNS_TEAM_ID"
+    | "APNS_BUNDLE_ID"
+    | "APNS_ENVIRONMENT",
     string
   >
 >;
@@ -53,9 +59,25 @@ export class AccountApi extends Container<Cloudflare.Env & OptionalSecrets> {
           "S3_SECRET_ACCESS_KEY",
           "S3_PUBLIC_BASE_URL",
           "S3_REGION",
+          "APNS_PRIVATE_KEY",
+          "APNS_KEY_ID",
+          "APNS_TEAM_ID",
+          "APNS_BUNDLE_ID",
+          "APNS_ENVIRONMENT",
         ] as const
       ).flatMap((key) => (this.env[key] ? [[key, this.env[key]]] : [])),
     ),
+    // Add trial users without replacing an existing, write-only Worker secret.
+    ...(this.env.REMOTE_TEST_ADDITIONAL_USER_IDS
+      ? {
+          REMOTE_TEST_USER_IDS: [
+            this.env.REMOTE_TEST_USER_IDS,
+            this.env.REMOTE_TEST_ADDITIONAL_USER_IDS,
+          ]
+            .filter(Boolean)
+            .join(","),
+        }
+      : {}),
   };
 }
 

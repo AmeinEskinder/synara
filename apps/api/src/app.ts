@@ -1,3 +1,5 @@
+import { createApnsSender } from "./liveActivities/apns";
+import { createLiveActivityService } from "./liveActivities/service";
 import { createCloudflareClient } from "./remote/cloudflare";
 import { createPairingRendezvous } from "./remote/pairing";
 import { createTunnelCoordinator } from "./remote/tunnels";
@@ -35,6 +37,7 @@ export async function createApp(
   pool: pg.Pool;
   tunnels?: ReturnType<typeof createTunnelCoordinator>;
   cleanup: () => Promise<void>;
+  flushLiveActivities: () => Promise<void>;
 }> {
   const { db, pool } = createDb(config.databaseUrl);
   const identity = await createIdentityAdapters(config, db);
@@ -45,6 +48,17 @@ export async function createApp(
         createCloudflareClient(config.cloudflareTunnel),
         config.cloudflareTunnel.domain,
       )
+    : undefined;
+  const liveActivities = config.apns
+    ? createLiveActivityService({
+        pool,
+        environment: config.apns.environment,
+        send: createApnsSender(config.apns),
+        isMember: async (userId, orgId) =>
+          (await identity.grants.listUserOrganizations(userId, { freshMembership: true })).some(
+            (org) => org.orgId === orgId,
+          ),
+      })
     : undefined;
   const app = new Hono();
 
@@ -76,6 +90,7 @@ export async function createApp(
     "/api/v1",
     createV1Routes({
       ...(tunnels ? { tunnels } : {}),
+      ...(liveActivities ? { liveActivities } : {}),
       ...(config.remoteTestUserIds ? { remoteTestUserIds: config.remoteTestUserIds } : {}),
       verifier: identity.verifier,
       grants: identity.grants,
@@ -140,6 +155,7 @@ export async function createApp(
     identity,
     pool,
     ...(tunnels ? { tunnels } : {}),
+    flushLiveActivities: () => liveActivities?.flush() ?? Promise.resolve(),
     cleanup: async () => {
       await createPairingRendezvous(db, config.apiPublicUrl).cleanup();
       await tunnels?.cleanup();

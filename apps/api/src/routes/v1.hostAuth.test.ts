@@ -1,3 +1,4 @@
+import { createLiveActivityService } from "../liveActivities/service";
 import { randomUUID } from "node:crypto";
 import {
   GRANT_JWT_TYP,
@@ -79,6 +80,15 @@ describe.skipIf(!TEST_DATABASE_URL)("Slice A host account API", () => {
     app.route(
       "/api/v1",
       createV1Routes({
+        liveActivities: createLiveActivityService({
+          pool,
+          environment: "sandbox",
+          send: async () => "delivered",
+          isMember: async (userId, orgId) =>
+            (await grants.listUserOrganizations(userId, { freshMembership: true })).some(
+              (org) => org.orgId === orgId,
+            ),
+        }),
         remoteTestUserIds,
         ...(tunnels ? { tunnels } : {}),
         verifier,
@@ -275,6 +285,65 @@ describe.skipIf(!TEST_DATABASE_URL)("Slice A host account API", () => {
   });
 
   beforeEach(() => clearOrgCache());
+
+  it("authenticates Live Activity registration and host publication at the HTTP boundary", async () => {
+    const { app } = buildApp();
+    const owner = await signIn();
+    const host = await linkHost(app, owner);
+    const device = await registerDevice(app, owner);
+    const source = {
+      hostId: host.id,
+      threadId: randomUUID(),
+      turnId: randomUUID(),
+      displayId: randomUUID(),
+    };
+    const request = {
+      activityId: randomUUID(),
+      deviceJkt: device.jkt,
+      revision: 1,
+      token: "a".repeat(64),
+      environment: "sandbox",
+      sources: [source],
+    };
+    const put = (token: string) =>
+      app.request("/api/v1/live-activities", {
+        method: "PUT",
+        headers: authHeaders(token),
+        body: JSON.stringify(request),
+      });
+    expect((await put("")).status).toBe(401);
+    expect((await put(owner.token)).status).toBe(200);
+    const foreign = await signIn();
+    expect((await put(foreign.token)).status).toBe(403);
+    const proof = await hostProof(host.key, host);
+    const url = `/api/v1/hosts/${host.id}/live-activities`;
+    expect((await app.request(url, { headers: authHeaders(owner.token) })).status).toBe(401);
+    const watches = await app.request(url, { headers: { authorization: `HostProof ${proof}` } });
+    expect(watches.status).toBe(200);
+    expect(await watches.json()).toEqual({
+      turns: [{ threadId: source.threadId, turnId: source.turnId }],
+    });
+    const published = await app.request(url, {
+      method: "PUT",
+      headers: { authorization: `HostProof ${proof}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        sequence: 1,
+        turns: [
+          {
+            threadId: source.threadId,
+            turnId: source.turnId,
+            state: "running",
+            startedAt: 1790000000,
+          },
+        ],
+      }),
+    });
+    expect(published.status).toBe(200);
+    await linkHost(app, owner, { environmentId: host.environmentId });
+    expect(
+      (await app.request(url, { headers: { authorization: `HostProof ${proof}` } })).status,
+    ).toBe(401);
+  });
 
   describe("1. link", () => {
     it("links with both bound and host-reported environment ids", async () => {

@@ -1,5 +1,5 @@
 import { resolveTrustedProxyHops } from "./clientIp";
-import { randomBytes } from "node:crypto";
+import { createPrivateKey, randomBytes } from "node:crypto";
 
 /**
  * Where uploaded profile avatars live: any S3-compatible object store
@@ -25,7 +25,50 @@ export type AvatarStorageConfig = {
   region: string;
 };
 
+export type ApnsConfig = {
+  privateKey: string;
+  keyId: string;
+  teamId: string;
+  bundleId: string;
+  environment: "sandbox" | "production";
+};
+
+export function loadApnsConfig(env: Env): ApnsConfig | undefined {
+  const names = [
+    "APNS_PRIVATE_KEY",
+    "APNS_KEY_ID",
+    "APNS_TEAM_ID",
+    "APNS_BUNDLE_ID",
+    "APNS_ENVIRONMENT",
+  ] as const;
+  if (!names.some((name) => env[name] !== undefined)) return undefined;
+  requireVars(env, names);
+  if (
+    !/^[A-Z0-9]{10}$/.test(env.APNS_KEY_ID!) ||
+    !/^[A-Z0-9]{10}$/.test(env.APNS_TEAM_ID!) ||
+    !/^[A-Za-z0-9.-]{1,200}$/.test(env.APNS_BUNDLE_ID!) ||
+    !["sandbox", "production"].includes(env.APNS_ENVIRONMENT!)
+  )
+    throw new ApiConfigError("Invalid APNs metadata or environment");
+  const privateKey = env.APNS_PRIVATE_KEY!.replace(/\\n/g, "\n");
+  try {
+    const key = createPrivateKey(privateKey);
+    if (key.asymmetricKeyType !== "ec" || key.asymmetricKeyDetails?.namedCurve !== "prime256v1")
+      throw new Error();
+  } catch {
+    throw new ApiConfigError("APNS_PRIVATE_KEY must be a P-256 PEM private key");
+  }
+  return {
+    privateKey,
+    keyId: env.APNS_KEY_ID!,
+    teamId: env.APNS_TEAM_ID!,
+    bundleId: env.APNS_BUNDLE_ID!,
+    environment: env.APNS_ENVIRONMENT as ApnsConfig["environment"],
+  };
+}
+
 export type ApiConfigBase = {
+  apns?: ApnsConfig;
   cloudflareTunnel?: CloudflareTunnelConfig;
   /** Explicit test enrollment only; this is not a paid-subscription entitlement. */
   remoteTestUserIds?: readonly string[];
@@ -270,6 +313,7 @@ export function loadApiConfig(env: Env): ApiConfig {
   const trustedProxyHops = resolveTrustedProxyHops(env.TRUSTED_PROXY_HOPS);
   const profileProxySecret = env.PROFILE_PROXY_SECRET?.trim() || undefined;
   const avatarStorage = loadAvatarStorageConfig(env);
+  const apns = loadApnsConfig(env);
   const cloudflareTunnel = loadCloudflareTunnelConfig(env);
   const remoteTestUserIds = env.REMOTE_TEST_USER_IDS?.split(",")
     .map((id) => id.trim())
@@ -297,6 +341,7 @@ export function loadApiConfig(env: Env): ApiConfig {
       trustedProxyHops,
       ...(profileProxySecret ? { profileProxySecret } : {}),
       ...(avatarStorage ? { avatarStorage } : {}),
+      ...(apns ? { apns } : {}),
     };
   }
 
@@ -321,6 +366,7 @@ export function loadApiConfig(env: Env): ApiConfig {
     trustedProxyHops,
     ...(profileProxySecret ? { profileProxySecret } : {}),
     ...(avatarStorage ? { avatarStorage } : {}),
+    ...(apns ? { apns } : {}),
     workosApiKey: env.WORKOS_API_KEY as string,
     workosClientId,
     workosApiUrl,
