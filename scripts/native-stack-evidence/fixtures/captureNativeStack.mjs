@@ -311,10 +311,13 @@ async function select(current, label, tabId) {
   await loaded(current, tabId, site.page(label));
 }
 async function typeDraft(current, tabId, value) {
+  await expect
+    .poll(async () => (await snapshot(current)).attachedRuntimeKey, { timeout: 10000 })
+    .toBe(`${threadId}:${tabId}`);
   await current.app.evaluate(
-    async (_, input) => {
+    async (_, tabId) => {
       const { manager, threadId } = globalThis.__synaraNativeStackEvidence;
-      const runtime = manager.runtimes.get(`${threadId}:${input.tabId}`);
+      const runtime = manager.runtimes.get(`${threadId}:${tabId}`);
       if (!runtime?.ownsWebContents) throw new Error("Native input target is missing");
       const guest = runtime.webContents;
       const point = await guest.executeJavaScript(
@@ -323,7 +326,24 @@ async function typeDraft(current, tabId, value) {
       guest.focus();
       guest.sendInputEvent({ type: "mouseDown", button: "left", clickCount: 1, ...point });
       guest.sendInputEvent({ type: "mouseUp", button: "left", clickCount: 1, ...point });
-      await guest.insertText(input.value);
+    },
+    tabId,
+  );
+  // Native mouse events are queued by Chromium. Wait for the real click to
+  // focus its field before inserting text; DOM inspection never sets focus.
+  await expect
+    .poll(
+      async () => (await pageEval(current, tabId, "document.activeElement?.id")).value,
+      { timeout: 10000 },
+    )
+    .toBe("draft");
+  observations.push({ kind: "native-input-focused", tabId, state: await snapshot(current) });
+  await current.app.evaluate(
+    async (_, input) => {
+      const { manager, threadId } = globalThis.__synaraNativeStackEvidence;
+      const runtime = manager.runtimes.get(`${threadId}:${input.tabId}`);
+      if (!runtime?.ownsWebContents) throw new Error("Native input target is missing");
+      await runtime.webContents.insertText(input.value);
     },
     { tabId, value },
   );
@@ -636,6 +656,18 @@ try {
   expect(errors).toEqual([]);
 } catch (error) {
   errors.push(String(error));
+  if (active && !active.closed) {
+    try {
+      observations.push({ kind: "failure-state", state: await snapshot(active) });
+      const png = await active.app.evaluate(async ({ BrowserWindow }, id) => {
+        const host = BrowserWindow.fromId(id);
+        return host ? (await host.capturePage()).toPNG().toString("base64") : null;
+      }, active.hostWindowId);
+      if (png) writeFileSync(join(output, `${label}-failure.png`), Buffer.from(png, "base64"));
+    } catch (diagnosticError) {
+      observations.push({ kind: "failure-observer-error", error: String(diagnosticError) });
+    }
+  }
   throw error;
 } finally {
   try {
