@@ -1,0 +1,18 @@
+{
+  "source": "ec8c940e07582454a475250ade40147e3c89d59f",
+  "variant": "before",
+  "platform": "darwin",
+  "releaseFixture": "v0.8.1",
+  "states": [
+    {
+      "format": "appimage",
+      "viewport": {
+        "width": 1440,
+        "height": 1100
+      },
+      "title": "Download Synara — Coding Agent Workspace",
+      "path": "/install"
+    }
+  ],
+  "allInteractionAssertionsPassed": true
+}

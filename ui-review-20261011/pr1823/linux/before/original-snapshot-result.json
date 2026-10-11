@@ -1,0 +1,16 @@
+{
+  "exitCode": 0,
+  "signal": null,
+  "command": [
+    "bunx",
+    "playwright",
+    "test",
+    "tests/visual/visual.spec.ts",
+    "--grep",
+    "install-desktop-light",
+    "--retries=0",
+    "--output",
+    "/home/runner/work/synara/synara/.pr1823-marketing-output/linux-before/original-snapshot"
+  ],
+  "cwd": "apps/marketing"
+}

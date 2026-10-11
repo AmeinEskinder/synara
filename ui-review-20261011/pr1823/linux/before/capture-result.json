@@ -1,0 +1,12 @@
+{
+  "exitCode": 0,
+  "signal": null,
+  "command": [
+    "bunx",
+    "playwright",
+    "test",
+    "--config",
+    "playwright.pr1823.config.ts"
+  ],
+  "cwd": "apps/marketing"
+}

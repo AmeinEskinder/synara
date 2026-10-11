@@ -1,0 +1,241 @@
+{
+  "source": "ec8c940e07582454a475250ade40147e3c89d59f",
+  "sourceTree": "26c3b060469f224dce8135d8046697eb43fe0794",
+  "variant": "before",
+  "platform": "linux",
+  "arch": "x64",
+  "driver": "14d56588b23dbe4f400998191cb50beb7ac2b7c8",
+  "fixture": {
+    "version": "v0.8.1",
+    "releasesUrl": "https://github.com/Emanuele-web04/synara/releases/tag/v0.8.1",
+    "mac": {
+      "arm64": "https://github.com/Emanuele-web04/synara/releases/download/v0.8.1/Synara-0.8.1-arm64.dmg",
+      "x64": "https://github.com/Emanuele-web04/synara/releases/download/v0.8.1/Synara-0.8.1-x64.dmg"
+    },
+    "windows": "https://github.com/Emanuele-web04/synara/releases/download/v0.8.1/Synara-0.8.1-x64.exe",
+    "linux": "https://github.com/Emanuele-web04/synara/releases/download/v0.8.1/Synara-0.8.1-x86_64.AppImage",
+    "updatedAt": "2026-09-02T08:00:22.509Z",
+    "source": "https://api.github.com/repos/Emanuele-web04/synara/releases/latest"
+  },
+  "sourceFiles": [
+    {
+      "path": "src/components/InstallOptions.tsx",
+      "blob": "9d27be67888435bc947bc9aa1aa6faf36c2937cc",
+      "sha256": "c1db07c3eb896f724c14a0613fa37714ced03929e05540280eaad04c541bcafc"
+    },
+    {
+      "path": "src/lib/releases.ts",
+      "blob": "a86ff2c50da286251fdb1794cefb22891145ef41",
+      "sha256": "82c30551248267f879dacc74e5f3c75023083e9cd07f4bac4db5fccedde7be6d"
+    },
+    {
+      "path": "src/data/latest-release-downloads.json",
+      "blob": "84cb72006476981f861403da7670c669cb325744",
+      "sha256": "2ce9b874a3030143beffa1b5bf3459d809ad757dda92e2ad6e503d204fe735b3"
+    },
+    {
+      "path": "tests/test-helpers.ts",
+      "blob": "89f07fd51f4fc7feb7acd296e11ea71329cd7c98",
+      "sha256": "c27e6dbe3c49ad9cfd5496c8d9b813e62931c94ff1cdc45bd45c542e36807bf5"
+    },
+    {
+      "path": "tests/visual/visual.spec.ts",
+      "blob": "33beb181fd2d2a96d78718075dc8635d6eb7ddc2",
+      "sha256": "bcdad81742978c47a7ae1d1a5f6f53dda666cc72f64c4b89955724ed1526414a"
+    },
+    {
+      "path": "playwright.config.ts",
+      "blob": "56fa473780bbb6bc6762ba98c23debe61a5dfa3d",
+      "sha256": "f9258be39ccbe185236f762972366a2762674b8eb4b2f296f8bacb3360100092"
+    }
+  ],
+  "captureFiles": [
+    {
+      "path": "tests/e2e/pr1823-capture.spec.ts",
+      "sha256": "7a4bb2d51c4d4b176c6fbbff250e5646635915937a5d3899675521e1fb7594c5"
+    },
+    {
+      "path": "playwright.pr1823.config.ts",
+      "sha256": "cba269c567080879edf5e0bbaef92a614fd8200d8027244b5c9d8e36ec055d0c"
+    }
+  ],
+  "qualification": "Actual production Next /install and Chromium, deterministic checked-in v0.8.1 release data. Theme/motion/font/image preparation is the unchanged production test helper. Does not prove a public Deb/RPM release, installation, or native app behavior. The original unchanged snapshot check retains its raw exit and remains a failing workflow step if it fails. --update-snapshots only produces a candidate for independent visual review; it is not an original-baseline pass.",
+  "status": "capture-completed",
+  "results": {
+    "build": {
+      "exitCode": 0,
+      "signal": null,
+      "command": [
+        "bun",
+        "run",
+        "build"
+      ],
+      "cwd": "apps/marketing"
+    },
+    "original-snapshot": {
+      "exitCode": 0,
+      "signal": null,
+      "command": [
+        "bunx",
+        "playwright",
+        "test",
+        "tests/visual/visual.spec.ts",
+        "--grep",
+        "install-desktop-light",
+        "--retries=0",
+        "--output",
+        "/home/runner/work/synara/synara/.pr1823-marketing-output/linux-before/original-snapshot"
+      ],
+      "cwd": "apps/marketing"
+    },
+    "capture": {
+      "exitCode": 0,
+      "signal": null,
+      "command": [
+        "bunx",
+        "playwright",
+        "test",
+        "--config",
+        "playwright.pr1823.config.ts"
+      ],
+      "cwd": "apps/marketing"
+    }
+  },
+  "observations": [
+    {
+      "source": "ec8c940e07582454a475250ade40147e3c89d59f",
+      "variant": "before",
+      "platform": "linux",
+      "releaseFixture": "v0.8.1",
+      "states": [
+        {
+          "format": "appimage",
+          "viewport": {
+            "width": 1440,
+            "height": 1100
+          },
+          "title": "Download Synara — Coding Agent Workspace",
+          "path": "/install"
+        }
+      ],
+      "allInteractionAssertionsPassed": true
+    },
+    {
+      "source": "ec8c940e07582454a475250ade40147e3c89d59f",
+      "variant": "before",
+      "platform": "linux",
+      "releaseFixture": "v0.8.1",
+      "states": [
+        {
+          "format": "appimage",
+          "viewport": {
+            "width": 390,
+            "height": 844
+          },
+          "title": "Download Synara — Coding Agent Workspace",
+          "path": "/install"
+        }
+      ],
+      "allInteractionAssertionsPassed": true
+    }
+  ],
+  "files": [
+    {
+      "path": "build-result.json",
+      "bytes": 119,
+      "sha256": "846dadc9c5725ec07b3f0162df953ed2bea25ab61a732782c426fc22d21cbf89"
+    },
+    {
+      "path": "build.log",
+      "bytes": 2489,
+      "sha256": "7c4905c7a21851c75be76e6143b36ad8b79090a8a1ed9b98cea986323ddda7d5"
+    },
+    {
+      "path": "capture-report.json",
+      "bytes": 10567,
+      "sha256": "91ce8ece330688e1f1df6fa636643cb05a2c3a4b1cb3f17139caffdd46d36453"
+    },
+    {
+      "path": "capture-result.json",
+      "bytes": 177,
+      "sha256": "3be7f73568b0a066b866ca76ce30035cdb1aaf8731207cb30b333beb504c6ef3"
+    },
+    {
+      "path": "capture-test-results/.last-run.json",
+      "bytes": 45,
+      "sha256": "91d1c43004802cd49950d78eb11c8fa7d05da8ffffe219a8b13b2f561bc00903"
+    },
+    {
+      "path": "capture-test-results/e2e-pr1823-capture-actual-install-formats-desktop/test-finished-1.png",
+      "bytes": 68043,
+      "sha256": "9dd0498e5707cbfb35e359e3135a21600af563c87f74f414b0675c290c89384c"
+    },
+    {
+      "path": "capture-test-results/e2e-pr1823-capture-actual-install-formats-desktop/trace.zip",
+      "bytes": 676794,
+      "sha256": "c6416e795a064610848a7cfbcbd5cd8e454526c7c52ad0d0adb2e52421c655e0"
+    },
+    {
+      "path": "capture-test-results/e2e-pr1823-capture-actual-install-formats-desktop/video.webm",
+      "bytes": 53351,
+      "sha256": "e30f674baad0b65266c4cce0c5018816a6bf1f75326b8dda97b28e9062f38cfc"
+    },
+    {
+      "path": "capture-test-results/e2e-pr1823-capture-actual-install-formats-mobile/test-finished-1.png",
+      "bytes": 39550,
+      "sha256": "2c9e3a7e3617d217698ae56114aac8ed89f77bc0dd4f12275e6241c20df17353"
+    },
+    {
+      "path": "capture-test-results/e2e-pr1823-capture-actual-install-formats-mobile/trace.zip",
+      "bytes": 555085,
+      "sha256": "5243137fd5c7ff7f332841a390d726be33ba11e680c040733f7aded471a0a924"
+    },
+    {
+      "path": "capture-test-results/e2e-pr1823-capture-actual-install-formats-mobile/video.webm",
+      "bytes": 35262,
+      "sha256": "ae52cc3a8bfd3ceb0d5142cf3725872203701d69111d3b35906843b2ffdf7a6c"
+    },
+    {
+      "path": "capture.log",
+      "bytes": 230,
+      "sha256": "58332d5e3ce0b79108d024925de5e458d13a748bbe10b9b1f44ee07404df6c98"
+    },
+    {
+      "path": "desktop-appimage.png",
+      "bytes": 68043,
+      "sha256": "9dd0498e5707cbfb35e359e3135a21600af563c87f74f414b0675c290c89384c"
+    },
+    {
+      "path": "mobile-appimage.png",
+      "bytes": 58627,
+      "sha256": "226e719a5e1ed4c1e85fa38aa367979e74af0bd58722ceb802c083605c08956c"
+    },
+    {
+      "path": "observations-desktop.json",
+      "bytes": 397,
+      "sha256": "4154771275bd913ca0907c4c82898125afe4ed8ccd9408744df5db65a76cfcb6"
+    },
+    {
+      "path": "observations-mobile.json",
+      "bytes": 395,
+      "sha256": "53f6e51077a67e45829a9296c8a234db0940aec268254d763da24285aeeed095"
+    },
+    {
+      "path": "original-snapshot/.last-run.json",
+      "bytes": 45,
+      "sha256": "91d1c43004802cd49950d78eb11c8fa7d05da8ffffe219a8b13b2f561bc00903"
+    },
+    {
+      "path": "original-snapshot-result.json",
+      "bytes": 334,
+      "sha256": "d1d3dfcab2f7f51e92a5b04c5942d9799516eff73095e5adc81582985f6ff327"
+    },
+    {
+      "path": "original-snapshot.log",
+      "bytes": 157,
+      "sha256": "e57dd09fa6302f2622eceaee43199c1b802b95659917e547dc26b06c99fcc241"
+    }
+  ],
+  "changedTrackedFiles": [],
+  "originalSnapshotPassed": true
+}

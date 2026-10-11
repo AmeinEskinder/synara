@@ -1,0 +1,66 @@
+
+Running 1 test using 1 worker
+
+  ✘  1 tests/visual/visual.spec.ts:106:7 › visual regression @visual › install-desktop-light (1.2s)
+
+
+  1) tests/visual/visual.spec.ts:106:7 › visual regression @visual › install-desktop-light ─────────
+
+    Error: expect(page).toHaveScreenshot(expected) failed
+
+      2232 pixels (ratio 0.01 of all image pixels) are different.
+
+      Snapshot: install-desktop-light.png
+
+    Call log:
+      - Expect "toHaveScreenshot(install-desktop-light.png)" with timeout 10000ms
+        - verifying given screenshot expectation
+      - taking page screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - 2232 pixels (ratio 0.01 of all image pixels) are different.
+      - waiting 100ms before taking screenshot
+      - taking page screenshot
+        - disabled all CSS animations
+      - waiting for fonts to load...
+      - fonts loaded
+      - captured a stable screenshot
+      - 2232 pixels (ratio 0.01 of all image pixels) are different.
+
+
+      107 |     await page.setViewportSize({ width: 1440, height: 1100 });
+      108 |     await prepareRoute(page, "/install", "light");
+    > 109 |     await expect(page).toHaveScreenshot("install-desktop-light.png", {
+          |                        ^
+      110 |       fullPage: true,
+      111 |       animations: "disabled",
+      112 |       maxDiffPixels: INSTALL_ANTIALIASING_TOLERANCE_PIXELS,
+        at /home/runner/work/synara/synara/apps/marketing/tests/visual/visual.spec.ts:109:24
+
+    attachment #1: install-desktop-light (image/png) ───────────────────────────────────────────────
+    Expected: tests/visual/visual.spec.ts-snapshots/install-desktop-light-linux.png
+    Received: ../../.pr1823-marketing-output/linux-after/original-snapshot/visual-visual-visual-regression-visual-install-desktop-light/install-desktop-light-actual.png
+    Diff:     ../../.pr1823-marketing-output/linux-after/original-snapshot/visual-visual-visual-regression-visual-install-desktop-light/install-desktop-light-diff.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../.pr1823-marketing-output/linux-after/original-snapshot/visual-visual-visual-regression-visual-install-desktop-light/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../../.pr1823-marketing-output/linux-after/original-snapshot/visual-visual-visual-regression-visual-install-desktop-light/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../.pr1823-marketing-output/linux-after/original-snapshot/visual-visual-visual-regression-visual-install-desktop-light/error-context.md
+
+    attachment #5: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../.pr1823-marketing-output/linux-after/original-snapshot/visual-visual-visual-regression-visual-install-desktop-light/trace.zip
+    Usage:
+
+        npx playwright show-trace ../../.pr1823-marketing-output/linux-after/original-snapshot/visual-visual-visual-regression-visual-install-desktop-light/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    tests/visual/visual.spec.ts:106:7 › visual regression @visual › install-desktop-light ──────────

@@ -1,0 +1,6 @@
+
+Running 1 test using 1 worker
+
+  ✓  1 tests/visual/visual.spec.ts:106:7 › visual regression @visual › install-desktop-light (1.1s)
+
+  1 passed (3.0s)

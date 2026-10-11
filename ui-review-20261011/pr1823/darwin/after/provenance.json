@@ -1,0 +1,408 @@
+{
+  "source": "77ea643504f5ab5908176669a2056205014bbfe2",
+  "sourceTree": "1f6494d1746b5bf66a62872a5d25460795a82faa",
+  "variant": "after",
+  "platform": "darwin",
+  "arch": "arm64",
+  "driver": "14d56588b23dbe4f400998191cb50beb7ac2b7c8",
+  "fixture": {
+    "version": "v0.8.1",
+    "releasesUrl": "https://github.com/Emanuele-web04/synara/releases/tag/v0.8.1",
+    "mac": {
+      "arm64": "https://github.com/Emanuele-web04/synara/releases/download/v0.8.1/Synara-0.8.1-arm64.dmg",
+      "x64": "https://github.com/Emanuele-web04/synara/releases/download/v0.8.1/Synara-0.8.1-x64.dmg"
+    },
+    "windows": "https://github.com/Emanuele-web04/synara/releases/download/v0.8.1/Synara-0.8.1-x64.exe",
+    "linux": {
+      "appImage": "https://github.com/Emanuele-web04/synara/releases/download/v0.8.1/Synara-0.8.1-x86_64.AppImage",
+      "deb": null,
+      "rpm": null
+    },
+    "updatedAt": "2026-09-02T08:00:22.509Z",
+    "source": "https://api.github.com/repos/Emanuele-web04/synara/releases/latest"
+  },
+  "sourceFiles": [
+    {
+      "path": "src/components/InstallOptions.tsx",
+      "blob": "97b0024351c678a24c5a9946fe097612fa085b6f",
+      "sha256": "2cc55ee0518d58c7828bd9bb6e181813d8807f9cbccc8c726b13967b21041966"
+    },
+    {
+      "path": "src/lib/releases.ts",
+      "blob": "32ac15a5ed229fcd6e843c6f66b154fda2298c42",
+      "sha256": "87a8fc8f81b95c29d3e5927295f98c58c1e315080978a911e18e41c1f730279a"
+    },
+    {
+      "path": "src/data/latest-release-downloads.json",
+      "blob": "7bca307e077a0cb27f7c9acbf36a0185161bb8a1",
+      "sha256": "7d732becd81bf560087eb67d0b00e9afd8ef6bd807251b48f62fc1ec52664198"
+    },
+    {
+      "path": "tests/test-helpers.ts",
+      "blob": "89f07fd51f4fc7feb7acd296e11ea71329cd7c98",
+      "sha256": "c27e6dbe3c49ad9cfd5496c8d9b813e62931c94ff1cdc45bd45c542e36807bf5"
+    },
+    {
+      "path": "tests/visual/visual.spec.ts",
+      "blob": "33beb181fd2d2a96d78718075dc8635d6eb7ddc2",
+      "sha256": "bcdad81742978c47a7ae1d1a5f6f53dda666cc72f64c4b89955724ed1526414a"
+    },
+    {
+      "path": "playwright.config.ts",
+      "blob": "56fa473780bbb6bc6762ba98c23debe61a5dfa3d",
+      "sha256": "f9258be39ccbe185236f762972366a2762674b8eb4b2f296f8bacb3360100092"
+    }
+  ],
+  "captureFiles": [
+    {
+      "path": "tests/e2e/pr1823-capture.spec.ts",
+      "sha256": "7a4bb2d51c4d4b176c6fbbff250e5646635915937a5d3899675521e1fb7594c5"
+    },
+    {
+      "path": "playwright.pr1823.config.ts",
+      "sha256": "cba269c567080879edf5e0bbaef92a614fd8200d8027244b5c9d8e36ec055d0c"
+    }
+  ],
+  "qualification": "Actual production Next /install and Chromium, deterministic checked-in v0.8.1 release data. Theme/motion/font/image preparation is the unchanged production test helper. Does not prove a public Deb/RPM release, installation, or native app behavior. The original unchanged snapshot check retains its raw exit and remains a failing workflow step if it fails. --update-snapshots only produces a candidate for independent visual review; it is not an original-baseline pass.",
+  "status": "capture-completed",
+  "results": {
+    "build": {
+      "exitCode": 0,
+      "signal": null,
+      "command": [
+        "bun",
+        "run",
+        "build"
+      ],
+      "cwd": "apps/marketing"
+    },
+    "original-snapshot": {
+      "exitCode": 1,
+      "signal": null,
+      "command": [
+        "bunx",
+        "playwright",
+        "test",
+        "tests/visual/visual.spec.ts",
+        "--grep",
+        "install-desktop-light",
+        "--retries=0",
+        "--output",
+        "/Users/runner/work/synara/synara/.pr1823-marketing-output/darwin-after/original-snapshot"
+      ],
+      "cwd": "apps/marketing"
+    },
+    "capture": {
+      "exitCode": 0,
+      "signal": null,
+      "command": [
+        "bunx",
+        "playwright",
+        "test",
+        "--config",
+        "playwright.pr1823.config.ts"
+      ],
+      "cwd": "apps/marketing"
+    },
+    "generate-golden": {
+      "exitCode": 0,
+      "signal": null,
+      "command": [
+        "bunx",
+        "playwright",
+        "test",
+        "tests/visual/visual.spec.ts",
+        "--grep",
+        "install-desktop-light",
+        "--retries=0",
+        "--update-snapshots",
+        "--output",
+        "/Users/runner/work/synara/synara/.pr1823-marketing-output/darwin-after/golden-generation"
+      ],
+      "cwd": "apps/marketing"
+    }
+  },
+  "observations": [
+    {
+      "source": "77ea643504f5ab5908176669a2056205014bbfe2",
+      "variant": "after",
+      "platform": "darwin",
+      "releaseFixture": "v0.8.1",
+      "states": [
+        {
+          "format": "appimage",
+          "viewport": {
+            "width": 1440,
+            "height": 1100
+          },
+          "title": "Download Synara — Coding Agent Workspace",
+          "path": "/install"
+        },
+        {
+          "format": "deb",
+          "viewport": {
+            "width": 1440,
+            "height": 1100
+          },
+          "title": "Download Synara — Coding Agent Workspace",
+          "path": "/install"
+        },
+        {
+          "format": "rpm",
+          "viewport": {
+            "width": 1440,
+            "height": 1100
+          },
+          "title": "Download Synara — Coding Agent Workspace",
+          "path": "/install"
+        },
+        {
+          "format": "appimage-return",
+          "viewport": {
+            "width": 1440,
+            "height": 1100
+          },
+          "title": "Download Synara — Coding Agent Workspace",
+          "path": "/install"
+        }
+      ],
+      "allInteractionAssertionsPassed": true
+    },
+    {
+      "source": "77ea643504f5ab5908176669a2056205014bbfe2",
+      "variant": "after",
+      "platform": "darwin",
+      "releaseFixture": "v0.8.1",
+      "states": [
+        {
+          "format": "appimage",
+          "viewport": {
+            "width": 390,
+            "height": 844
+          },
+          "title": "Download Synara — Coding Agent Workspace",
+          "path": "/install"
+        },
+        {
+          "format": "deb",
+          "viewport": {
+            "width": 390,
+            "height": 844
+          },
+          "title": "Download Synara — Coding Agent Workspace",
+          "path": "/install"
+        },
+        {
+          "format": "rpm",
+          "viewport": {
+            "width": 390,
+            "height": 844
+          },
+          "title": "Download Synara — Coding Agent Workspace",
+          "path": "/install"
+        },
+        {
+          "format": "appimage-return",
+          "viewport": {
+            "width": 390,
+            "height": 844
+          },
+          "title": "Download Synara — Coding Agent Workspace",
+          "path": "/install"
+        }
+      ],
+      "allInteractionAssertionsPassed": true
+    }
+  ],
+  "files": [
+    {
+      "path": "build-result.json",
+      "bytes": 119,
+      "sha256": "846dadc9c5725ec07b3f0162df953ed2bea25ab61a732782c426fc22d21cbf89"
+    },
+    {
+      "path": "build.log",
+      "bytes": 2489,
+      "sha256": "94ce79e4f7d323347e2224a70ef4ae4eeb9c5e4b96b5ce4a1de9680a9f49fcb4"
+    },
+    {
+      "path": "candidate-golden/install-desktop-light-darwin.png",
+      "bytes": 87812,
+      "sha256": "d1e4fc22e9249c23ed16ccee5b682ef66dac7aef35cb8563d71900c1445a75d9"
+    },
+    {
+      "path": "capture-report.json",
+      "bytes": 9151,
+      "sha256": "492bcc71ae3d978e5fa183d3b5fb746b71b69a419ec2fc5cc9e91890c1af4dff"
+    },
+    {
+      "path": "capture-result.json",
+      "bytes": 177,
+      "sha256": "3be7f73568b0a066b866ca76ce30035cdb1aaf8731207cb30b333beb504c6ef3"
+    },
+    {
+      "path": "capture-test-results/.last-run.json",
+      "bytes": 45,
+      "sha256": "91d1c43004802cd49950d78eb11c8fa7d05da8ffffe219a8b13b2f561bc00903"
+    },
+    {
+      "path": "capture-test-results/e2e-pr1823-capture-actual-install-formats-desktop/test-finished-1.png",
+      "bytes": 89258,
+      "sha256": "3754bcc54cf860c1ba4897bf5a9ef73238213c89356b3781cef226b11ac577b8"
+    },
+    {
+      "path": "capture-test-results/e2e-pr1823-capture-actual-install-formats-desktop/trace.zip",
+      "bytes": 839837,
+      "sha256": "84a6129038c0e352a18a081b8e6dd4a256a577864ce8e5c9f71de918ab06c9d9"
+    },
+    {
+      "path": "capture-test-results/e2e-pr1823-capture-actual-install-formats-desktop/video.webm",
+      "bytes": 60366,
+      "sha256": "e883d7fe41120b935ccbf82bc2e7283a026d876d887c278c356e2f02b3e2ac59"
+    },
+    {
+      "path": "capture-test-results/e2e-pr1823-capture-actual-install-formats-mobile/test-finished-1.png",
+      "bytes": 42215,
+      "sha256": "4a7b8ddf881eeafb739e420eb90ff618822f7273a9c52e45581da81d62a01b5a"
+    },
+    {
+      "path": "capture-test-results/e2e-pr1823-capture-actual-install-formats-mobile/trace.zip",
+      "bytes": 669831,
+      "sha256": "d25e1df7a4defddc9d69f2db6e9d0a36eaa7c04587ace755c915e6101849c712"
+    },
+    {
+      "path": "capture-test-results/e2e-pr1823-capture-actual-install-formats-mobile/video.webm",
+      "bytes": 68438,
+      "sha256": "4ea883f9e7fb52ff1f81c4348f726397610e8a635a162d9e267102b925a67e10"
+    },
+    {
+      "path": "capture.log",
+      "bytes": 229,
+      "sha256": "275d3c80bd83abb4fd4d9f8785e60c5ee5bcc899034ef2e9f2423c7ca147eebe"
+    },
+    {
+      "path": "desktop-appimage-return.png",
+      "bytes": 89258,
+      "sha256": "3754bcc54cf860c1ba4897bf5a9ef73238213c89356b3781cef226b11ac577b8"
+    },
+    {
+      "path": "desktop-appimage.png",
+      "bytes": 87811,
+      "sha256": "5ee54b5e11a3987b0c4766b9179e23f117e5fb97600974dd0cba9ad609d6d995"
+    },
+    {
+      "path": "desktop-deb.png",
+      "bytes": 92147,
+      "sha256": "be4cf38aa8bbe565d131522b200d426817348f5695b952373b1c7d81b2a687fa"
+    },
+    {
+      "path": "desktop-rpm.png",
+      "bytes": 91835,
+      "sha256": "2b1d3a9d39efdd53ed817cb493c1a6e53051a7010292e22b498cfd3151f04f59"
+    },
+    {
+      "path": "generate-golden-result.json",
+      "bytes": 361,
+      "sha256": "83ce76bbf80352402ff1fd7486b9722b11ed04e380d9b26339ebeb393118d5e3"
+    },
+    {
+      "path": "generate-golden.log",
+      "bytes": 309,
+      "sha256": "234251c53c92b4abfe40ae99cd2538193b35ad8839b7a680f309b8e45c2f4fa1"
+    },
+    {
+      "path": "golden-generation/.last-run.json",
+      "bytes": 45,
+      "sha256": "91d1c43004802cd49950d78eb11c8fa7d05da8ffffe219a8b13b2f561bc00903"
+    },
+    {
+      "path": "golden-generation/visual-visual-visual-regression-visual-install-desktop-light/install-desktop-light-actual.png",
+      "bytes": 87812,
+      "sha256": "d1e4fc22e9249c23ed16ccee5b682ef66dac7aef35cb8563d71900c1445a75d9"
+    },
+    {
+      "path": "mobile-appimage-return.png",
+      "bytes": 75958,
+      "sha256": "1d561dcaeaa09cd8a865c81bc52c763cd7b03ab7d0686c6b01211d72692e4cc5"
+    },
+    {
+      "path": "mobile-appimage.png",
+      "bytes": 75956,
+      "sha256": "2ba051520c82cd7a3c6b21ea24c6fd1a3ca71d6f1ed8399476ad534aaebf40c5"
+    },
+    {
+      "path": "mobile-deb.png",
+      "bytes": 76544,
+      "sha256": "e5cc3ce5381ec5e8d443338b8fd025ab054d4942d84f226218491cd593e7e645"
+    },
+    {
+      "path": "mobile-rpm.png",
+      "bytes": 76411,
+      "sha256": "1ec6b8b314ae68c01d5421480bd2351042a8e3aacbb29ec1844c639f6de2def3"
+    },
+    {
+      "path": "observations-desktop.json",
+      "bytes": 1000,
+      "sha256": "025f884d4e84db5137fb7ca42db6c1bbfd3d4167401dbde9b177cd9089d82b13"
+    },
+    {
+      "path": "observations-mobile.json",
+      "bytes": 992,
+      "sha256": "74c7e23aaeb8ddc1b0f487cd7df7ba7023d7d4b60cb83b138cc07a9da7840922"
+    },
+    {
+      "path": "original-snapshot/.last-run.json",
+      "bytes": 96,
+      "sha256": "57f2b1cc2fd445635b0de1b3857a75ddb058e5b6d060d6b5ed48b90a76809150"
+    },
+    {
+      "path": "original-snapshot/visual-visual-visual-regression-visual-install-desktop-light/error-context.md",
+      "bytes": 10736,
+      "sha256": "b052fdc38aab02fbd0f3919486afba268de060e670a15fc79591676bfd9de09c"
+    },
+    {
+      "path": "original-snapshot/visual-visual-visual-regression-visual-install-desktop-light/install-desktop-light-actual.png",
+      "bytes": 87811,
+      "sha256": "5ee54b5e11a3987b0c4766b9179e23f117e5fb97600974dd0cba9ad609d6d995"
+    },
+    {
+      "path": "original-snapshot/visual-visual-visual-regression-visual-install-desktop-light/install-desktop-light-diff.png",
+      "bytes": 79020,
+      "sha256": "07882523bea56c704913b6976f3d03ea7180be6ddadf05085a121fd58be23bf6"
+    },
+    {
+      "path": "original-snapshot/visual-visual-visual-regression-visual-install-desktop-light/install-desktop-light-expected.png",
+      "bytes": 85050,
+      "sha256": "bd11749a29c0d3d3811f66a87a5bfb769bc07275ebe592700c60feee93065e71"
+    },
+    {
+      "path": "original-snapshot/visual-visual-visual-regression-visual-install-desktop-light/test-failed-1.png",
+      "bytes": 87811,
+      "sha256": "5ee54b5e11a3987b0c4766b9179e23f117e5fb97600974dd0cba9ad609d6d995"
+    },
+    {
+      "path": "original-snapshot/visual-visual-visual-regression-visual-install-desktop-light/trace.zip",
+      "bytes": 902632,
+      "sha256": "7cddf88d73633328a1e37b4f4cbe3e2e6b88d10d49cf61c05ba8f11c15d99174"
+    },
+    {
+      "path": "original-snapshot/visual-visual-visual-regression-visual-install-desktop-light/video.webm",
+      "bytes": 63086,
+      "sha256": "b7f2c113765515be4dff75c3d6cfa8efcb2334f39a51aaf48e36abb07ad95c4d"
+    },
+    {
+      "path": "original-snapshot-result.json",
+      "bytes": 335,
+      "sha256": "70259ab7f395590776c79477b3d1f318526c423abbdf891af23f24843c793c7e"
+    },
+    {
+      "path": "original-snapshot.log",
+      "bytes": 4902,
+      "sha256": "f16c12ada24bcf9dfb94f88109f6575b1655e8be080b47faa7060f917585d6b3"
+    }
+  ],
+  "changedTrackedFiles": [
+    "apps/marketing/tests/visual/visual.spec.ts-snapshots/install-desktop-light-darwin.png"
+  ],
+  "originalSnapshotPassed": false
+}

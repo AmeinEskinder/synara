@@ -1,0 +1,45 @@
+{
+  "source": "77ea643504f5ab5908176669a2056205014bbfe2",
+  "variant": "after",
+  "platform": "linux",
+  "releaseFixture": "v0.8.1",
+  "states": [
+    {
+      "format": "appimage",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "title": "Download Synara — Coding Agent Workspace",
+      "path": "/install"
+    },
+    {
+      "format": "deb",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "title": "Download Synara — Coding Agent Workspace",
+      "path": "/install"
+    },
+    {
+      "format": "rpm",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "title": "Download Synara — Coding Agent Workspace",
+      "path": "/install"
+    },
+    {
+      "format": "appimage-return",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "title": "Download Synara — Coding Agent Workspace",
+      "path": "/install"
+    }
+  ],
+  "allInteractionAssertionsPassed": true
+}
