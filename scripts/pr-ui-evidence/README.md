@@ -12,4 +12,6 @@ Some changes preserve the same rendered appearance. The sidebar-row optimization
 
 Each artifact includes screenshots and `provenance.json`: source commit/tree, driver commit, fixture and overlaid-test hashes, timestamps, and PNG hashes. The verification step refuses unexpected tracked application changes or missing/invalid screenshots. Review the downloaded PNGs before embedding them in PRs. Source-labelled evidence images can then be committed under `.github/pr-ui-evidence/` on this evidence branch without retriggering capture.
 
+An explicitly declared `regression-control` target runs a reviewed standalone test on an exact clean author commit/tree. Its `control` label distinguishes it from a main baseline or a screenshot capture. The runner checks the fixture hash and retains the actual Vitest and log-writer exits, full test log and source proof on success or failure. Such a control does not require PNGs; Before/After image targets still require valid screenshots. An expected failing control remains a failed job, and neither its result nor a later passing run erases the prior failure.
+
 Add a target pair and fixture to extend the runner. Source IDs must be immutable 40-character commit hashes. This is a bounded review utility, not a production application feature.

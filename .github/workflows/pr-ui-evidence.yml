@@ -33,7 +33,7 @@ jobs:
         run: node scripts/pr-ui-evidence/runner.mjs matrix
 
   capture:
-    name: Evidence ${{ matrix.id }}
+    name: ${{ matrix.kind == 'control' && 'Author defect control' || 'Evidence' }} ${{ matrix.id }}
     needs: targets
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -99,7 +99,24 @@ jobs:
         working-directory: apps/web
         run: xvfb-run -a bun e2e/evidence/captureNativeUi.mjs
 
+      - name: Run actual author-head defect control once
+        if: matrix.kind == 'control'
+        timeout-minutes: 10
+        working-directory: apps/web
+        run: |
+          set +e
+          bunx vitest run --config vitest.pr-ui-evidence.config.ts 2>&1 | tee "$VITE_PR_UI_EVIDENCE_DIR/vitest.log"
+          control_status=("${PIPESTATUS[@]}")
+          set -e
+          printf '%s\n' "${control_status[0]}" > "$VITE_PR_UI_EVIDENCE_DIR/vitest-exit-code.txt"
+          printf '%s\n' "${control_status[1]}" > "$VITE_PR_UI_EVIDENCE_DIR/log-exit-code.txt"
+          if [ "${control_status[0]}" -ne 0 ]; then
+            exit "${control_status[0]}"
+          fi
+          exit "${control_status[1]}"
+
       - name: Verify captured files and unchanged application source
+        if: success() || (failure() && matrix.kind == 'control')
         run: node .pr-ui-evidence-driver/scripts/pr-ui-evidence/runner.mjs verify
 
       - name: Upload source-labelled screenshots and provenance

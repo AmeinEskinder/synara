@@ -23,11 +23,17 @@ if (!Array.isArray(targets) || targets.length < 1 || targets.length > 30) {
 const ids = new Set();
 for (const target of targets) {
   const native = target.mode === "native";
+  const control = target.purpose === "regression-control";
   if (
-    !/^pr\d+-(before|after)$/.test(target.id) ||
+    !/^pr\d+-(before|after|control)$/.test(target.id) ||
     ids.has(target.id) ||
     !/^[a-f0-9]{40}$/.test(target.source) ||
-    !["before", "after"].includes(target.variant) ||
+    (control ? target.variant !== "control" : !["before", "after"].includes(target.variant)) ||
+    (target.purpose !== undefined && !control) ||
+    (control &&
+      (target.mode !== "standalone" ||
+        !/^[a-f0-9]{40}$/.test(target.sourceTree) ||
+        !/^[a-f0-9]{64}$/.test(target.fixtureSha256))) ||
     !target.id.endsWith(`-${target.variant}`) ||
     !["standalone", "append-describe", "native"].includes(target.mode) ||
     (native
@@ -43,10 +49,10 @@ for (const target of targets) {
 const command = process.argv[2];
 if (command === "matrix") {
   const matrix = JSON.stringify({
-    include: targets.map(({ id, source, mode }) => ({
+    include: targets.map(({ id, source, mode, purpose }) => ({
       id,
       source,
-      kind: mode === "native" ? "native" : "web",
+      kind: purpose === "regression-control" ? "control" : mode === "native" ? "native" : "web",
     })),
   });
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${matrix}\n`);
@@ -58,6 +64,12 @@ if (command === "matrix") {
   }
   const source = git("rev-parse", "HEAD");
   if (source !== target.source) throw new Error(`Wrong source checkout: ${source}`);
+  if (
+    target.purpose === "regression-control" &&
+    (git("rev-parse", "HEAD^{tree}") !== target.sourceTree || git("diff", "HEAD", "--name-only"))
+  ) {
+    throw new Error("The control requires the exact clean author source tree.");
+  }
   const output = resolve(root, ".pr-ui-evidence-output", target.id);
   mkdirSync(output, { recursive: true });
   const destination = resolve(root, target.destination);
@@ -95,6 +107,9 @@ if (command === "matrix") {
     }
   } else {
     const fixture = readFileSync(resolve(driver, "fixtures", target.fixture), "utf8");
+    if (target.purpose === "regression-control" && digest(fixture) !== target.fixtureSha256) {
+      throw new Error("The control fixture does not match its reviewed hash.");
+    }
     let original = null;
     if (target.mode === "append-describe") {
       original = readFileSync(destination, "utf8");
@@ -162,8 +177,25 @@ if (command === "matrix") {
       throw new Error(`The reviewed fixture changed during capture: ${overlay.path}`);
     }
   }
+  const control = manifest.target.purpose === "regression-control";
+  let controlResult;
+  if (control) {
+    const readExitCode = (name) => {
+      const text = readFileSync(resolve(output, name), "utf8").trim();
+      if (!/^\d+$/.test(text) || Number(text) > 255)
+        throw new Error(`Invalid exit status: ${name}`);
+      return Number(text);
+    };
+    controlResult = {
+      testExitCode: readExitCode("vitest-exit-code.txt"),
+      logExitCode: readExitCode("log-exit-code.txt"),
+      testLogSha256: digest(readFileSync(resolve(output, "vitest.log"))),
+      qualification:
+        "Actual author-head regression result, not a Before/After screenshot or canonical CI.",
+    };
+  }
   const pngs = readdirSync(output).filter((name) => name.endsWith(".png"));
-  if (pngs.length === 0) throw new Error("The capture produced no PNG files.");
+  if (!control && pngs.length === 0) throw new Error("The capture produced no PNG files.");
   const images = pngs.map((name) => {
     const content = readFileSync(resolve(output, name));
     if (content.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a") {
@@ -171,11 +203,22 @@ if (command === "matrix") {
     }
     return { name, bytes: content.length, sha256: digest(content) };
   });
+  const actualExitCode = controlResult
+    ? controlResult.testExitCode || controlResult.logExitCode
+    : 0;
   writeFileSync(
     manifestPath,
-    `${JSON.stringify({ ...manifest, status: "completed", images, completedAt: new Date().toISOString() }, null, 2)}\n`,
+    `${JSON.stringify({ ...manifest, status: actualExitCode === 0 ? "completed" : "failed", ...(controlResult ? { controlResult } : {}), images, completedAt: new Date().toISOString() }, null, 2)}\n`,
   );
-  console.log(JSON.stringify({ source: manifest.source, images, applicationCodeModified: false }));
+  console.log(
+    JSON.stringify({
+      source: manifest.source,
+      ...(controlResult ? { controlResult } : {}),
+      images,
+      applicationCodeModified: false,
+    }),
+  );
+  if (actualExitCode !== 0) process.exitCode = actualExitCode;
 } else {
   throw new Error("Use matrix, prepare, or verify.");
 }
