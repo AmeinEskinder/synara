@@ -1,0 +1,16 @@
+diff --git a/apps/web/src/components/EventRouter.browser.tsx b/apps/web/src/components/EventRouter.browser.tsx
+index eda204c2c..cd4e4cd78 100644
+--- a/apps/web/src/components/EventRouter.browser.tsx
++++ b/apps/web/src/components/EventRouter.browser.tsx
+@@ -458,0 +459 @@ async function mountApp(options?: {
++  requireSyncedThread?: boolean;
+@@ -483,0 +485,3 @@ async function mountApp(options?: {
++        if (options?.requireSyncedThread) {
++          expect(useStore.getState().threadDetailSyncById?.[expectedThreadId]).toBe("synced");
++        }
+@@ -854 +858,4 @@ describe("EventRouter scoped orchestration sync", () => {
+-      const mounted = await mountApp();
++      // Cached detail can satisfy the mount's message check before its live
++      // snapshot arrives. Confirm that snapshot before injecting an exhausted
++      // failure, otherwise recovery legitimately dismisses the paused notice.
++      const mounted = await mountApp({ requireSyncedThread: true });

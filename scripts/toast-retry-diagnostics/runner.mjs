@@ -15,6 +15,8 @@ const output = resolve(root, ".toast-retry-diagnostics", mode);
 const testPath = "apps/web/src/components/EventRouter.browser.tsx";
 const configPath = "apps/web/vitest.toast-retry-diagnostic.config.ts";
 const helperPath = "apps/web/src/test/toastRetryDiagnostic.ts";
+const repairPath = resolve(driver, "fixture-repair.patch");
+const repairedTestBlob = "cd4e4cd7862820f5fb33511482ae526ce35cdfd8";
 const expectedBlobs = {
   [testPath]: "eda204c2c0d980b6b5d40ff1025b29e05bd83f12",
   "apps/web/src/components/ui/toast.tsx": "4c3df6599142435cc3317c64e6f96d2e7279bed3",
@@ -90,15 +92,22 @@ if (process.argv[2] === "prepare") {
     if (git("hash-object", path) !== expected) throw new Error(`Unexpected source blob: ${path}`);
   }
   mkdirSync(output, { recursive: true });
-  const original = readFileSync(resolve(root, testPath), "utf8");
-  const overlays = [];
+  // Apply exactly the independently reviewed fixture-readiness repair to both
+  // arms. All runtime source and the original retry assertions stay unchanged.
+  git("apply", "--unidiff-zero", "--check", repairPath);
+  git("apply", "--unidiff-zero", repairPath);
+  if (git("hash-object", testPath) !== repairedTestBlob) {
+    throw new Error("The applied fixture repair does not match the reviewed candidate.");
+  }
+  const repaired = readFileSync(resolve(root, testPath), "utf8");
+  const overlays = [testPath];
   for (const path of mode === "trace" ? [configPath, helperPath] : [configPath]) {
     if (git("ls-files", path)) throw new Error(`The diagnostic may not replace ${path}`);
   }
   if (mode === "trace") {
-    writeFileSync(resolve(root, testPath), overlayTrace(original));
+    writeFileSync(resolve(root, testPath), overlayTrace(repaired));
     copyFileSync(resolve(driver, "trace.ts"), resolve(root, helperPath));
-    overlays.push(testPath, helperPath);
+    overlays.push(helperPath);
   }
   copyFileSync(
     resolve(driver, "vitest.toast-retry-diagnostic.config.ts"),
@@ -113,11 +122,18 @@ if (process.argv[2] === "prepare") {
     failedJob: 114334052483,
     driver: execFileSync("git", ["rev-parse", "HEAD"], { cwd: driver, encoding: "utf8" }).trim(),
     expectedBlobs,
+    fixtureRepair: {
+      originalTestBlob: expectedBlobs[testPath],
+      repairedTestBlob,
+      patchSha256: digest(readFileSync(repairPath)),
+      scope:
+        "Only retry-rejection variants require initial synced detail within the existing 60s mount guard.",
+    },
     overlays: overlays.map((path) => ({ path, sha256: digest(readFileSync(resolve(root, path))) })),
     assertionPolicy:
-      "Original test interactions, assertions and 90s timeout unchanged; no force click or retry.",
+      "Original retry interactions, assertions and 90s timeout unchanged; initial-sync setup assertion added; no force click or retry.",
     observationLimit:
-      "Trace DOM reads can perturb timing. The separate unchanged control is equally authoritative.",
+      "Trace DOM reads can perturb timing. The control has the same fixture repair and no observers.",
     baseUiVersion: "1.7.0",
     status: "prepared",
     createdAt: new Date().toISOString(),
@@ -129,7 +145,7 @@ if (process.argv[2] === "prepare") {
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
   if (git("rev-parse", "HEAD") !== source) throw new Error("Source changed during diagnostic.");
   const changed = git("diff", "HEAD", "--name-only").split("\n").filter(Boolean);
-  if (changed.some((path) => mode !== "trace" || path !== testPath)) {
+  if (changed.some((path) => path !== testPath)) {
     throw new Error(`Unexpected tracked modification: ${changed.join(", ")}`);
   }
   for (const overlay of manifest.overlays) {

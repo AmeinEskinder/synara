@@ -20,7 +20,7 @@ env:
 
 jobs:
   diagnostic:
-    name: Original EventRouter (${{ matrix.mode }})
+    name: Reviewed EventRouter fixture (${{ matrix.mode }})
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     strategy:
@@ -60,7 +60,7 @@ jobs:
       - name: Prepare source proof and isolated diagnostic arm
         run: node .toast-diagnostic-driver/scripts/toast-retry-diagnostics/runner.mjs prepare
 
-      - name: Run original full EventRouter regression file once
+      - name: Run all EventRouter cases once
         working-directory: apps/web
         timeout-minutes: 15
         run: |
@@ -79,7 +79,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: toast-retry-${{ matrix.mode }}-2c305f13
+          name: toast-retry-fixed-${{ matrix.mode }}-2c305f13
           path: .toast-retry-diagnostics/${{ matrix.mode }}/
           include-hidden-files: true
           if-no-files-found: error
