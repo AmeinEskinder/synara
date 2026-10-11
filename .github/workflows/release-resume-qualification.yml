@@ -1,0 +1,335 @@
+name: Qualify PR 1685 release resume and native targets
+'on':
+  push:
+    branches:
+      - cleanup/20261011/release-resume-evidence
+    paths:
+      - .github/workflows/release-resume-qualification.yml
+permissions:
+  contents: read
+  actions: read
+env:
+  AZURE_TRUSTED_SIGNING_SUBJECT_DN: ''
+jobs:
+  preflight:
+    name: Verify exact feature source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      desktop_flavor: ${{ steps.meta.outputs.desktop_flavor }}
+      source_commit: ${{ steps.meta.outputs.source_commit }}
+      source_tag: ${{ steps.meta.outputs.source_tag }}
+      ref: ${{ steps.meta.outputs.ref }}
+      lockfile_sha256: ${{ steps.meta.outputs.lockfile_sha256 }}
+      publish_release: ${{ steps.meta.outputs.publish_release }}
+      matrix: ${{ steps.meta.outputs.matrix }}
+      cua_matrix: ${{ steps.meta.outputs.cua_matrix }}
+      build_js: ${{ steps.meta.outputs.build_js }}
+      build_icon: ${{ steps.meta.outputs.build_icon }}
+      prepare_cua: ${{ steps.meta.outputs.prepare_cua }}
+      benchmark_native: ${{ steps.meta.outputs.benchmark_native }}
+      package_artifacts: ${{ steps.meta.outputs.package_artifacts }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 45fc776f672acd83541069efaa6350145fe3ecef
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+      - id: meta
+        name: Record immutable source, lock and build-only scope
+        shell: bash
+        run: |-
+          set -euo pipefail
+          node --input-type=module - <<'NODE'
+          import assert from "node:assert/strict";
+          import { execFileSync } from "node:child_process";
+          import { createHash } from "node:crypto";
+          import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+          import { join } from "node:path";
+          import { resolveReleaseBuildScope } from "./scripts/lib/release-build-scope.ts";
+          const source = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+          assert.equal(source, "45fc776f672acd83541069efaa6350145fe3ecef");
+          assert.equal(execFileSync("git", ["status", "--porcelain=v1"], { encoding: "utf8" }).trim(), "");
+          const version = JSON.parse(readFileSync("apps/server/package.json", "utf8")).version;
+          assert.match(version, /^\d+\.\d+\.\d+-beta\.\d+$/);
+          const lock = createHash("sha256").update(readFileSync("bun.lock")).digest("hex");
+          const values = {
+            ...resolveReleaseBuildScope("all", "artifact", false),
+            version, desktop_flavor: "beta", source_commit: source, source_tag: "", ref: source,
+            lockfile_sha256: lock, publish_release: false,
+          };
+          for (const [key, value] of Object.entries(values)) {
+            const text = typeof value === "object" ? JSON.stringify(value) : String(value);
+            assert.ok(!/[\r\n]/.test(text));
+            appendFileSync(process.env.GITHUB_OUTPUT, `${key}=${text}\n`);
+          }
+          const evidence = join(process.env.RUNNER_TEMP, "release-resume-source");
+          mkdirSync(evidence);
+          writeFileSync(join(evidence, "provenance.json"), JSON.stringify({
+            source, sourceTree: execFileSync("git", ["rev-parse", "HEAD^{tree}"], { encoding: "utf8" }).trim(),
+            driver: process.env.GITHUB_SHA, version, flavor: "beta", lockfileSha256: lock,
+            publication: false, signingCredentialsPassed: false,
+            boundary: "Exact feature reusable workflow with full native gates and real Intel startup. Canonical PR CI runs separately. Diagnostic checkpoint replay is recorded separately from a naturally failed release attempt.",
+          }, null, 2) + "\n");
+          NODE
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-resume-source
+          path: ${{ runner.temp }}/release-resume-source
+          retention-days: 14
+          if-no-files-found: error
+  mac_tests:
+    name: Exercise real macOS finalization and release contracts
+    needs: preflight
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 45fc776f672acd83541069efaa6350145fe3ecef
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - name: Install frozen test dependencies
+        run: bun install --frozen-lockfile --ignore-scripts --filter '!@synara/marketing'
+      - name: Run all focused tests including macOS-only archive cases
+        shell: bash
+        run: |-
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/release-resume-tests"
+          bun run --cwd scripts test lib/release-artifact-checkpoint.test.ts lib/mac-bundle-architecture.test.ts mac-update-zip-finalize.test.ts lib/release-build-scope.test.ts 2>&1 | tee "$RUNNER_TEMP/release-resume-tests/focused.log"
+          bun run release:smoke 2>&1 | tee "$RUNNER_TEMP/release-resume-tests/release-smoke.log"
+          git diff --exit-code
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: release-resume-macos-tests
+          path: ${{ runner.temp }}/release-resume-tests
+          retention-days: 14
+          if-no-files-found: error
+  build_portable:
+    name: Build portable JavaScript
+    needs: preflight
+    if: needs.preflight.outputs.build_js == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.preflight.outputs.ref }}
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+      - name: Report runner capacity
+        run: node scripts/report-build-runner.ts
+      - name: Install frozen dependencies
+        run: bun install --frozen-lockfile --ignore-scripts --filter '!@synara/marketing'
+      - name: Build portable outputs
+        run: bun run build:desktop
+      - name: Record portable output provenance
+        env:
+          SOURCE_COMMIT: ${{ needs.preflight.outputs.source_commit }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/portable-build"
+          node scripts/portable-build.ts create "$RUNNER_TEMP/portable-build/manifest.json" "$SOURCE_COMMIT"
+          tar -cf "$RUNNER_TEMP/portable-build/outputs.tar" apps/desktop/dist-electron apps/server/dist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: portable-build
+          retention-days: 30
+          path: ${{ runner.temp }}/portable-build/*
+          compression-level: 1
+          if-no-files-found: error
+  build_mac_icon:
+    name: Compile macOS icon
+    if: needs.preflight.outputs.build_icon == 'true'
+    needs: preflight
+    runs-on: macos-26
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.preflight.outputs.ref }}
+          persist-credentials: false
+      - name: Compile Icon Composer catalog
+        env:
+          DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+          DESKTOP_FLAVOR: ${{ needs.preflight.outputs.desktop_flavor }}
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          mkdir -p "$RUNNER_TEMP/mac-icon"
+          # Same source selection as scripts/lib/brand-assets.ts
+          # desktopIconAssetPaths(flavor).macIconComposer. The .icon folder
+          # must be named Synara to match CFBundleIconName in the app bundle.
+          icon_source="assets/prod/Synara.icon"
+          if [[ "$DESKTOP_FLAVOR" == "beta" ]]; then
+            icon_source="assets/beta/Synara.icon"
+          fi
+          xcrun actool "$icon_source" --compile "$RUNNER_TEMP/mac-icon" --platform macosx --minimum-deployment-target 26.0 --app-icon Synara --include-all-app-icons --output-partial-info-plist "$RUNNER_TEMP/icon-partial.plist" --output-format human-readable-text
+          test -s "$RUNNER_TEMP/mac-icon/Assets.car"
+      - name: Upload icon catalog
+        uses: actions/upload-artifact@v7
+        with:
+          name: mac-icon-catalog
+          retention-days: 30
+          path: ${{ runner.temp }}/mac-icon/Assets.car
+          if-no-files-found: error
+  prepare_cua:
+    name: Prepare Cua ${{ matrix.label }}
+    needs: preflight
+    if: needs.preflight.outputs.prepare_cua == 'true'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.preflight.outputs.cua_matrix) }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.preflight.outputs.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+      - name: Report runner capacity
+        run: node scripts/report-build-runner.ts
+      - name: Provision verified Cua
+        uses: ./.github/actions/provision-cua
+        with:
+          arch: ${{ matrix.arch }}
+      - name: Upload prepared Cua for this candidate
+        if: needs.preflight.outputs.package_artifacts == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: prepared-cua-${{ matrix.platform }}-${{ matrix.arch }}
+          path: ${{ runner.temp }}/cua-artifact
+          retention-days: 30
+          if-no-files-found: error
+  build:
+    name: Build ${{ matrix.label }}
+    needs:
+      - preflight
+      - mac_tests
+      - build_mac_icon
+      - build_portable
+      - prepare_cua
+    permissions:
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.preflight.outputs.matrix) }}
+    uses: Emanuele-web04/synara/.github/workflows/release-platform.yml@45fc776f672acd83541069efaa6350145fe3ecef
+    with:
+      runner: ${{ matrix.runner }}
+      platform: ${{ matrix.platform }}
+      arch: ${{ matrix.arch }}
+      target: ${{ matrix.target }}
+      version: ${{ needs.preflight.outputs.version }}
+      desktop_flavor: ${{ needs.preflight.outputs.desktop_flavor }}
+      publish_release: false
+      source_commit: ${{ needs.preflight.outputs.source_commit }}
+      source_tag: ${{ needs.preflight.outputs.source_tag }}
+      lockfile_sha256: ${{ needs.preflight.outputs.lockfile_sha256 }}
+      allow_unsigned_windows_publication: false
+  verify_actual_packages:
+    name: Verify actual package inventory ${{ matrix.platform }}-${{ matrix.arch }}
+    needs:
+      - preflight
+      - build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: mac
+            arch: arm64
+            target: dmg
+          - platform: mac
+            arch: x64
+            target: dmg
+          - platform: linux
+            arch: x64
+            target: AppImage
+          - platform: win
+            arch: x64
+            target: nsis
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 45fc776f672acd83541069efaa6350145fe3ecef
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+      - uses: actions/download-artifact@v8
+        with:
+          name: desktop-${{ matrix.platform }}-${{ matrix.arch }}
+          path: ${{ runner.temp }}/qualified-packages
+      - name: Verify actual bytes with the feature checkpoint validator
+        shell: bash
+        env:
+          TARGET_PLATFORM: ${{ matrix.platform }}
+          TARGET_ARCH: ${{ matrix.arch }}
+          TARGET_FORMAT: ${{ matrix.target }}
+          BUILD_VERSION: ${{ needs.preflight.outputs.version }}
+          LOCK_SHA: ${{ needs.preflight.outputs.lockfile_sha256 }}
+        run: |-
+          set -euo pipefail
+          node scripts/verify-release-artifact-checkpoint.ts \
+            --assets-dir "$RUNNER_TEMP/qualified-packages" \
+            --platform "$TARGET_PLATFORM" --arch "$TARGET_ARCH" --target "$TARGET_FORMAT" \
+            --version "$BUILD_VERSION" --flavor beta --source-commit "45fc776f672acd83541069efaa6350145fe3ecef" \
+            --source-tag "" --lockfile-sha256 "$LOCK_SHA" --publication false \
+            --allow-unsigned-windows-publication false
+          mkdir -p "$RUNNER_TEMP/release-resume-evidence"
+          cp "$RUNNER_TEMP/qualified-packages"/artifact-*.provenance.json "$RUNNER_TEMP/release-resume-evidence/"
+          node --input-type=module - <<'NODE'
+          import { writeFileSync } from "node:fs";
+          import { join } from "node:path";
+          writeFileSync(join(process.env.RUNNER_TEMP, "release-resume-evidence", "qualification.json"), JSON.stringify({
+            source: "45fc776f672acd83541069efaa6350145fe3ecef", driver: process.env.GITHUB_SHA,
+            workflowRun: process.env.GITHUB_RUN_ID, attempt: process.env.GITHUB_RUN_ATTEMPT,
+            platform: process.env.TARGET_PLATFORM, arch: process.env.TARGET_ARCH, target: process.env.TARGET_FORMAT,
+            version: process.env.BUILD_VERSION, flavor: "beta", lockfileSha256: process.env.LOCK_SHA,
+            actualPackageCheckpointVerification: "passed", publication: false,
+          }, null, 2) + "\n");
+          NODE
+      - name: Retain verified Linux bytes for a separately recorded same-run replay
+        if: matrix.platform == 'linux' && github.run_attempt == 1
+        uses: actions/upload-artifact@v7
+        with:
+          name: candidate-desktop-linux-x64
+          path: ${{ runner.temp }}/qualified-packages/*
+          compression-level: 0
+          retention-days: 14
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-resume-evidence-${{ matrix.platform }}-${{ matrix.arch }}-attempt-${{ github.run_attempt
+            }}
+          path: ${{ runner.temp }}/release-resume-evidence
+          retention-days: 14
+          if-no-files-found: error
