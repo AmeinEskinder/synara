@@ -10,6 +10,8 @@ export async function startNativeStackSite() {
       gate.requested = true;
       gate.response = response;
       gate.timer = setTimeout(() => {
+        if (gate.responded) return;
+        gate.responded = true;
         response.writeHead(504).end("Fixture gate was not released within 30 seconds");
       }, 30000);
       response.once("close", () => clearTimeout(gate.timer));
@@ -61,9 +63,13 @@ export async function startNativeStackSite() {
         released: false,
         response: undefined,
         timer: undefined,
+        responded: false,
         release() {
           gate.released = true;
-          if (gate.response && !gate.response.writableEnded) {
+          if (gate.response && !gate.responded) {
+            // Acceptance and finally-cleanup both release this gate. Track our
+            // response explicitly; Bun can report writableEnded late after end().
+            gate.responded = true;
             clearTimeout(gate.timer);
             gate.response
               .writeHead(200, { "content-type": "application/json" })
@@ -84,4 +90,3 @@ export async function startNativeStackSite() {
     },
   };
 }
-

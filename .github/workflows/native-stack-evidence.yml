@@ -17,6 +17,7 @@ concurrency:
 
 env:
   NODE_OPTIONS: --max-old-space-size=4096
+  NATIVE_STACK_SCENARIO: parallel
 
 jobs:
   targets:
@@ -60,6 +61,14 @@ jobs:
       - name: Install Playwright video runtime
         timeout-minutes: 3
         run: ./apps/web/node_modules/.bin/playwright install ffmpeg
+      - name: Install actual X11 screen recording runtime
+        timeout-minutes: 5
+        run: |
+          if ! command -v ffmpeg >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install --no-install-recommends -y ffmpeg
+          fi
+          ffmpeg -hide_banner -version
       - name: Configure Electron sandbox helper
         run: |
           node <<'NODE'
@@ -89,4 +98,3 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
-

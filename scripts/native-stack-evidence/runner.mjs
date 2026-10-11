@@ -41,8 +41,16 @@ for (const target of targets) {
 const command = process.argv[2];
 if (command === "matrix") {
   const only = process.env.NATIVE_STACK_ONLY;
+  const scenario = process.env.NATIVE_STACK_SCENARIO;
   if (only && !ids.has(only)) throw new Error("Unknown isolated native target");
-  const matrix = JSON.stringify({ include: only ? targets.filter((target) => target.id === only) : targets });
+  if (scenario && (![...scenarios.values()].includes(scenario) || only))
+    throw new Error("Use one validated native target or scenario filter");
+  const selected = only
+    ? targets.filter((target) => target.id === only)
+    : scenario
+      ? targets.filter((target) => target.scenario === scenario)
+      : targets;
+  const matrix = JSON.stringify({ include: selected });
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${matrix}\n`);
   else console.log(matrix);
 } else if (command === "prepare") {
@@ -135,6 +143,20 @@ if (command === "matrix") {
     (metadata.scenario === "restart" && metadata.variant === "after")
       ? 3
       : 2;
+  if (metadata.screenRecordings?.length !== 1)
+    throw new Error("Missing actual native screen video");
+  for (const recording of metadata.screenRecordings) {
+    if (recording.name !== `${provenance.target.id}-native-screen.webm`)
+      throw new Error("Unexpected native screen video name");
+    const bytes = readFileSync(resolve(output, recording.name));
+    if (
+      bytes.subarray(0, 4).toString("hex") !== "1a45dfa3" ||
+      bytes.length !== recording.bytes ||
+      hash(bytes) !== recording.sha256 ||
+      recording.exit?.code !== 0
+    )
+      throw new Error("Native screen video verification failed");
+  }
   const pngs = readdirSync(output)
     .filter((name) => name.endsWith(".png"))
     .toSorted();
@@ -177,4 +199,3 @@ if (command === "matrix") {
 } else {
   throw new Error("Use matrix, prepare, or verify");
 }
-

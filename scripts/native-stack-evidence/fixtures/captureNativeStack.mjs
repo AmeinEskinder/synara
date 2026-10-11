@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -34,9 +34,11 @@ const observations = [];
 const images = [];
 const launches = [];
 const commands = [];
+const screenRecordings = [];
 let active;
 let site;
 let server;
+let screenRecording;
 mkdirSync(output, { recursive: true });
 
 function bundle(sourcePath, target, external = []) {
@@ -63,6 +65,76 @@ function deadline(promise, milliseconds, context) {
       );
     }),
   ]).finally(() => clearTimeout(timer));
+}
+async function startScreenRecording() {
+  if (!process.env.DISPLAY)
+    throw new Error("Actual native video requires the isolated X11 display");
+  const name = `${label}-native-screen.webm`;
+  const args = [
+    "-y",
+    "-f",
+    "x11grab",
+    "-framerate",
+    "24",
+    "-video_size",
+    "1280x900",
+    "-i",
+    process.env.DISPLAY,
+    "-c:v",
+    "libvpx-vp9",
+    "-deadline",
+    "realtime",
+    "-cpu-used",
+    "8",
+    "-lag-in-frames",
+    "0",
+    "-pix_fmt",
+    "yuv420p",
+    join(output, name),
+  ];
+  const child = spawn("ffmpeg", args, { stdio: ["pipe", "ignore", "pipe"] });
+  let stderr = "";
+  child.stderr.on("data", (chunk) => {
+    stderr = (stderr + chunk).slice(-200000);
+  });
+  const done = new Promise((resolve) => {
+    child.once("error", (error) => resolve({ error: String(error), code: null, signal: null }));
+    child.once("exit", (code, signal) => resolve({ code, signal, error: null }));
+  });
+  await new Promise((resolve, reject) => {
+    child.once("spawn", resolve);
+    child.once("error", reject);
+  });
+  return { child, done, name, startedAt: new Date().toISOString(), stderr: () => stderr };
+}
+async function stopScreenRecording() {
+  if (!screenRecording) return;
+  const recording = screenRecording;
+  screenRecording = undefined;
+  if (recording.child.exitCode === null && recording.child.signalCode === null)
+    recording.child.stdin.end("q\n");
+  let exit;
+  try {
+    exit = await deadline(recording.done, 5000, "Actual X11 screen recording finalization");
+  } catch (error) {
+    recording.child.kill("SIGKILL");
+    await deadline(recording.done, 2000, "Native video forced cleanup");
+    throw error;
+  }
+  writeFileSync(join(output, `${label}-native-screen-ffmpeg.log`), recording.stderr());
+  expect(exit).toEqual({ code: 0, signal: null, error: null });
+  const bytes = readFileSync(join(output, recording.name));
+  expect(bytes.subarray(0, 4).toString("hex")).toBe("1a45dfa3");
+  expect(bytes.length).toBeGreaterThan(1024);
+  screenRecordings.push({
+    name: recording.name,
+    startedAt: recording.startedAt,
+    endedAt: new Date().toISOString(),
+    method: "FFmpeg x11grab of the isolated 1280x900 display at 24fps",
+    bytes: bytes.length,
+    sha256: sha256(bytes),
+    exit,
+  });
 }
 async function close(launch, gracefulRequired = false) {
   if (!launch || launch.closed) return;
@@ -316,28 +388,24 @@ async function typeDraft(current, tabId, value) {
   await expect
     .poll(async () => (await snapshot(current)).attachedRuntimeKey, { timeout: 10000 })
     .toBe(`${threadId}:${tabId}`);
-  await current.app.evaluate(
-    async (_, tabId) => {
-      const { manager, threadId } = globalThis.__synaraNativeStackEvidence;
-      const runtime = manager.runtimes.get(`${threadId}:${tabId}`);
-      if (!runtime?.ownsWebContents) throw new Error("Native input target is missing");
-      const guest = runtime.webContents;
-      const point = await guest.executeJavaScript(
-        "(() => { const e=document.querySelector('#draft'); const r=e.getBoundingClientRect(); const x=Math.round(r.x+r.width/2),y=Math.round(r.y+r.height/2); if(document.elementFromPoint(x,y)!==e) throw new Error('Draft field is not hit-testable'); return {x,y}; })()",
-      );
-      guest.focus();
-      guest.sendInputEvent({ type: "mouseDown", button: "left", clickCount: 1, ...point });
-      guest.sendInputEvent({ type: "mouseUp", button: "left", clickCount: 1, ...point });
-    },
-    tabId,
-  );
+  await current.app.evaluate(async (_, tabId) => {
+    const { manager, threadId } = globalThis.__synaraNativeStackEvidence;
+    const runtime = manager.runtimes.get(`${threadId}:${tabId}`);
+    if (!runtime?.ownsWebContents) throw new Error("Native input target is missing");
+    const guest = runtime.webContents;
+    const point = await guest.executeJavaScript(
+      "(() => { const e=document.querySelector('#draft'); const r=e.getBoundingClientRect(); const x=Math.round(r.x+r.width/2),y=Math.round(r.y+r.height/2); if(document.elementFromPoint(x,y)!==e) throw new Error('Draft field is not hit-testable'); return {x,y}; })()",
+    );
+    guest.focus();
+    guest.sendInputEvent({ type: "mouseDown", button: "left", clickCount: 1, ...point });
+    guest.sendInputEvent({ type: "mouseUp", button: "left", clickCount: 1, ...point });
+  }, tabId);
   // Native mouse events are queued by Chromium. Wait for the real click to
   // focus its field before inserting text; DOM inspection never sets focus.
   await expect
-    .poll(
-      async () => (await pageEval(current, tabId, "document.activeElement?.id")).value,
-      { timeout: 10000 },
-    )
+    .poll(async () => (await pageEval(current, tabId, "document.activeElement?.id")).value, {
+      timeout: 10000,
+    })
     .toBe("draft");
   observations.push({ kind: "native-input-focused", tabId, state: await snapshot(current) });
   await current.app.evaluate(
@@ -399,7 +467,15 @@ async function capture(current, name) {
   const bytes = Buffer.from(screenCapture.png, "base64");
   writeFileSync(join(output, nameWithLabel), bytes);
   const { png: _png, ...screenMetadata } = screenCapture;
-  images.push({ name: nameWithLabel, bytes: bytes.length, sha256: sha256(bytes), captureMethod: "Electron desktopCapturer of isolated X11 screen", screenMetadata, state, page });
+  images.push({
+    name: nameWithLabel,
+    bytes: bytes.length,
+    sha256: sha256(bytes),
+    captureMethod: "Electron desktopCapturer of isolated X11 screen",
+    screenMetadata,
+    state,
+    page,
+  });
 }
 async function retention(current) {
   await show(current);
@@ -663,6 +739,7 @@ try {
   });
   await server.listen();
   const first = await launch("first");
+  screenRecording = await startScreenRecording();
   if (scenario === "retention")
     await deadline(retention(first), 120000, "Native retention scenario");
   if (scenario === "parallel") await deadline(parallel(first), 180000, "Native parallel scenario");
@@ -684,6 +761,12 @@ try {
   }
   throw error;
 } finally {
+  try {
+    await stopScreenRecording();
+  } catch (error) {
+    errors.push(`Native screen recording: ${error}`);
+    process.exitCode = 1;
+  }
   try {
     await close(active, true);
   } catch (error) {
@@ -715,6 +798,7 @@ try {
         commands,
         observations,
         images,
+        screenRecordings,
         errors,
         boundary:
           "Unmodified production React BrowserPanel, DesktopBrowserManager and MCP browser tool transport in an isolated Electron fixture; synthetic loopback pages and empty local-server discovery; no provider account or full-app claim",
@@ -725,4 +809,3 @@ try {
   );
   rmSync(home, { recursive: true, force: true });
 }
-
