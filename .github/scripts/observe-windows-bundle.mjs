@@ -37,6 +37,7 @@ function assertSource() {
   assert.equal(run("git", ["rev-parse", "HEAD"]), sourceSha);
   assert.equal(run("git", ["rev-parse", "HEAD^{tree}"]), sourceTree);
   assert.equal(run("git", ["diff", "--exit-code", "HEAD", "--"]), "");
+  assert.equal(run("git", ["status", "--porcelain=v1", "--untracked-files=all"]), "");
   assert.equal(run("git", ["rev-parse", "HEAD"], driver), process.env.GITHUB_SHA);
   assert.equal(run("git", ["diff", "--exit-code", "HEAD", "--"], driver), "");
 }
