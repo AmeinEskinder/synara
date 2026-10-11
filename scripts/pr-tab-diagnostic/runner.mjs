@@ -109,13 +109,14 @@ if (command === "prepare") {
     .split("\n")
     .filter((line) => line.includes(prefix))
     .map((line) =>
-      JSON.parse(
-        line
-          .slice(line.indexOf(prefix) + prefix.length)
-          .replace(/\x1b\[[0-9;]*m/g, "")
-          .trim(),
-      ),
-    );
+      line
+        .slice(line.indexOf(prefix) + prefix.length)
+        .replace(/\x1b\[[0-9;]*m/g, "")
+        .trim(),
+    )
+    // Vitest also quotes the console statement in a failure code frame.
+    .filter((payload) => payload.startsWith("{"))
+    .map((payload) => JSON.parse(payload));
   if (observations.some((observation) => observation.source !== spec.source))
     throw new Error("Wrong source observation.");
   const screenshots = [];
