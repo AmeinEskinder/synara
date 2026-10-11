@@ -1,0 +1,132 @@
+name: Pinned provider server shard diagnosis
+
+on:
+  push:
+    branches:
+      - cleanup/20261011/provider-server3-diagnostics
+
+permissions:
+  contents: read
+
+env:
+  NODE_OPTIONS: --max-old-space-size=4096
+
+jobs:
+  server3:
+    # One fresh observation of this exact source, never a retry-until-green gate.
+    if: github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout the exact isolated diagnostic head
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Verify unchanged published source and record provenance
+        shell: bash
+        run: |
+          source_head=85a682d3e8cb1e6ab8c9f75bb275831e9b2a48a2
+          source_tree=0d6bb2231a00209cceb0eeb6a545c263e11a1b48
+          evidence="$GITHUB_WORKSPACE/output/server3-diagnostics"
+          mkdir -p "$evidence"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD^)" = "$source_head"
+          test "$(git rev-parse "$source_head^{tree}")" = "$source_tree"
+          test "$(git diff --name-only "$source_head" HEAD)" = .github/workflows/provider-server3-diagnostics.yml
+          git diff --exit-code "$source_head" HEAD -- . ':(exclude).github/workflows/provider-server3-diagnostics.yml'
+          {
+            printf 'purpose=fresh diagnosis; historical server3 cause unavailable\n'
+            printf 'source_head=%s\nsource_tree=%s\n' "$source_head" "$source_tree"
+            printf 'historical_run=38093931972\nhistorical_job=114336306881\n'
+            printf 'historical_result=failure; log endpoint unavailable\n'
+            printf 'head='; git rev-parse HEAD
+            printf 'tree='; git rev-parse HEAD^{tree}
+            printf 'workflow_blob='; git rev-parse HEAD:.github/workflows/provider-server3-diagnostics.yml
+            printf 'run_id=%s\nrun_attempt=%s\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
+            printf 'canonical_command=bunx turbo run test --filter=@synara/cli -- --shard=3/3\n'
+            printf 'reporting_only_arguments=--reporter=default --reporter=json --outputFile.json=<evidence>/server3-vitest.json\n'
+            printf 'canonical_package_script=vitest run --maxWorkers=1 --no-file-parallelism\n'
+            printf 'node_heap_limit=4096MiB\n'
+            printf 'observed_at='; date -u +%FT%TZ
+            uname -srm
+          } > "$evidence/provenance.txt"
+          git ls-tree HEAD .github/workflows/ci.yml .github/actions/setup-workspace/action.yml package.json bun.lock turbo.json vitest.config.ts apps/server/package.json apps/server/vitest.config.ts > "$evidence/runtime-input-blobs.txt"
+          git ls-tree -r "$source_head" > "$evidence/source-tree.txt"
+          git show "$source_head:.github/workflows/ci.yml" > "$evidence/canonical-ci.yml"
+          git show "$source_head:apps/server/package.json" > "$evidence/server-package.json"
+
+      - name: Setup the unchanged full workspace
+        uses: ./.github/actions/setup-workspace
+
+      - name: Record toolchain and run the original serial shard once
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          evidence="$GITHUB_WORKSPACE/output/server3-diagnostics"
+          {
+            printf 'node='; node --version
+            printf 'bun='; bun --version
+            printf 'turbo='; ./node_modules/.bin/turbo --version
+            printf 'vitest='; ./node_modules/.bin/vitest --version
+          } >> "$evidence/provenance.txt"
+          set +e
+          bunx turbo run test --filter=@synara/cli -- --shard=3/3 --reporter=default --reporter=json --outputFile.json="$evidence/server3-vitest.json" 2>&1 | tee "$evidence/server3.log"
+          pipeline_status=("${PIPESTATUS[@]}")
+          set -e
+          test_status=${pipeline_status[0]}
+          capture_status=${pipeline_status[1]}
+          printf 'server3=%s\ntext_capture=%s\n' "$test_status" "$capture_status" > "$evidence/results.txt"
+          set +e
+          node --input-type=module - "$evidence" "$test_status" "$capture_status" <<'NODE'
+          import { existsSync, readFileSync, writeFileSync } from "node:fs";
+          import { join } from "node:path";
+          const [directory, testExit, captureExit] = process.argv.slice(2);
+          const reportPath = join(directory, "server3-vitest.json");
+          const invocation = {
+            sourceHead: "85a682d3e8cb1e6ab8c9f75bb275831e9b2a48a2",
+            historicalRun: 38093931972,
+            historicalJob: 114336306881,
+            freshDiagnosis: true,
+            attempts: 1,
+            testExit: Number(testExit),
+            captureExit: Number(captureExit),
+            structuredTestReportPresent: existsSync(reportPath),
+          };
+          if (invocation.structuredTestReportPresent) {
+            try {
+              const report = JSON.parse(readFileSync(reportPath, "utf8"));
+              invocation.structuredTestReportValid = true;
+              invocation.testCounts = {
+                total: report.numTotalTests,
+                passed: report.numPassedTests,
+                failed: report.numFailedTests,
+                pending: report.numPendingTests,
+              };
+            } catch (error) {
+              invocation.structuredTestReportValid = false;
+              invocation.reportParseError = String(error);
+            }
+          }
+          writeFileSync(join(directory, "invocation-result.json"), `${JSON.stringify(invocation, null, 2)}\n`);
+          if (!invocation.structuredTestReportPresent || !invocation.structuredTestReportValid) {
+            process.exitCode = 1;
+          }
+          NODE
+          report_status=$?
+          set -e
+          printf 'structured_capture=%s\n' "$report_status" >> "$evidence/results.txt"
+          if [ "$test_status" -ne 0 ]; then exit "$test_status"; fi
+          if [ "$capture_status" -ne 0 ]; then exit "$capture_status"; fi
+          exit "$report_status"
+
+      - name: Preserve failure reports and exact source evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: provider-server3-pinned-source
+          path: output/server3-diagnostics
+          if-no-files-found: error
+          retention-days: 7
