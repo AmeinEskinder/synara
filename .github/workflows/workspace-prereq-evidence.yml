@@ -1,0 +1,91 @@
+name: Observe Windows workspace prerequisites
+
+on:
+  push:
+    branches: [cleanup/20261011/windows-prereq-evidence]
+    paths:
+      - .github/workflows/workspace-prereq-evidence.yml
+      - scripts/workspace-prereq/**
+
+permissions:
+  contents: read
+
+jobs:
+  windows-prereq:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+      SYNARA_PREREQ_OUTPUT: ${{ runner.temp }}/workspace-prereq-evidence
+    steps:
+      - name: Checkout exact failing prerequisite source
+        uses: actions/checkout@v6
+        with:
+          ref: 70620c1ce1615239635905418b19a6b77fd0a642
+          persist-credentials: false
+      - name: Checkout immutable observation driver
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          path: .prereq-driver
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/workspace-prereq
+            .github/workflows/workspace-prereq-evidence.yml
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+      - name: Record provenance and enable compiler I/O observation
+        run: node .prereq-driver/scripts/workspace-prereq/runner.mjs prepare
+      - name: Run unchanged canonical workspace setup
+        id: setup
+        uses: ./.github/actions/setup-workspace
+        with:
+          scope: "runtime"
+      - name: Verify Windows terminal PTY native dependency under Bun
+        run: bun scripts/node-pty-smoke.mjs
+      - name: Test Windows shared runtime and migration recovery
+        run: >-
+          bun run --cwd packages/shared test
+          src/windowsProcess.test.ts
+          src/platformProcess.test.ts
+          src/processRuntime.test.ts
+          src/filesystemPlatform.test.ts
+          src/platformEnvironment.test.ts
+          src/migrationRecovery.test.ts
+      - name: Test Windows server lifecycle and migration recovery
+        run: >-
+          bun run --cwd apps/server test
+          src/platform/processTreeController.test.ts
+          src/platform/effectProcessSignals.test.ts
+          src/provider/supervisedProcessTeardown.test.ts
+          src/provider/providerStartupLifecycle.test.ts
+          src/processRunner.test.ts
+          src/orchestration/projectImportPaths.test.ts
+          src/orchestration/projectImportCatalog.test.ts
+          src/windowsProcessEffect.test.ts
+          src/persistence/MigrationBackup.test.ts
+          src/persistence/Migrations/MigrationReplay.test.ts
+      - name: Verify Windows credential reader compilation without credentials
+        run: >-
+          bun run --cwd apps/server test
+          src/providerUsage/providers/droidSecureStorage.test.ts
+          -t "compiles the Windows bridge"
+      - name: Test Windows desktop shutdown and migration recovery
+        run: >-
+          bun run --cwd apps/desktop test
+          src/backendShutdown.windows.integration.test.ts
+          src/desktopMigrationRecovery.test.ts
+      - name: Retain actual compiler snapshots and patcher lifetimes
+        if: always()
+        env:
+          SYNARA_PREREQ_SETUP_OUTCOME: ${{ steps.setup.outcome }}
+        run: node .prereq-driver/scripts/workspace-prereq/runner.mjs finish
+      - name: Upload prerequisite observations
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-prereq-70620c1-driver-${{ github.sha }}
+          path: ${{ runner.temp }}/workspace-prereq-evidence
+          retention-days: 14
+          if-no-files-found: error
