@@ -2524,6 +2524,7 @@ routing.layer("ProviderServiceLive routing", (it) => {
       assert.equal(bindingAfterStaleEvent?.lifecycleGeneration, secondGeneration);
       // An idle replacement is still newer lifecycle state. The retired
       // session's exit must not stop it merely because it has no active turn.
+      assert.equal(bindingAfterStaleEvent?.status, "running");
       assert.equal(bindingAfterStaleEvent?.status, secondStatus);
       assert.equal(
         asRuntimePayloadRecord(bindingAfterStaleEvent?.runtimePayload).activeTurnId,
