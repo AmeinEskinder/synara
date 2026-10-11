@@ -17,7 +17,9 @@ branches and files. Use the existing Worktrees settings panel for explicit remov
 **Compare in new thread** sends the task, answer excerpts, branch names and
 worktree locations to the currently selected model in a new approval-mode chat.
 It asks for a recommendation; it does not merge code. Large answers are marked as
-excerpts, and the original conversations remain available for inspection.
+excerpts, and the original conversations remain available for inspection. Task text,
+provider answers and repository references are sent as tagged untrusted JSON; they
+do not authorize tools, credential access or file changes.
 
 All worktrees and threads are staged before provider turns are admitted. A lost
 acknowledgement can be retried with the original run id and command ids, so an
