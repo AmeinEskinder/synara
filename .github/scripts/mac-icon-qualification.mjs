@@ -51,7 +51,7 @@ function qualify() {
     for (const [name, cwd] of Object.entries({ source, author, driver })) {
       assert.match(expected[name] ?? "", /^[0-9a-f]{40}$/);
       assert.equal(run(["rev-parse", "HEAD"], cwd), expected[name]);
-      assert.equal(run(["diff", "--exit-code"], cwd), "");
+      assert.equal(run(["diff", "--exit-code", "HEAD", "--"], cwd), "");
       trees[name] = run(["rev-parse", "HEAD^{tree}"], cwd);
     }
     const sourceHashes = Object.fromEntries(
