@@ -1554,27 +1554,44 @@ const make = Effect.gen(function* () {
     readonly responseCommandId?: CommandId;
     readonly settlementStatus?: "retryable" | "uncertain";
   }) =>
-    orchestrationEngine.dispatch({
-      type: "thread.activity.append",
-      commandId: serverCommandId("provider-failure-activity"),
-      threadId: input.threadId,
-      activity: {
-        id: EventId.makeUnsafe(crypto.randomUUID()),
-        tone: "error",
-        kind: input.kind,
-        summary: input.summary,
-        payload: {
-          detail: input.detail,
-          ...(input.requestId ? { requestId: input.requestId } : {}),
-          ...(input.lifecycleGeneration ? { lifecycleGeneration: input.lifecycleGeneration } : {}),
-          ...(input.responseCommandId ? { responseCommandId: input.responseCommandId } : {}),
-          ...(input.settlementStatus ? { settlementStatus: input.settlementStatus } : {}),
+    orchestrationEngine
+      .dispatch({
+        type: "thread.activity.append",
+        commandId: serverCommandId("provider-failure-activity"),
+        threadId: input.threadId,
+        activity: {
+          id: EventId.makeUnsafe(crypto.randomUUID()),
+          tone: "error",
+          kind: input.kind,
+          summary: input.summary,
+          payload: {
+            detail: input.detail,
+            ...(input.requestId ? { requestId: input.requestId } : {}),
+            ...(input.lifecycleGeneration
+              ? { lifecycleGeneration: input.lifecycleGeneration }
+              : {}),
+            ...(input.responseCommandId ? { responseCommandId: input.responseCommandId } : {}),
+            ...(input.settlementStatus ? { settlementStatus: input.settlementStatus } : {}),
+          },
+          turnId: input.turnId,
+          createdAt: input.createdAt,
         },
-        turnId: input.turnId,
         createdAt: input.createdAt,
-      },
-      createdAt: input.createdAt,
-    });
+      })
+      .pipe(
+        Effect.asVoid,
+        Effect.catchTag("OrchestrationCommandAdmissionError", (error) =>
+          error.reason === "stopped" &&
+          (input.kind === "provider.turn.interrupt.failed" ||
+            input.kind === "provider.session.stop.failed")
+            ? Effect.logWarning("provider cleanup diagnostic skipped during shutdown", {
+                threadId: input.threadId,
+                kind: input.kind,
+                detail: input.detail,
+              })
+            : Effect.fail(error),
+        ),
+      );
 
   const setThreadSession = (input: {
     readonly threadId: ThreadId;
@@ -9124,8 +9141,8 @@ const make = Effect.gen(function* () {
   ) as ProviderCommandReactorShape["start"];
 
   const drain: ProviderCommandReactorShape["drain"] = Effect.gen(function* () {
+    const targetSequence = yield* orchestrationEngine.getEventHighWaterSequence;
     while (true) {
-      const targetSequence = yield* orchestrationEngine.getEventHighWaterSequence;
       const consumerState = yield* deliveryRepository.getConsumerState(
         PROVIDER_COMMAND_REACTOR_CONSUMER,
       );

@@ -134,6 +134,7 @@ import {
   type OrchestrationEngineShape,
 } from "../Services/OrchestrationEngine.ts";
 import {
+  OrchestrationCommandAdmissionError,
   OrchestrationCommandInternalError,
   OrchestrationCommandInvariantError,
   type OrchestrationDispatchError,
@@ -7822,6 +7823,90 @@ describe("ProviderCommandReactor", () => {
     ).toBe(scenario.reportsFailure);
     expect(harness.sendTurn).not.toHaveBeenCalled();
     expect(harness.interruptTurn).toHaveBeenCalledTimes(scenario.initiallyStopped ? 0 : 1);
+  });
+
+  it("settles an interrupt despite stopped diagnostic admission without quarantining later work", async () => {
+    const harness = await createHarness({
+      interruptTurn: () =>
+        Effect.fail(
+          new ProviderAdapterRequestError({
+            provider: "codex",
+            method: "interruptTurn",
+            detail: "Transport closed",
+          }),
+        ),
+    });
+    const threadId = ThreadId.makeUnsafe("thread-1");
+    const createdAt = new Date().toISOString();
+    await Effect.runPromise(
+      harness.engine.dispatch({
+        type: "thread.session.set",
+        commandId: CommandId.makeUnsafe("diagnostic-running"),
+        threadId,
+        createdAt,
+        session: {
+          threadId,
+          status: "running",
+          providerName: "codex",
+          runtimeMode: "full-access",
+          activeTurnId: asTurnId("diagnostic-turn"),
+          lastError: null,
+          updatedAt: createdAt,
+        },
+      }),
+    );
+    harness.interceptEngineDispatch((command) =>
+      command.type === "thread.activity.append"
+        ? Effect.fail(
+            new OrchestrationCommandAdmissionError({
+              commandId: command.commandId,
+              commandType: command.type,
+              capacity: 256,
+              reservedCapacity: 32,
+              reason: "stopped",
+            }),
+          )
+        : undefined,
+    );
+    const requested = await Effect.runPromise(
+      harness.engine.dispatch({
+        type: "thread.turn.interrupt",
+        commandId: CommandId.makeUnsafe("quit-resume-interrupt:diagnostic:thread-1"),
+        threadId,
+        createdAt,
+      }),
+    );
+    await harness.drain();
+    const delivery = await Effect.runPromise(
+      harness.deliveryRepository.getDelivery({
+        consumerName: PROVIDER_COMMAND_REACTOR_CONSUMER,
+        eventSequence: requested.sequence,
+      }),
+    );
+    expect(Option.getOrThrow(delivery).state).toBe("succeeded");
+    expect((await readHarnessThread(harness))?.session?.activeTurnId).toBeNull();
+    expect(harness.stopRuntimeSession).toHaveBeenCalledTimes(1);
+    await Effect.runPromise(
+      harness.engine.dispatch({
+        type: "thread.turn.start",
+        commandId: CommandId.makeUnsafe("after-quit-diagnostic"),
+        threadId,
+        runtimeMode: "approval-required",
+        interactionMode: "default",
+        createdAt,
+        message: {
+          messageId: MessageId.makeUnsafe("after-quit-diagnostic-message"),
+          role: "user",
+          text: "Continue normally",
+          attachments: [],
+        },
+      }),
+    );
+    await waitFor(() => harness.sendTurn.mock.calls.length === 1);
+    await harness.drain();
+    expect(
+      await Effect.runPromise(harness.reactor.listBlockingDeliveries({ threadId, limit: 10 })),
+    ).toEqual([]);
   });
 
   it.each([

@@ -97,6 +97,7 @@ describe("ProviderRuntimeReconcilerLive", () => {
         }),
     } as unknown as OrchestrationEngineShape;
     const reactor = {
+      drainProviderCommands: Effect.void,
       start: Effect.void,
       reconcileSettledOpenTurns: Effect.sync(reconcileSettledOpenTurns),
     } satisfies OrchestrationReactorShape;

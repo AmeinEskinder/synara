@@ -45,6 +45,13 @@ describe("server runtime pipeline shutdown", () => {
             order.push("managed-attachments-drained");
           }),
         },
+        orchestrationReactor: {
+          drainProviderCommands: Effect.sync(() => {
+            expect(terminalAccepted).toBe(true);
+            expect(terminalPersisted).toBe(false);
+            order.push("provider-commands-drained");
+          }),
+        },
         subscriptionsScope,
       }),
     );
@@ -53,6 +60,7 @@ describe("server runtime pipeline shutdown", () => {
       "engine-quiesced",
       "admitted-commands-drained",
       "provider-terminal-events-fenced",
+      "provider-commands-drained",
       "reactors-drained-and-persisted",
       "managed-attachments-drained",
       "engine-stopped",

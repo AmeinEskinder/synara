@@ -23,6 +23,7 @@ describe("OrchestrationReactor", () => {
   it("starts runtime observers before provider command dispatch can begin", async () => {
     const started: string[] = [];
     const stopped: string[] = [];
+    const drained: string[] = [];
     let reconciledOpenTurns = 0;
 
     runtime = ManagedRuntime.make(
@@ -47,7 +48,7 @@ describe("OrchestrationReactor", () => {
               }),
               () => Effect.sync(() => stopped.push("provider-runtime-ingestion")),
             ),
-            drain: Effect.void,
+            drain: Effect.sync(() => drained.push("runtime")),
             reconcileSettledOpenTurns: Effect.sync(() => {
               reconciledOpenTurns += 1;
             }),
@@ -61,7 +62,7 @@ describe("OrchestrationReactor", () => {
               }),
               () => Effect.sync(() => stopped.push("provider-command-reactor")),
             ),
-            drain: Effect.void,
+            drain: Effect.sync(() => drained.push("commands")),
             listBlockingDeliveries: () => Effect.succeed([]),
             reconcileDelivery: () => Effect.succeed(null),
             regenerateThreadTitle: () => Effect.succeed({ status: "no-context", title: null }),
@@ -119,6 +120,8 @@ describe("OrchestrationReactor", () => {
       "provider-command-reactor",
     ]);
     expect(reconciledOpenTurns).toBe(1);
+    await runtime.runPromise(reactor.drainProviderCommands);
+    expect(drained).toEqual(["runtime", "commands"]);
 
     await Effect.runPromise(Scope.close(scope, Exit.void));
     expect(stopped).toEqual([
