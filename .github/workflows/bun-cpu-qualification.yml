@@ -1,0 +1,45 @@
+name: Qualify pinned Bun optional CPU selection
+
+on:
+  push:
+    branches: [cleanup/20261011/bun-cpu-evidence]
+    paths:
+      - .github/workflows/bun-cpu-qualification.yml
+      - .github/scripts/bun-cpu-qualification.mjs
+
+permissions:
+  contents: read
+
+jobs:
+  cpu-selection:
+    runs-on: macos-15
+    timeout-minutes: 5
+    steps:
+      - name: Checkout immutable diagnostic
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          path: driver
+          persist-credentials: false
+      - name: Checkout exact feature source
+        uses: actions/checkout@v6
+        with:
+          ref: 45fc776f672acd83541069efaa6350145fe3ecef
+          path: source
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: source/package.json
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: source/package.json
+      - name: Exercise named and wildcard CPU targets with actual optional packages
+        run: node driver/.github/scripts/bun-cpu-qualification.mjs source
+      - name: Upload exact source and CPU selection evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: bun-cpu-45fc776f-${{ github.sha }}
+          path: ${{ runner.temp }}/bun-cpu-evidence
+          if-no-files-found: error
+          retention-days: 14
