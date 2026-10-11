@@ -1,0 +1,99 @@
+name: Working status source-pinned UI evidence
+
+on:
+  push:
+    branches:
+      - cleanup/20261011/working-status-evidence
+    paths:
+      - .github/workflows/pr-status-evidence.yml
+      - scripts/pr-status-evidence/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-status-evidence-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_OPTIONS: --max-old-space-size=4096
+
+jobs:
+  targets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.targets.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - id: targets
+        run: node scripts/pr-status-evidence/runner.mjs matrix
+
+  capture:
+    name: Evidence ${{ matrix.id }}
+    needs: targets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix: ${{ fromJSON(needs.targets.outputs.matrix) }}
+    steps:
+      - name: Checkout immutable application source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ matrix.source }}
+          persist-credentials: false
+      - name: Checkout isolated reviewed evidence driver
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          path: .pr-status-driver
+          persist-credentials: false
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
+        with:
+          electron: "false"
+      - name: Cache Playwright browsers
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('bun.lock') }}
+      - name: Install actual browser and video runtime
+        timeout-minutes: 10
+        run: ./apps/web/node_modules/.bin/playwright install chromium ffmpeg
+      - name: Prepare source and overlay receipt
+        env:
+          PR_STATUS_TARGET: ${{ matrix.id }}
+          PR_STATUS_SOURCE: ${{ matrix.source }}
+        run: node .pr-status-driver/scripts/pr-status-evidence/runner.mjs prepare
+      - name: Capture normal and reduced-motion production UI
+        timeout-minutes: 10
+        working-directory: apps/web
+        run: |
+          failed=0
+          for motion_mode in no-preference reduce; do
+            set +e
+            VITE_PR_UI_MOTION_MODE="$motion_mode" bunx vitest run --config vitest.pr-status-evidence.config.ts 2>&1 | tee "$VITE_PR_UI_EVIDENCE_DIR/$motion_mode.log"
+            result=("${PIPESTATUS[@]}")
+            set -e
+            printf '{"vitest":%s,"tee":%s}\n' "${result[0]}" "${result[1]}" > "$VITE_PR_UI_EVIDENCE_DIR/$motion_mode-exits.json"
+            if [ "${result[0]}" -ne 0 ]; then failed="${result[0]}"; fi
+            if [ "${result[1]}" -ne 0 ]; then failed="${result[1]}"; fi
+          done
+          exit "$failed"
+      - name: Verify exact source and preserve actual result
+        if: always()
+        run: node .pr-status-driver/scripts/pr-status-evidence/runner.mjs verify
+      - name: Upload exact-source images, videos and receipts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: status-evidence-${{ matrix.id }}-${{ matrix.source }}
+          path: .pr-status-evidence/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
