@@ -3,7 +3,7 @@ name: PR UI evidence
 on:
   push:
     branches:
-      - cleanup/20261010/ui-evidence
+      - cleanup/20261011/file-find-evidence
     paths:
       - .github/workflows/pr-ui-evidence.yml
       - scripts/pr-ui-evidence/**
@@ -128,3 +128,4 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
+

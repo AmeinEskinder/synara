@@ -1,15 +1,22 @@
 [
   {
-    "id": "pr1655-control",
+    "id": "pr1655-before",
     "pr": 1655,
-    "variant": "control",
-    "purpose": "regression-control",
-    "role": "author-head defect control; not a main baseline or screenshot",
-    "source": "977c97849b615cbe1fa566f376166cc3a41068f9",
-    "sourceTree": "b7074525a386fdc2f6a3cc8b69bd8d25c1e4a170",
+    "variant": "before",
+    "role": "Previous repaired source: find bar still covers header actions",
+    "source": "ed3ad6f3818ee00e677e8822f2daf3a9d54f0d90",
     "mode": "standalone",
-    "fixture": "PrUiEvidence1655Defects.browser.tsx",
-    "fixtureSha256": "a49c3e0bdd98a90d157546b95078c22d015337e46ea96224f6f1506c8293abb0",
-    "destination": "apps/web/src/components/PrUiEvidence1655Defects.browser.tsx"
+    "fixture": "PrUiEvidence1655Layout.browser.tsx",
+    "destination": "apps/web/src/components/PrUiEvidence1655Layout.browser.tsx"
+  },
+  {
+    "id": "pr1655-after",
+    "pr": 1655,
+    "variant": "after",
+    "role": "Current repaired source: compact find row and accessible Reload",
+    "source": "2db658e39dbf585511c0dd680357be08b2a9f6cd",
+    "mode": "standalone",
+    "fixture": "PrUiEvidence1655Layout.browser.tsx",
+    "destination": "apps/web/src/components/PrUiEvidence1655Layout.browser.tsx"
   }
 ]
