@@ -13,8 +13,14 @@ import { afterEach, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";
 
 import { useStore } from "~/store";
+import { useTheme } from "~/hooks/useTheme";
 
 import { RunningChatsQuitCoordinator } from "./RunningChatsQuitCoordinator";
+
+function ThemedQuitCoordinator() {
+  useTheme();
+  return <RunningChatsQuitCoordinator />;
+}
 
 vi.mock("~/lib/wsHttpUrl", async (original) => ({
   ...(await original<typeof import("../lib/wsHttpUrl")>()),
@@ -88,9 +94,10 @@ it.each([false, true])(
         };
       },
       replyQuitConfirmation: reply,
+      setTheme: vi.fn().mockResolvedValue(undefined),
     } as Pick<
       DesktopBridge,
-      "onQuitConfirmationRequest" | "replyQuitConfirmation"
+      "onQuitConfirmationRequest" | "replyQuitConfirmation" | "setTheme"
     > as DesktopBridge;
     window.nativeApi = {
       orchestration: { prepareQuitResume, dispatchCommand },
@@ -121,13 +128,18 @@ it.each([false, true])(
     });
     const screen = await render(
       <QueryClientProvider client={queryClient}>
-        <RunningChatsQuitCoordinator />
+        <ThemedQuitCoordinator />
       </QueryClientProvider>,
       { container },
     );
     try {
       request?.({ requestId: "pending-quit", presentation: "in-app" });
       await expect.element(page.getByRole("alertdialog")).toBeVisible();
+      await expect
+        .poll(() =>
+          getComputedStyle(document.documentElement).getPropertyValue("--color-text-accent").trim(),
+        )
+        .not.toBe("");
       expect(reply).toHaveBeenCalledWith(
         expect.objectContaining({ requestId: "pending-quit", phase: "ready", runningCount: 1 }),
       );

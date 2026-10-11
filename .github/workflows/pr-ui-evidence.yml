@@ -17,6 +17,7 @@ concurrency:
 
 env:
   NODE_OPTIONS: --max-old-space-size=4096
+  PR_UI_EVIDENCE_TARGETS: pr1809-before,pr1809-after
 
 jobs:
   targets:

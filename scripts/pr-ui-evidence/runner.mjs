@@ -52,8 +52,16 @@ for (const target of targets) {
 
 const command = process.argv[2];
 if (command === "matrix") {
+  const selectedIds = process.env.PR_UI_EVIDENCE_TARGETS?.split(",");
+  if (
+    selectedIds &&
+    (selectedIds.some((id) => !ids.has(id)) || new Set(selectedIds).size !== selectedIds.length)
+  ) {
+    throw new Error("Evidence filter must contain distinct reviewed target ids.");
+  }
+  const selected = selectedIds ? targets.filter(({ id }) => selectedIds.includes(id)) : targets;
   const matrix = JSON.stringify({
-    include: targets.map(({ id, source, mode, purpose }) => ({
+    include: selected.map(({ id, source, mode, purpose }) => ({
       id,
       source,
       kind: purpose === "regression-control" ? "control" : mode === "native" ? "native" : "web",
