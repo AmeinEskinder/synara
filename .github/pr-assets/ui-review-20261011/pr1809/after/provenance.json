@@ -1,0 +1,152 @@
+{
+  "target": {
+    "id": "pr1809-after",
+    "pr": 1809,
+    "variant": "after",
+    "source": "869e40c4bf989f936fca4c59c32dac0ab4bcb27b",
+    "mode": "standalone",
+    "fixture": "PrUiEvidence1809.browser.tsx",
+    "destination": "apps/web/src/components/PrUiEvidence1809.browser.tsx",
+    "expectedObservations": 2
+  },
+  "source": "869e40c4bf989f936fca4c59c32dac0ab4bcb27b",
+  "sourceTree": "0ec9f4933b058438fc120f68b0668f3118744a97",
+  "driver": "af8e6f56f558abfb920d0db0124fe2c2559d3da9",
+  "overlays": [
+    {
+      "path": "apps/web/src/components/PrUiEvidence1809.browser.tsx",
+      "originalSha256": null,
+      "fixtureSha256": "d0d5153e5f190ccdac119b5eed7ca802238c8365a1991eba47eba52dd0938f84",
+      "sha256": "d0d5153e5f190ccdac119b5eed7ca802238c8365a1991eba47eba52dd0938f84"
+    },
+    {
+      "path": "apps/web/vitest.pr-ui-evidence.config.ts",
+      "originalSha256": null,
+      "sha256": "e6419db29b3d31e99b1cccc22c008758fcf1b13f898fd591d7497554c06e73bc"
+    }
+  ],
+  "status": "completed",
+  "applicationCodeModified": false,
+  "createdAt": "2026-10-11T15:47:17.219Z",
+  "images": [
+    {
+      "name": "quit-resume-false-acknowledged.png",
+      "bytes": 16885,
+      "sha256": "27c82084dee7e84bc85508895cefa56e5acb45066e92942c99d761404e0b125b"
+    },
+    {
+      "name": "quit-resume-false-initial.png",
+      "bytes": 36246,
+      "sha256": "a4f0b01f1a78ffb7b7942499e4f314c3c26267fb722befd798c68cfa4ec22770"
+    },
+    {
+      "name": "quit-resume-false-pending.png",
+      "bytes": 33118,
+      "sha256": "8f5a8c97d4731fef02a249597512fb5e72778aa99058500fd513ff38457c3f40"
+    },
+    {
+      "name": "quit-resume-true-acknowledged.png",
+      "bytes": 16885,
+      "sha256": "27c82084dee7e84bc85508895cefa56e5acb45066e92942c99d761404e0b125b"
+    },
+    {
+      "name": "quit-resume-true-initial.png",
+      "bytes": 38353,
+      "sha256": "4e39685be0403f665dd4ddccbc919d6909a914f7f1d7c78636ac6fe50577f8fc"
+    },
+    {
+      "name": "quit-resume-true-pending.png",
+      "bytes": 33265,
+      "sha256": "eb9ffadd385d2ec5760637962d966243e558507701fdefccdcd01e800a580999"
+    }
+  ],
+  "videos": [
+    {
+      "name": "video/page@9300c9c75c6963906c2be23346dfaf60.webm",
+      "bytes": 361357,
+      "sha256": "a74829c90d51d1f14cf6b5d5c7d4d057d6302186232326982f4c5fc2de183da8"
+    }
+  ],
+  "interaction": [
+    {
+      "variant": "after",
+      "pr": 1809,
+      "resumeAfterRestart": false,
+      "prepareCalls": [
+        [
+          {
+            "threadIds": [
+              "pending-quit-thread"
+            ],
+            "resumeAfterRestart": false,
+            "continuationPrompt": "Synara (Dev) was closed while this chat was still running. Continue where you left off."
+          }
+        ]
+      ],
+      "replies": [
+        [
+          {
+            "requestId": "pending-quit",
+            "phase": "ready",
+            "runningCount": 1,
+            "chats": [
+              {
+                "id": "pending-quit-thread",
+                "title": "Untitled thread"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "requestId": "pending-quit",
+            "phase": "decision",
+            "allow": true
+          }
+        ]
+      ],
+      "boundary": "Actual quit coordinator UI with controlled acknowledgement. No native process cleanup or provider termination claim."
+    },
+    {
+      "variant": "after",
+      "pr": 1809,
+      "resumeAfterRestart": true,
+      "prepareCalls": [
+        [
+          {
+            "threadIds": [
+              "pending-quit-thread"
+            ],
+            "resumeAfterRestart": true,
+            "continuationPrompt": "Synara (Dev) was closed while this chat was still running. Continue where you left off."
+          }
+        ]
+      ],
+      "replies": [
+        [
+          {
+            "requestId": "pending-quit",
+            "phase": "ready",
+            "runningCount": 1,
+            "chats": [
+              {
+                "id": "pending-quit-thread",
+                "title": "Untitled thread"
+              }
+            ]
+          }
+        ],
+        [
+          {
+            "requestId": "pending-quit",
+            "phase": "decision",
+            "allow": true
+          }
+        ]
+      ],
+      "boundary": "Actual quit coordinator UI with controlled acknowledgement. No native process cleanup or provider termination claim."
+    }
+  ],
+  "logSha256": "eeb1fa39d7dbb5d68bfbd0cfafe2bb9a561fda3eaeee330a74e47966ebf9759c",
+  "completedAt": "2026-10-11T15:47:34.713Z"
+}

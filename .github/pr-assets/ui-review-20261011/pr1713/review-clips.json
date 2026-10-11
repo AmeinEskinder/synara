@@ -1,0 +1,30 @@
+[
+  {
+    "target": "pr1713-before",
+    "input": {
+      "name": "video/page@6243039e71f46c9e1a29dc4bd3a92a0d.webm",
+      "bytes": 993506,
+      "sha256": "583f63f311751c60cdf30d84d936da8d609612f647b407040be85d4cd0e5aea4"
+    },
+    "startSeconds": 106.4,
+    "endSeconds": 110.5,
+    "output": "settings-cache-interaction.mp4",
+    "sha256": "2a04f03525833cf69c4c4ec2b410ec4a442180ca15bfc703827fe261d62ef9c8",
+    "bytes": 194503,
+    "transform": "Temporal trim and H264 encoding only; no crop, overlays, pixel alteration or retiming."
+  },
+  {
+    "target": "pr1713-after",
+    "input": {
+      "name": "video/page@1ecf5deeb3e45201ab376ac8a4bf2e98.webm",
+      "bytes": 1143210,
+      "sha256": "658bf41c68837d5deb74f0df48908a8cdab33f93b10656138cc6476e42faada3"
+    },
+    "startSeconds": 110.4,
+    "endSeconds": 116.6,
+    "output": "settings-cache-interaction.mp4",
+    "sha256": "1be6e925c4cedd8173900cc708d9cc059c2b1b5819f79e6d22c6c7ce601679b3",
+    "bytes": 230511,
+    "transform": "Temporal trim and H264 encoding only; no crop, overlays, pixel alteration or retiming."
+  }
+]

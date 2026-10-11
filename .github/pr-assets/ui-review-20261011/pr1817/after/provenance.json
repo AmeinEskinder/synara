@@ -1,0 +1,94 @@
+{
+  "target": {
+    "id": "pr1817-after",
+    "pr": 1817,
+    "variant": "after",
+    "source": "8e165a40165ddeb3c6384deca97a967eb569d380",
+    "mode": "standalone",
+    "fixture": "PrUiEvidence1817.browser.tsx",
+    "destination": "apps/web/src/components/PrUiEvidence1817.browser.tsx"
+  },
+  "source": "8e165a40165ddeb3c6384deca97a967eb569d380",
+  "sourceTree": "a3566f92415667868750c7dbbd389eee3fdae45b",
+  "driver": "96844cce03ed762bb8194172de3bbd3a8fdc501e",
+  "overlays": [
+    {
+      "path": "apps/web/src/components/PrUiEvidence1817.browser.tsx",
+      "originalSha256": null,
+      "fixtureSha256": "addb252ae43e04ca9b434b533397978f1ea25504ade71c3f77c8ee9569dba6d9",
+      "sha256": "addb252ae43e04ca9b434b533397978f1ea25504ade71c3f77c8ee9569dba6d9"
+    },
+    {
+      "path": "apps/web/vitest.pr-ui-evidence.config.ts",
+      "originalSha256": null,
+      "sha256": "4494f4444eadf64395f4725211c53d4c163e050c3b337d594497d9ed42174476"
+    }
+  ],
+  "status": "completed",
+  "applicationCodeModified": false,
+  "createdAt": "2026-10-11T15:44:03.397Z",
+  "images": [
+    {
+      "name": "menu-auto-760px.png",
+      "bytes": 40641,
+      "sha256": "3b9f08d53e9fa8a2f851e2143b7a7c58569165e3d88c662953d465a8e8e908fa"
+    },
+    {
+      "name": "menu-full-360px.png",
+      "bytes": 37030,
+      "sha256": "32272e7a95bca1376ea0dfa97258c9cdde99e1da3fa1155bc4d94505c624f2da"
+    },
+    {
+      "name": "menu-full-760px.png",
+      "bytes": 40231,
+      "sha256": "fdd99ed211bf2f76944e833173234332d4bd846ba346c174c20fe35a0cfc3da8"
+    },
+    {
+      "name": "new-selection-result-760px.png",
+      "bytes": 17702,
+      "sha256": "a9e59b7fd37aa4d59ba0af2cb834c1776f396627e9de46a5100d3c76c050f17f"
+    },
+    {
+      "name": "selected-choice-result-760px.png",
+      "bytes": 17702,
+      "sha256": "a9e59b7fd37aa4d59ba0af2cb834c1776f396627e9de46a5100d3c76c050f17f"
+    },
+    {
+      "name": "share-action-result-760px.png",
+      "bytes": 17702,
+      "sha256": "a9e59b7fd37aa4d59ba0af2cb834c1776f396627e9de46a5100d3c76c050f17f"
+    }
+  ],
+  "videos": [
+    {
+      "name": "video/page@863713a87c894ad2d0bdd3a9c957ec91.webm",
+      "bytes": 159194,
+      "sha256": "d0e73c1d4ab056441feff56ba3a56ff96962f5174ba85c4b99cc26e12bd32722"
+    }
+  ],
+  "interaction": {
+    "variant": "after",
+    "before": {
+      "x": 73,
+      "width": 302,
+      "height": 44
+    },
+    "selected": {
+      "x": 73,
+      "width": 302,
+      "height": 44
+    },
+    "modeChanges": [
+      [
+        "full-access"
+      ]
+    ],
+    "captureRequests": 1,
+    "narrowMenu": {
+      "left": 24,
+      "right": 355.1875
+    }
+  },
+  "logSha256": "478b71d2bc34a528d6561bcaeef34a08949b1bed1cd13e17259cf0ef27d6eb20",
+  "completedAt": "2026-10-11T15:44:18.933Z"
+}

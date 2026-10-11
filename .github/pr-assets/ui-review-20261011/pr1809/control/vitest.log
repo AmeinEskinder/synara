@@ -1,0 +1,50 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/runner/work/synara/synara/apps/web[39m
+
+[2m3:35:20 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [optimizer] scanning dependencies...
+[2m3:35:21 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [optimizer] bundling dependencies...
+Browserslist: browsers data (caniuse-lite) is 7 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+ [31m❯[39m [30m[43m chromium [49m[39m src/components/PrUiEvidence1809Control.browser.tsx [2m([22m[2m3 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 120983[2mms[22m[39m
+[31m   [31m×[31m keeps the quit dialog disabled until interrupt admission is acknowledged (resume=false)[39m[33m 120033[2mms[22m[39m
+   [33m[2m✓[22m[39m keeps the quit dialog disabled until interrupt admission is acknowledged (resume=true) [33m 591[2mms[22m[39m
+   [33m[2m✓[22m[39m requires confirmation for an idle quit, supports Escape, and asks again after cancel [33m 357[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m [30m[43m chromium [49m[39m src/components/PrUiEvidence1809Control.browser.tsx[2m > [22mkeeps the quit dialog disabled until interrupt admission is acknowledged (resume=false)
+[31m[1mVitestBrowserElementError[22m: Cannot find element with locator: getByRole('button', { name: 'Quit', exact: true })
+
+[36m<body>[31m
+  [0m
+  
+
+[0m
+  [36m<div />[31m
+[36m</body>[31m[39m
+
+Failure screenshot:
+  - [2msrc/components/__screenshots__/PrUiEvidence1809Control.browser.tsx/keeps-the-quit-dialog-disabled-until-interrupt-admission-is-acknowledged--resume-false--1.png[22m
+
+[36m [2m❯[22m src/components/PrUiEvidence1809Control.browser.tsx:[2m108:33[22m[39m
+    [90m106|[39m       )[33m;[39m
+    [90m107|[39m       await expect.element(page.getByRole("alertdialog")).toBeVisible(…
+    [90m108|[39m       [35mawait[39m expect[33m.[39m[34melement[39m(quit)[33m.[39m[34mtoBeDisabled[39m()[33m;[39m
+    [90m   |[39m                                 [31m^[39m
+    [90m109|[39m       await expect.element(page.getByRole("button", { name: /^Cancel/ …
+    [90m110|[39m       [35mawait[39m expect[33m.[39m[34melement[39m(page[33m.[39m[34mgetByRole[39m([32m"checkbox"[39m))[33m.[39m[34mtoBeDisabled[39m()[33m;[39m
+
+[31m[1mCaused by: Error[22m: Matcher did not succeed in time.[39m
+[36m [2m❯[22m src/components/PrUiEvidence1809Control.browser.tsx:[2m108:6[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m2 passed[39m[22m[90m (3)[39m
+[2m   Start at [22m 15:35:19
+[2m   Duration [22m 130.62s[2m (transform 0ms, setup 0ms, import 6.46s, tests 120.98s, environment 0ms)[22m
+
+
+::error file=/home/runner/work/synara/synara/apps/web/src/components/PrUiEvidence1809Control.browser.tsx,title=[chromium] src/components/PrUiEvidence1809Control.browser.tsx > keeps the quit dialog disabled until interrupt admission is acknowledged (resume=false),line=108,column=33::VitestBrowserElementError: Cannot find element with locator: getByRole('button', { name: 'Quit', exact: true })%0A%0A<body>%0A  %0A  %0A%0A%0A  <div />%0A</body>%0A ❯ src/components/PrUiEvidence1809Control.browser.tsx:108:33%0A%0ACaused by: Caused by: Error: Matcher did not succeed in time.%0A ❯ src/components/PrUiEvidence1809Control.browser.tsx:108:6%0A%0A

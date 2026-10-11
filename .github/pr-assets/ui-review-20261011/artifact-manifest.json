@@ -1,0 +1,129 @@
+[
+  {
+    "pr": 1713,
+    "variant": "before",
+    "source": "907161a60bbb4b16d53feec693eafd2c7e1b66a0",
+    "sourceTree": "dd18cd280d50366d57ceb6d300c2528ed7796e63",
+    "driver": "7462a34507a281d094da4c81a5bccc6932545a0c",
+    "run": 38151354117,
+    "artifactId": 11705714685,
+    "archiveSha256": "113de6a4d61e5a71b7819c4599563b4191be8d3f6edd9d34455c6e1a8fec1527",
+    "publishedFiles": [
+      "pr1713/before/provenance.json",
+      "pr1713/before/cache-review-options.png",
+      "pr1713/before/conversation-default.png",
+      "pr1713/before/safety-default.png",
+      "pr1713/before/settings-cache-interaction.mp4"
+    ]
+  },
+  {
+    "pr": 1713,
+    "variant": "after",
+    "source": "4112a2f6e9f7eaf100dd874f5be4ff0469a9ce40",
+    "sourceTree": "ddde93c61dc0ddbe309d95fc774b95c581f3d9c4",
+    "driver": "7462a34507a281d094da4c81a5bccc6932545a0c",
+    "run": 38151354117,
+    "artifactId": 11706921464,
+    "archiveSha256": "2b5045089126b2bd08b5cf474e0ad64fecbb509d770882d9d8dc7685dab58ed5",
+    "publishedFiles": [
+      "pr1713/after/provenance.json",
+      "pr1713/after/cache-review-awaiting-acceptance.png",
+      "pr1713/after/cache-review-options.png",
+      "pr1713/after/conversation-default.png",
+      "pr1713/after/conversation-never.png",
+      "pr1713/after/safety-cache-off.png",
+      "pr1713/after/safety-default.png",
+      "pr1713/after/settings-cache-interaction.mp4"
+    ]
+  },
+  {
+    "pr": 1817,
+    "variant": "before",
+    "source": "09bba9fa4cb1f109d6fe0763f59311317817f5db",
+    "sourceTree": "0ca0c49a51c2345ca0685476f3c70a88ffdedc11",
+    "driver": "96844cce03ed762bb8194172de3bbd3a8fdc501e",
+    "run": 38152150739,
+    "artifactId": 11707002524,
+    "archiveSha256": "ceea23511a32187c650c372d4bad5ad702890f744511e416090e67d92dbb5849",
+    "publishedFiles": [
+      "pr1817/before/provenance.json",
+      "pr1817/before/menu-auto-760px.png",
+      "pr1817/before/menu-full-360px.png",
+      "pr1817/before/menu-full-760px.png",
+      "pr1817/before/new-selection-result-760px.png",
+      "pr1817/before/selected-choice-result-760px.png",
+      "pr1817/before/share-action-result-760px.png",
+      "pr1817/before/video/page@56c83fdcabb71738271d4210a36323e8.webm"
+    ]
+  },
+  {
+    "pr": 1817,
+    "variant": "after",
+    "source": "8e165a40165ddeb3c6384deca97a967eb569d380",
+    "sourceTree": "a3566f92415667868750c7dbbd389eee3fdae45b",
+    "driver": "96844cce03ed762bb8194172de3bbd3a8fdc501e",
+    "run": 38152150739,
+    "artifactId": 11707271845,
+    "archiveSha256": "5aa6a2441523cdfb152cd7b084d946747121d7267df0a9effb0dd13c12bf5def",
+    "publishedFiles": [
+      "pr1817/after/provenance.json",
+      "pr1817/after/menu-auto-760px.png",
+      "pr1817/after/menu-full-360px.png",
+      "pr1817/after/menu-full-760px.png",
+      "pr1817/after/new-selection-result-760px.png",
+      "pr1817/after/selected-choice-result-760px.png",
+      "pr1817/after/share-action-result-760px.png",
+      "pr1817/after/video/page@863713a87c894ad2d0bdd3a9c957ec91.webm"
+    ]
+  },
+  {
+    "pr": 1809,
+    "variant": "before",
+    "source": "22bcafdc965ce7e4ef253b2cd5bd05dc5671cc05",
+    "sourceTree": "8bb6019499c3d9cf29b0022fdcb2406419a4d2d9",
+    "driver": "af8e6f56f558abfb920d0db0124fe2c2559d3da9",
+    "run": 38152588503,
+    "artifactId": 11707575723,
+    "archiveSha256": "470318edfa7da95bef7fe013fad200d25164b8f4f5f38a6dc07e8f28a94faab1",
+    "publishedFiles": [
+      "pr1809/before/provenance.json",
+      "pr1809/before/quit-resume-false-acknowledged.png",
+      "pr1809/before/quit-resume-false-initial.png",
+      "pr1809/before/quit-resume-false-pending.png",
+      "pr1809/before/quit-resume-true-acknowledged.png",
+      "pr1809/before/quit-resume-true-initial.png",
+      "pr1809/before/quit-resume-true-pending.png",
+      "pr1809/before/video/page@903d9d850c4c785682fd9c100d78f029.webm"
+    ]
+  },
+  {
+    "pr": 1809,
+    "variant": "after",
+    "source": "869e40c4bf989f936fca4c59c32dac0ab4bcb27b",
+    "sourceTree": "0ec9f4933b058438fc120f68b0668f3118744a97",
+    "driver": "af8e6f56f558abfb920d0db0124fe2c2559d3da9",
+    "run": 38152588503,
+    "artifactId": 11707830276,
+    "archiveSha256": "387ca752bca19492590f472cbc543dd3c652180173c39b9f0309c3fbaff1384f",
+    "publishedFiles": [
+      "pr1809/after/provenance.json",
+      "pr1809/after/quit-resume-false-acknowledged.png",
+      "pr1809/after/quit-resume-false-initial.png",
+      "pr1809/after/quit-resume-false-pending.png",
+      "pr1809/after/quit-resume-true-acknowledged.png",
+      "pr1809/after/quit-resume-true-initial.png",
+      "pr1809/after/quit-resume-true-pending.png",
+      "pr1809/after/video/page@9300c9c75c6963906c2be23346dfaf60.webm"
+    ]
+  },
+  {
+    "pr": 1809,
+    "variant": "control",
+    "run": 38151354117,
+    "job": 114505754372,
+    "artifactId": 11707420336,
+    "archiveSha256": "cfffb1f0ee13ceb56acda9e86d2c90248c03d453f997b6124aef487576858e20",
+    "status": "failed",
+    "testExitCode": 1
+  }
+]

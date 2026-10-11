@@ -1,0 +1,67 @@
+{
+  "target": {
+    "id": "pr1713-before",
+    "pr": 1713,
+    "variant": "before",
+    "source": "907161a60bbb4b16d53feec693eafd2c7e1b66a0",
+    "mode": "append-describe",
+    "fixture": "PrUiEvidence1713.snippet.tsx",
+    "destination": "apps/web/src/components/ChatView.browser.tsx",
+    "expectedObservations": 1
+  },
+  "source": "907161a60bbb4b16d53feec693eafd2c7e1b66a0",
+  "sourceTree": "dd18cd280d50366d57ceb6d300c2528ed7796e63",
+  "driver": "7462a34507a281d094da4c81a5bccc6932545a0c",
+  "overlays": [
+    {
+      "path": "apps/web/src/components/ChatView.browser.tsx",
+      "originalSha256": "d0f39ab7acdc35bdcdc9d5057cc6704955571750152b7938addd0a085db349bc",
+      "fixtureSha256": "5085f89d6cc317cffbe05d7765ff19efddcc6c6bc7b0e472ac032feab10bff90",
+      "sha256": "dac3d0e8d78362f8f0ee241b3ab849dc1cf9d125eb5b93e69a01026743246930"
+    },
+    {
+      "path": "apps/web/vitest.pr-ui-evidence.config.ts",
+      "originalSha256": null,
+      "sha256": "e6419db29b3d31e99b1cccc22c008758fcf1b13f898fd591d7497554c06e73bc"
+    }
+  ],
+  "status": "completed",
+  "applicationCodeModified": false,
+  "createdAt": "2026-10-11T15:33:07.944Z",
+  "images": [
+    {
+      "name": "cache-review-options.png",
+      "bytes": 37689,
+      "sha256": "9d57b534fd3726062c63561252006447389f2ba04dc388554cb2902203892d37"
+    },
+    {
+      "name": "conversation-default.png",
+      "bytes": 107915,
+      "sha256": "12bd5dd4c87c373c61c7d484fd05b1e32df8e3d66706a38cca9542a22cdedfe3"
+    },
+    {
+      "name": "safety-default.png",
+      "bytes": 101112,
+      "sha256": "3ac660e710dec2ea63cfd1924c27957d9ae41699b8ae4d468c0fd696899d07b7"
+    }
+  ],
+  "videos": [
+    {
+      "name": "video/page@6243039e71f46c9e1a29dc4bd3a92a0d.webm",
+      "bytes": 993506,
+      "sha256": "583f63f311751c60cdf30d84d936da8d609612f647b407040be85d4cd0e5aea4"
+    }
+  ],
+  "interaction": [
+    {
+      "variant": "before",
+      "pr": 1713,
+      "settingsUpdates": [],
+      "optOutRequests": 0,
+      "preferenceSavedAfterAcceptance": 0,
+      "boundary": "Actual settings route and cache component with controlled settings RPC and response acknowledgement; no retention sweep or live Claude session claim."
+    }
+  ],
+  "logSha256": "1623272b1154744c62a50f4e07908ce042b89b359effc8e4de2f2176e6067f7f",
+  "completedAt": "2026-10-11T15:35:03.144Z"
+}

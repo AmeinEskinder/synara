@@ -1,0 +1,44 @@
+{
+  "target": {
+    "id": "pr1809-control",
+    "pr": 1809,
+    "variant": "control",
+    "source": "22bcafdc965ce7e4ef253b2cd5bd05dc5671cc05",
+    "sourceTree": "8bb6019499c3d9cf29b0022fdcb2406419a4d2d9",
+    "mode": "standalone",
+    "purpose": "regression-control",
+    "fixture": "PrUiEvidence1809Control.browser.tsx",
+    "fixtureSha256": "ada04ac36a21653fa23cd590a6822b9c984d6bd1385a85944cc8e22d33924ea0",
+    "destination": "apps/web/src/components/PrUiEvidence1809Control.browser.tsx"
+  },
+  "source": "22bcafdc965ce7e4ef253b2cd5bd05dc5671cc05",
+  "sourceTree": "8bb6019499c3d9cf29b0022fdcb2406419a4d2d9",
+  "driver": "7462a34507a281d094da4c81a5bccc6932545a0c",
+  "overlays": [
+    {
+      "path": "apps/web/src/components/PrUiEvidence1809Control.browser.tsx",
+      "originalSha256": null,
+      "fixtureSha256": "ada04ac36a21653fa23cd590a6822b9c984d6bd1385a85944cc8e22d33924ea0",
+      "sha256": "ada04ac36a21653fa23cd590a6822b9c984d6bd1385a85944cc8e22d33924ea0"
+    },
+    {
+      "path": "apps/web/vitest.pr-ui-evidence.config.ts",
+      "originalSha256": null,
+      "sha256": "e6419db29b3d31e99b1cccc22c008758fcf1b13f898fd591d7497554c06e73bc"
+    }
+  ],
+  "status": "failed",
+  "applicationCodeModified": false,
+  "createdAt": "2026-10-11T15:35:18.150Z",
+  "controlResult": {
+    "testExitCode": 1,
+    "logExitCode": 0,
+    "testLogSha256": "9614d38e1c02fc3cac6279359ffba237910c13a1c9f7aaa0fce43564a0983420",
+    "qualification": "Actual author-head regression result, not a Before/After screenshot or canonical CI."
+  },
+  "images": [],
+  "videos": [],
+  "interaction": [],
+  "logSha256": "9614d38e1c02fc3cac6279359ffba237910c13a1c9f7aaa0fce43564a0983420",
+  "completedAt": "2026-10-11T15:37:54.642Z"
+}

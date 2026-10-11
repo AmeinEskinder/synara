@@ -1,0 +1,93 @@
+{
+  "target": {
+    "id": "pr1713-after",
+    "pr": 1713,
+    "variant": "after",
+    "source": "4112a2f6e9f7eaf100dd874f5be4ff0469a9ce40",
+    "mode": "append-describe",
+    "fixture": "PrUiEvidence1713.snippet.tsx",
+    "destination": "apps/web/src/components/ChatView.browser.tsx",
+    "expectedObservations": 1
+  },
+  "source": "4112a2f6e9f7eaf100dd874f5be4ff0469a9ce40",
+  "sourceTree": "ddde93c61dc0ddbe309d95fc774b95c581f3d9c4",
+  "driver": "7462a34507a281d094da4c81a5bccc6932545a0c",
+  "overlays": [
+    {
+      "path": "apps/web/src/components/ChatView.browser.tsx",
+      "originalSha256": "72e1bbfa736aada34049cefe0fe8e9baa7763a12574b751e3c898c0b14a147a0",
+      "fixtureSha256": "5085f89d6cc317cffbe05d7765ff19efddcc6c6bc7b0e472ac032feab10bff90",
+      "sha256": "aef308cb462e646c483f4efa5e83f9b2a8d4d0180623fa260a5ab237dabfc585"
+    },
+    {
+      "path": "apps/web/vitest.pr-ui-evidence.config.ts",
+      "originalSha256": null,
+      "sha256": "e6419db29b3d31e99b1cccc22c008758fcf1b13f898fd591d7497554c06e73bc"
+    }
+  ],
+  "status": "completed",
+  "applicationCodeModified": false,
+  "createdAt": "2026-10-11T15:32:48.753Z",
+  "images": [
+    {
+      "name": "cache-review-awaiting-acceptance.png",
+      "bytes": 41423,
+      "sha256": "706a64a31988f04aa32834aa7a64ff9edc53beb30327ef1aeb103f57a98028c5"
+    },
+    {
+      "name": "cache-review-options.png",
+      "bytes": 43359,
+      "sha256": "629e668f50fb1ce3f9b2bfdf83b6ea4e769c0dd17c71cc44191b41977892d8a1"
+    },
+    {
+      "name": "conversation-default.png",
+      "bytes": 108140,
+      "sha256": "d7442a8297e455c64ab6e59a2df91da308b3c0acf9ef495756e5fefc5048c357"
+    },
+    {
+      "name": "conversation-never.png",
+      "bytes": 108401,
+      "sha256": "f98874965e7e74bb756eaa9a72e8416e89cb024d7994c99f2baef947fe6fa3b3"
+    },
+    {
+      "name": "safety-cache-off.png",
+      "bytes": 100345,
+      "sha256": "2889996774b6697ceca3134b49c60c656a341cdb2ab658384e30ac2abf5ad018"
+    },
+    {
+      "name": "safety-default.png",
+      "bytes": 100200,
+      "sha256": "8fac767ebbd1e11df8f5d99142a00ed044f9535283bc9e5670370e1e95e699be"
+    }
+  ],
+  "videos": [
+    {
+      "name": "video/page@1ecf5deeb3e45201ab376ac8a4bf2e98.webm",
+      "bytes": 1143210,
+      "sha256": "658bf41c68837d5deb74f0df48908a8cdab33f93b10656138cc6476e42faada3"
+    }
+  ],
+  "interaction": [
+    {
+      "variant": "after",
+      "pr": 1713,
+      "settingsUpdates": [
+        [
+          {
+            "threadAutoArchive": "never"
+          }
+        ],
+        [
+          {
+            "confirmClaudeCacheResume": false
+          }
+        ]
+      ],
+      "optOutRequests": 1,
+      "preferenceSavedAfterAcceptance": 1,
+      "boundary": "Actual settings route and cache component with controlled settings RPC and response acknowledgement; no retention sweep or live Claude session claim."
+    }
+  ],
+  "logSha256": "0a53696fa0c3a444d45da9704820a8bcc1f2c13b58bef139aec7cea1cacc3888",
+  "completedAt": "2026-10-11T15:34:50.132Z"
+}
