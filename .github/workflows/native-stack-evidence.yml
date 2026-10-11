@@ -1,0 +1,88 @@
+name: Native browser stack evidence
+
+on:
+  push:
+    branches:
+      - cleanup/20261011/native-stack-evidence
+    paths:
+      - .github/workflows/native-stack-evidence.yml
+      - scripts/native-stack-evidence/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-stack-evidence-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_OPTIONS: --max-old-space-size=4096
+
+jobs:
+  targets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.targets.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - id: targets
+        run: node scripts/native-stack-evidence/runner.mjs matrix
+
+  native:
+    name: Native acceptance ${{ matrix.id }}
+    needs: targets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix: ${{ fromJSON(needs.targets.outputs.matrix) }}
+    steps:
+      - name: Checkout immutable application source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ matrix.source }}
+          persist-credentials: false
+      - name: Checkout reviewed utility driver
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          path: .native-stack-driver
+          persist-credentials: false
+      - name: Setup canonical workspace and Electron
+        uses: ./.github/actions/setup-workspace
+        with:
+          electron: true
+      - name: Configure Electron sandbox helper
+        run: |
+          node <<'NODE'
+          const { execFileSync } = require('node:child_process');
+          const { dirname, join } = require('node:path');
+          const helper = join(dirname(require('./apps/desktop/node_modules/electron')), 'chrome-sandbox');
+          execFileSync('sudo', ['chown', 'root:root', helper], { stdio: 'inherit' });
+          execFileSync('sudo', ['chmod', '4755', helper], { stdio: 'inherit' });
+          NODE
+      - name: Prepare fixture and immutable provenance
+        env:
+          NATIVE_STACK_ID: ${{ matrix.id }}
+          NATIVE_STACK_SOURCE: ${{ matrix.source }}
+        run: node .native-stack-driver/scripts/native-stack-evidence/runner.mjs prepare
+      - name: Exercise real native lifecycle and capture UI
+        timeout-minutes: 10
+        working-directory: apps/web
+        run: xvfb-run -a bun e2e/nativeStack/captureNativeStack.mjs
+      - name: Verify assertions, PNG hashes and unchanged source
+        run: node .native-stack-driver/scripts/native-stack-evidence/runner.mjs verify
+      - name: Retain source-labelled native evidence and failed attempts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-stack-${{ matrix.id }}-${{ matrix.source }}
+          path: .native-stack-output/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30

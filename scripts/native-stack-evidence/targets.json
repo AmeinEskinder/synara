@@ -1,0 +1,38 @@
+[
+  {
+    "id": "pr1790-before",
+    "scenario": "retention",
+    "variant": "before",
+    "source": "907161a60bbb4b16d53feec693eafd2c7e1b66a0"
+  },
+  {
+    "id": "pr1790-after",
+    "scenario": "retention",
+    "variant": "after",
+    "source": "bf0482ac17a7144403b923f1cbf9d272f7f0eea2"
+  },
+  {
+    "id": "pr1792-before",
+    "scenario": "parallel",
+    "variant": "before",
+    "source": "bf0482ac17a7144403b923f1cbf9d272f7f0eea2"
+  },
+  {
+    "id": "pr1792-after",
+    "scenario": "parallel",
+    "variant": "after",
+    "source": "6183731ade61c3b806c10afef67f45227c5a06b5"
+  },
+  {
+    "id": "pr1793-before",
+    "scenario": "restart",
+    "variant": "before",
+    "source": "6183731ade61c3b806c10afef67f45227c5a06b5"
+  },
+  {
+    "id": "pr1793-after",
+    "scenario": "restart",
+    "variant": "after",
+    "source": "4d48b01c472906e59a080115be39b1f512889b06"
+  }
+]
