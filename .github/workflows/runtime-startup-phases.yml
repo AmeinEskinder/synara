@@ -1,0 +1,50 @@
+name: Runtime startup phase fixture observations
+
+on:
+  push:
+    branches: [codex/runtime-startup-phases-20261011]
+
+permissions:
+  contents: read
+
+jobs:
+  observe:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    env:
+      TURBO_TELEMETRY_DISABLED: "1"
+      DO_NOT_TRACK: "1"
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify the exact source and additive diagnostic scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '${{ github.sha }}'
+          git diff --exit-code 392bc7e3614e35d59c42add5a1c1bf6f153dd76a -- . ':!apps/server/src/orchestration/Layers/ProviderCommandReactor.test.ts' ':!.github/workflows/runtime-startup-phases.yml'
+          git diff --stat 392bc7e3614e35d59c42add5a1c1bf6f153dd76a
+      - uses: ./.github/actions/setup-workspace
+        with:
+          scope: runtime
+      - name: Observe real reactor and persistence phases with a mock provider
+        shell: bash
+        run: |
+          set -euo pipefail
+          export SYNARA_STARTUP_PHASE_REPORT="$RUNNER_TEMP/startup-phases.json"
+          bun run --cwd apps/server test src/orchestration/Layers/ProviderCommandReactor.test.ts -t 'records bounded startup phase observations' --silent=false 2>&1 | tee "$RUNNER_TEMP/startup-phases.log"
+      - name: Upload observations and full failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: startup-phases-${{ matrix.os }}-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/startup-phases.json
+            ${{ runner.temp }}/startup-phases.log
+          if-no-files-found: error

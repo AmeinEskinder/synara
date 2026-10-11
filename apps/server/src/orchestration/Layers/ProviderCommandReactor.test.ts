@@ -1087,6 +1087,9 @@ describe("ProviderCommandReactor", () => {
       startReactor,
       restartReactor,
       deliveryRepository,
+      benchmarkCheckpointCoordinator: await runtime.runPromise(
+        Effect.service(TurnCheckpointCoordinator),
+      ),
       sql,
       pendingInteractionRepository,
       runtimeEventRepository,
@@ -14311,6 +14314,118 @@ describe("ProviderCommandReactor", () => {
         ),
       ),
     );
+  });
+
+  it("records bounded startup phase observations for the exact production reactor", async () => {
+    const samples: Array<Record<string, number | string>> = [];
+    for (let sample = 0; sample < 5; sample++) {
+      const harness = await createHarness({ commandSettleGrace: Duration.seconds(15) });
+      const marks: Record<string, number> = {};
+      const mark = (phase: string) => {
+        marks[phase] = performance.now();
+      };
+      const coordinator = harness.benchmarkCheckpointCoordinator;
+      const withThreadLease = coordinator.withThreadLease;
+      const leaseSpy = vi
+        .spyOn(coordinator, "withThreadLease")
+        .mockImplementation((threadId, effect) =>
+          Effect.sync(() => mark("leaseRequested")).pipe(
+            Effect.andThen(
+              withThreadLease(
+                threadId,
+                Effect.sync(() => mark("leaseAcquired")).pipe(
+                  Effect.andThen(effect),
+                  Effect.ensuring(Effect.sync(() => mark("leaseReleased"))),
+                ),
+              ),
+            ),
+          ),
+        );
+      const startSession = harness.startSession.getMockImplementation()!;
+      harness.startSession.mockImplementationOnce((threadId, input) =>
+        Effect.sync(() => mark("mockProviderStart")).pipe(
+          Effect.andThen(startSession(threadId, input)),
+          Effect.tap(() => Effect.sync(() => mark("mockProviderReady"))),
+        ),
+      );
+      const sendTurn = harness.sendTurn.getMockImplementation()!;
+      harness.sendTurn.mockImplementationOnce((input) =>
+        Effect.sync(() => mark("mockSendTurn")).pipe(Effect.andThen(sendTurn(input))),
+      );
+      mark("dispatchStarted");
+      const requested = await Effect.runPromise(
+        harness.engine.dispatch({
+          type: "thread.turn.start",
+          commandId: CommandId.makeUnsafe(`startup-phase-probe-${sample}`),
+          threadId: ThreadId.makeUnsafe("thread-1"),
+          message: {
+            messageId: asMessageId(`startup-phase-message-${sample}`),
+            role: "user",
+            text: "Measure local orchestration phases",
+            attachments: [],
+          },
+          interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
+          runtimeMode: "approval-required",
+          createdAt: new Date().toISOString(),
+        }),
+      );
+      mark("dispatchAccepted");
+      await waitFor(async () => {
+        const row = await Effect.runPromise(
+          harness.deliveryRepository.getDelivery({
+            consumerName: PROVIDER_COMMAND_REACTOR_CONSUMER,
+            eventSequence: requested.sequence,
+          }),
+        );
+        return Option.isSome(row) && row.value.state === "succeeded";
+      });
+      await harness.drain();
+      mark("durablySettled");
+      expect(harness.sendTurn).toHaveBeenCalledTimes(1);
+      expect(
+        await Effect.runPromise(
+          harness.reactor.listBlockingDeliveries({
+            threadId: ThreadId.makeUnsafe("thread-1"),
+            limit: 10,
+          }),
+        ),
+      ).toEqual([]);
+      for (const name of [
+        "leaseRequested",
+        "leaseAcquired",
+        "leaseReleased",
+        "mockProviderStart",
+        "mockProviderReady",
+        "mockSendTurn",
+      ])
+        expect(Number.isFinite(marks[name])).toBe(true);
+      const elapsed = (end: string, start: string) =>
+        Number((marks[end]! - marks[start]!).toFixed(3));
+      samples.push({
+        sample,
+        platform: process.platform,
+        admissionMs: elapsed("dispatchAccepted", "dispatchStarted"),
+        leaseWaitMs: elapsed("leaseAcquired", "leaseRequested"),
+        mockStartupMs: elapsed("mockProviderReady", "mockProviderStart"),
+        leaseHeldMs: elapsed("leaseReleased", "leaseAcquired"),
+        observedSettlementMs: elapsed("durablySettled", "dispatchStarted"),
+      });
+      leaseSpy.mockRestore();
+    }
+    const report = {
+      sourceHead: "392bc7e3614e35d59c42add5a1c1bf6f153dd76a",
+      transport: "in-memory provider fake; real reactor, SQLite delivery and checkpoint lease",
+      interpretation:
+        "Uncontended fixture observations only; excludes native spawn/auth, filesystem load and contention; does not establish 30-second lease sufficiency.",
+      samples,
+    };
+    console.log("STARTUP_PHASE_REPORT " + JSON.stringify(report));
+    if (process.env.SYNARA_STARTUP_PHASE_REPORT) {
+      fs.writeFileSync(
+        process.env.SYNARA_STARTUP_PHASE_REPORT,
+        JSON.stringify(report, null, 2) + "\n",
+      );
+    }
   });
 
   it("recovers a startup failure that settles after the command deadline within the settle grace", async () => {
