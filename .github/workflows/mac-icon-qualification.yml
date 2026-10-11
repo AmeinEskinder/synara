@@ -1,0 +1,86 @@
+name: Qualify current macOS icon persistence for PR 452
+on:
+  push:
+    branches: [cleanup/20261011/mac-icon-452-evidence]
+    paths:
+      - .github/workflows/mac-icon-qualification.yml
+      - .github/scripts/mac-icon-qualification.mjs
+permissions:
+  contents: read
+concurrency:
+  group: mac-icon-qualification-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  native:
+    name: Native icon persistence on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-26]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+        working-directory: source
+    env:
+      ICON_SOURCE_SHA: ec8c940e07582454a475250ade40147e3c89d59f
+      ICON_AUTHOR_SHA: 01ca9a62f8bb222dda23d8c68181acdbf5ddd1fb
+      ICON_DRIVER_SHA: ${{ github.sha }}
+      ICON_EVIDENCE: ${{ runner.temp }}/mac-icon-evidence
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: driver
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          path: source
+          ref: ${{ env.ICON_SOURCE_SHA }}
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          path: author
+          repository: diliprt/synara
+          ref: ${{ env.ICON_AUTHOR_SHA }}
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: source/package.json
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: source/package.json
+      - name: Retain immutable source and original icon evidence
+        run: node ../driver/.github/scripts/mac-icon-qualification.mjs prepare
+      - name: Install exact source dependencies
+        run: |
+          set -euo pipefail
+          bun install --frozen-lockfile 2>&1 | tee "$ICON_EVIDENCE/install.log"
+      - name: Run unchanged current native persistence and preference tests
+        run: |
+          set -euo pipefail
+          bunx vitest run apps/desktop/src/macAppIcon.native.test.ts apps/desktop/src/macAppIcon.test.ts apps/desktop/src/desktopAppIcon.test.ts \
+            --reporter=default --reporter=json --outputFile.json="$ICON_EVIDENCE/native-tests.json" \
+            2>&1 | tee "$ICON_EVIDENCE/native-tests.log"
+      - name: Decode original and current bundle images with native iconutil
+        if: ${{ !cancelled() }}
+        run: |
+          set -euo pipefail
+          iconutil -c iconset ../author/apps/desktop/resources/icon.icns -o "$ICON_EVIDENCE/before.iconset"
+          iconutil -c iconset apps/desktop/resources/icon.icns -o "$ICON_EVIDENCE/current.iconset"
+          cp "$ICON_EVIDENCE/before.iconset/icon_512x512@2x.png" "$ICON_EVIDENCE/before-author-bundle.png"
+          cp "$ICON_EVIDENCE/current.iconset/icon_512x512@2x.png" "$ICON_EVIDENCE/after-current-main-bundle.png"
+          sips -g pixelWidth -g pixelHeight "$ICON_EVIDENCE/before-author-bundle.png" "$ICON_EVIDENCE/after-current-main-bundle.png" > "$ICON_EVIDENCE/native-image-dimensions.txt"
+      - name: Require actual native test and unchanged source bytes
+        if: ${{ !cancelled() }}
+        run: node ../driver/.github/scripts/mac-icon-qualification.mjs verify
+      - name: Upload bounded native evidence and decoded images
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mac-icon-452-${{ matrix.os }}-${{ env.ICON_SOURCE_SHA }}
+          path: ${{ env.ICON_EVIDENCE }}
+          retention-days: 14
+          if-no-files-found: error
