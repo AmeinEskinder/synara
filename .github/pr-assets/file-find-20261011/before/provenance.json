@@ -1,0 +1,44 @@
+{
+  "target": {
+    "id": "pr1655-before",
+    "pr": 1655,
+    "variant": "before",
+    "role": "Previous repaired source: find bar still covers header actions",
+    "source": "ed3ad6f3818ee00e677e8822f2daf3a9d54f0d90",
+    "mode": "standalone",
+    "fixture": "PrUiEvidence1655Layout.browser.tsx",
+    "destination": "apps/web/src/components/PrUiEvidence1655Layout.browser.tsx"
+  },
+  "source": "ed3ad6f3818ee00e677e8822f2daf3a9d54f0d90",
+  "sourceTree": "b16327f0d7f9e41cb80ba559a9bf4c1affe09514",
+  "driver": "436fce98b57f2e3695545ff152dbea66201d94e4",
+  "overlays": [
+    {
+      "path": "apps/web/src/components/PrUiEvidence1655Layout.browser.tsx",
+      "originalSha256": null,
+      "fixtureSha256": "0ef976a72752889efba1cc1c07d628a7a44dd2215f72eb462023eb834a74c20c",
+      "sha256": "0ef976a72752889efba1cc1c07d628a7a44dd2215f72eb462023eb834a74c20c"
+    },
+    {
+      "path": "apps/web/vitest.pr-ui-evidence.config.ts",
+      "originalSha256": null,
+      "sha256": "f142102d7d8fc9aa6c53fd665967a2851160d46ab190f1dc88d4252581ac6240"
+    }
+  ],
+  "status": "completed",
+  "applicationCodeModified": false,
+  "createdAt": "2026-10-11T14:38:40.515Z",
+  "images": [
+    {
+      "name": "find-320px.png",
+      "bytes": 9787,
+      "sha256": "c9803cdd45f53aecbb05850743cc9b54274dc3084fa292ceb513a7f807fbff4d"
+    },
+    {
+      "name": "find-760px.png",
+      "bytes": 13267,
+      "sha256": "c70f69e8c3c0ba9d9d8d54a11c59e96aab2e66f1ea259f43ee1673de58f55c36"
+    }
+  ],
+  "completedAt": "2026-10-11T14:38:52.017Z"
+}

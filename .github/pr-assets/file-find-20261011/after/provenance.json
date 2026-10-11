@@ -1,0 +1,44 @@
+{
+  "target": {
+    "id": "pr1655-after",
+    "pr": 1655,
+    "variant": "after",
+    "role": "Current repaired source: compact find row and accessible Reload",
+    "source": "2db658e39dbf585511c0dd680357be08b2a9f6cd",
+    "mode": "standalone",
+    "fixture": "PrUiEvidence1655Layout.browser.tsx",
+    "destination": "apps/web/src/components/PrUiEvidence1655Layout.browser.tsx"
+  },
+  "source": "2db658e39dbf585511c0dd680357be08b2a9f6cd",
+  "sourceTree": "acbd68de75368fd487996e9668d8c88aa5ba3184",
+  "driver": "436fce98b57f2e3695545ff152dbea66201d94e4",
+  "overlays": [
+    {
+      "path": "apps/web/src/components/PrUiEvidence1655Layout.browser.tsx",
+      "originalSha256": null,
+      "fixtureSha256": "0ef976a72752889efba1cc1c07d628a7a44dd2215f72eb462023eb834a74c20c",
+      "sha256": "0ef976a72752889efba1cc1c07d628a7a44dd2215f72eb462023eb834a74c20c"
+    },
+    {
+      "path": "apps/web/vitest.pr-ui-evidence.config.ts",
+      "originalSha256": null,
+      "sha256": "f142102d7d8fc9aa6c53fd665967a2851160d46ab190f1dc88d4252581ac6240"
+    }
+  ],
+  "status": "completed",
+  "applicationCodeModified": false,
+  "createdAt": "2026-10-11T14:39:37.319Z",
+  "images": [
+    {
+      "name": "find-320px.png",
+      "bytes": 11703,
+      "sha256": "c27e2b0c8801c6029f823e57389e357fa68ed1525eab4363cde0fa06c84922f4"
+    },
+    {
+      "name": "find-760px.png",
+      "bytes": 14956,
+      "sha256": "c30ace8958e9a6c86a7ba0787112c9ec0b464249ffce853e7b42146e14d89152"
+    }
+  ],
+  "completedAt": "2026-10-11T14:39:49.210Z"
+}
