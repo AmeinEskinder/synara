@@ -1,0 +1,9 @@
+# Contextual typography comparison driver
+
+The isolated driver checks out the two exact heads and Git trees in `targets.json`, then overlays only an untracked fixture and configuration. The actual production ChatMarkdown, syntax highlighter, AgentActivityDetailView and useTheme hook render controlled example content. The captured fixture controls are labelled as evidence controls. No native desktop or live provider behavior is claimed.
+
+Both source versions run the same fixture at 980px and 390px widths in light and dark themes. Each case captures prose with default/subtle/process tones, the initial long-code wrapping state, the actual soft-wrap toggle result, RTL alert/blockquote/table treatments, and activity details whose tone is chosen by the production caller. The RTL sample uses an explicit RTL container with the normal markdown direction mode; this checks the logical alert border without claiming automatic language detection. No user content is replaced, generated, or redrawn.
+
+Assertions retain unchanged command contents while requiring the expected initial wrapping state and the reversible toggle, actual primary/support/process colors, current 13px/1.625 text sizing, intended heading scaling, and the production activity-detail tone selection. The Before version retains its actual behavior and is not represented as satisfying the new feature. Every test and logging exit is preserved, with no expected-failure wrapper. Source/tree/blob identities, overlay hashes, screenshots and the raw browser video are recorded. The full 1280×900 recording may contain padding around the fixture viewport; any later trimmed interaction clip must preserve its provenance.
+
+Actual artifacts require independent visual review before publication. Local dependency-cache loss prevented local browser execution; source-pinned hosted execution is the validation boundary.

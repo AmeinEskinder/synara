@@ -1,0 +1,99 @@
+name: Chat typography source-pinned UI evidence
+
+on:
+  push:
+    branches:
+      - cleanup/20261011/chat-typography-evidence
+    paths:
+      - .github/workflows/pr-typography-evidence.yml
+      - scripts/pr-typography-evidence/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-typography-evidence-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_OPTIONS: --max-old-space-size=4096
+
+jobs:
+  targets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.targets.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - id: targets
+        run: node scripts/pr-typography-evidence/runner.mjs matrix
+
+  capture:
+    name: Evidence ${{ matrix.id }}
+    needs: targets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix: ${{ fromJSON(needs.targets.outputs.matrix) }}
+    steps:
+      - name: Checkout immutable application source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ matrix.source }}
+          persist-credentials: false
+      - name: Checkout isolated reviewed evidence driver
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          path: .pr-typography-driver
+          persist-credentials: false
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
+        with:
+          electron: "false"
+      - name: Cache Playwright browsers
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('bun.lock') }}
+      - name: Install actual browser and video runtime
+        timeout-minutes: 10
+        run: ./apps/web/node_modules/.bin/playwright install chromium ffmpeg
+      - name: Prepare source and overlay receipt
+        env:
+          PR_TYPOGRAPHY_TARGET: ${{ matrix.id }}
+          PR_TYPOGRAPHY_SOURCE: ${{ matrix.source }}
+        run: node .pr-typography-driver/scripts/pr-typography-evidence/runner.mjs prepare
+      - name: Capture typography, wrap interaction and RTL production UI
+        timeout-minutes: 10
+        working-directory: apps/web
+        run: |
+          failed=0
+          for motion_mode in no-preference; do
+            set +e
+            VITE_PR_UI_MOTION_MODE="$motion_mode" bunx vitest run --config vitest.pr-typography-evidence.config.ts 2>&1 | tee "$VITE_PR_UI_EVIDENCE_DIR/$motion_mode.log"
+            result=("${PIPESTATUS[@]}")
+            set -e
+            printf '{"vitest":%s,"tee":%s}\n' "${result[0]}" "${result[1]}" > "$VITE_PR_UI_EVIDENCE_DIR/$motion_mode-exits.json"
+            if [ "${result[0]}" -ne 0 ]; then failed="${result[0]}"; fi
+            if [ "${result[1]}" -ne 0 ]; then failed="${result[1]}"; fi
+          done
+          exit "$failed"
+      - name: Verify exact source and preserve actual result
+        if: always()
+        run: node .pr-typography-driver/scripts/pr-typography-evidence/runner.mjs verify
+      - name: Upload exact-source images, videos and receipts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: typography-evidence-${{ matrix.id }}-${{ matrix.source }}
+          path: .pr-typography-evidence/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
