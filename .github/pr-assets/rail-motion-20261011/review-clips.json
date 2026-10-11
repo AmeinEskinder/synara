@@ -1,0 +1,86 @@
+[
+  {
+    "variant": "after",
+    "source": "bbc9f2e1b07ceb827977923ad83b8f981357ff5e",
+    "rawVideo": {
+      "name": "video-no-preference/page@eb7f627ca8b6a561b485910d70988cad.webm",
+      "bytes": 854692,
+      "sha256": "0d7382618cc6e1c37d6fe2ba1661eb29198e053cfe29e148ce9f492b44621ceb",
+      "motion": "no-preference"
+    },
+    "rawDurationSeconds": 116.88,
+    "trimStartSeconds": 107.38,
+    "trimDurationSeconds": 9.5,
+    "clip": "rail-no-preference-interaction.mp4",
+    "clipSha256": "3ac9f00fcfc858a05ba66986dbed9e8b246a044335e3085f974fd005041801d4",
+    "clipBytes": 92907,
+    "dimensions": {
+      "width": 1280,
+      "height": 900
+    },
+    "transform": "Time trim and H.264 encoding only; original geometry, speed and frames preserved; no annotations or application edits."
+  },
+  {
+    "variant": "after",
+    "source": "bbc9f2e1b07ceb827977923ad83b8f981357ff5e",
+    "rawVideo": {
+      "name": "video-reduce/page@4ace0a493f256eda25d61d771847bef1.webm",
+      "bytes": 866254,
+      "sha256": "47175d96a78aedd4272d4d1f1437882aa10fc81a1ab739443accb8b2a9fb0f0c",
+      "motion": "reduce"
+    },
+    "rawDurationSeconds": 113.56,
+    "trimStartSeconds": 104.06,
+    "trimDurationSeconds": 9.5,
+    "clip": "rail-reduce-interaction.mp4",
+    "clipSha256": "c64fabbbef23c20f9563da3048146cf02fd714a04e916217aa648d17dd79e1dc",
+    "clipBytes": 61408,
+    "dimensions": {
+      "width": 1280,
+      "height": 900
+    },
+    "transform": "Time trim and H.264 encoding only; original geometry, speed and frames preserved; no annotations or application edits."
+  },
+  {
+    "variant": "before",
+    "source": "907161a60bbb4b16d53feec693eafd2c7e1b66a0",
+    "rawVideo": {
+      "name": "video-no-preference/page@b42b920b1580e2a445326f13d7ad4dc2.webm",
+      "bytes": 881218,
+      "sha256": "da27ad9b524770b7bf8f50d92cae0c65e1e18326ff14e623f9e433cc4d306bf6",
+      "motion": "no-preference"
+    },
+    "rawDurationSeconds": 112.76,
+    "trimStartSeconds": 103.26,
+    "trimDurationSeconds": 9.5,
+    "clip": "rail-no-preference-interaction.mp4",
+    "clipSha256": "6cee4e5422a489a2bfd552a182f3539d726c3135e58f690d62d90b56ca4b3500",
+    "clipBytes": 71867,
+    "dimensions": {
+      "width": 1280,
+      "height": 900
+    },
+    "transform": "Time trim and H.264 encoding only; original geometry, speed and frames preserved; no annotations or application edits."
+  },
+  {
+    "variant": "before",
+    "source": "907161a60bbb4b16d53feec693eafd2c7e1b66a0",
+    "rawVideo": {
+      "name": "video-reduce/page@e2940ee1e32f788febfb4ce4c6970abf.webm",
+      "bytes": 827578,
+      "sha256": "5a9407c3c1de299fb511a3cc34ea6d3f1d1fd2cdd1afa7a48e0cf405303432be",
+      "motion": "reduce"
+    },
+    "rawDurationSeconds": 109.76,
+    "trimStartSeconds": 100.26,
+    "trimDurationSeconds": 9.5,
+    "clip": "rail-reduce-interaction.mp4",
+    "clipSha256": "79cd29c0d2bd03372419f23705df42551bb121ac229fb33b8e8715c7cf776284",
+    "clipBytes": 71972,
+    "dimensions": {
+      "width": 1280,
+      "height": 900
+    },
+    "transform": "Time trim and H.264 encoding only; original geometry, speed and frames preserved; no annotations or application edits."
+  }
+]
