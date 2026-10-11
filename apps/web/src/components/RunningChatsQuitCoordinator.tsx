@@ -21,7 +21,7 @@ import { RunningChatsQuitDialog, type RunningChatsQuitDecision } from "./Running
 
 export function RunningChatsQuitCoordinator() {
   const [chats, setChats] = useState<ReadonlyArray<RunningChatQuitSummary> | null>(null);
-  // True while the resume record is being written: the dialog stays up (inert) so the
+  // True while quit interrupts are being admitted: the dialog stays up (inert) so the
   // user does not see a bare window for the bounded wait before the desktop hides it.
   const [quitting, setQuitting] = useState(false);
   const pendingRequestIdRef = useRef<string | null>(null);
@@ -35,10 +35,6 @@ export function RunningChatsQuitCoordinator() {
       const allow = decision != null;
       const chatsToStop = allow ? chats : null;
       pendingRequestIdRef.current = null;
-      if (!decision?.resume) {
-        setChats(null);
-      }
-
       const reply = (allowQuit: boolean) => {
         window.desktopBridge?.replyQuitConfirmation({
           requestId,
@@ -48,6 +44,7 @@ export function RunningChatsQuitCoordinator() {
       };
 
       if (!allow || chatsToStop == null || chatsToStop.length === 0) {
+        setChats(null);
         reply(allow);
         return;
       }
