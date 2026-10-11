@@ -1,0 +1,90 @@
+{
+  "pr": 1803,
+  "original": 1206,
+  "scenario": "Actual browser ChatView/Settings fixture: saved Steer preference, two queued messages, empty Lexical composer, actual Ctrl+Enter chord. External service responses are controlled fixture data.",
+  "before": {
+    "source": "fa8aa49e14855999c37315dd4c6dcab34efbdf58",
+    "driver": "feb5a3a3fc11c37f9b8c16309ca5c3525b60d358",
+    "run": 38096663626,
+    "job": 114344876247,
+    "artifact": 11686882102,
+    "zipSha256": "931ea9580a89332bbf914c989166a309341a972ad4a862bd4c4f9429b9a35a6b",
+    "qualification": "Historical main baseline actually captured, not latest main."
+  },
+  "after": {
+    "source": "83af8eb3e04321453c4f42f55a4a8def8866a2fd",
+    "driver": "788ed0ce13dd3b0b97d8ad98a66088c973d4c555",
+    "run": 38099281977,
+    "job": 114355024032,
+    "artifact": 11688390966,
+    "zipSha256": "7a367767d93f91b147c6ab5e4a062efb1541c1f63162115c390d2c0377276792",
+    "result": "1 capture case passed;227 unrelated canonical cases filtered, not executed."
+  },
+  "currentFeature": {
+    "head": "066429f1b7d5c67b4254ebf5916a250f81e2dd60",
+    "tree": "b92da7a97dd25f581df7c14ee0ae61f47d9954fc",
+    "equivalence": "Only ChatView.browser.tsx differs from captured83af by four reviewed Worked-label regex literals; all application production bytes and original five keyboard cases remain unchanged."
+  },
+  "preservedFailure": {
+    "run": 38096663626,
+    "job": 114344876242,
+    "source": "83af8eb3e04321453c4f42f55a4a8def8866a2fd",
+    "driver": "feb5a3a3fc11c37f9b8c16309ca5c3525b60d358",
+    "result": "Failed original20s Active thread detail did not hydrate guard, before screenshots.",
+    "qualification": "Later run adds independently reviewed passive bounded observations only; original request payloads, mount guard and screenshot/behavior assertions unchanged. One observed run passed; the earlier failure was not reproduced and its cause is not established."
+  },
+  "visualReview": {
+    "builder": "PASS; all six actual PNGs viewed",
+    "independentRoot": "PASS; actual before/after queue state and Settings explanation legible"
+  },
+  "files": [
+    {
+      "path": ".github/pr-ui-evidence/1803/fa8aa49e14855999c37315dd4c6dcab34efbdf58/before/follow-up-shortcut-settings.png",
+      "bytes": 104528,
+      "sha256": "44e5872c25e362230dc2ade31cc044eec76d76cd6ee1e39ddc6652e7c34e13e1",
+      "encoding": "base64"
+    },
+    {
+      "path": ".github/pr-ui-evidence/1803/fa8aa49e14855999c37315dd4c6dcab34efbdf58/before/queue-after-shortcut.png",
+      "bytes": 49184,
+      "sha256": "f36f1e19dd1f26a75b046d3aaf2395620680625d0d5e56c0c46a3b7c66134ad6",
+      "encoding": "base64"
+    },
+    {
+      "path": ".github/pr-ui-evidence/1803/fa8aa49e14855999c37315dd4c6dcab34efbdf58/before/queue-before-shortcut.png",
+      "bytes": 49147,
+      "sha256": "6d372acd3edf96d553c5a91c98eb6b2181b8adb1ce65b66e6949f9754fc24483",
+      "encoding": "base64"
+    },
+    {
+      "path": ".github/pr-ui-evidence/1803/fa8aa49e14855999c37315dd4c6dcab34efbdf58/before/provenance.json",
+      "bytes": 1686,
+      "sha256": "83160eaa3f855f508c273a60bd2febb154a18e918d8abd7eef4a539336335623",
+      "encoding": "utf-8"
+    },
+    {
+      "path": ".github/pr-ui-evidence/1803/83af8eb3e04321453c4f42f55a4a8def8866a2fd/after/follow-up-shortcut-settings.png",
+      "bytes": 109391,
+      "sha256": "88ac93176d350626a4c52d11ea0cf7804d8918ca97803c4a26de5f0f2ad846ba",
+      "encoding": "base64"
+    },
+    {
+      "path": ".github/pr-ui-evidence/1803/83af8eb3e04321453c4f42f55a4a8def8866a2fd/after/queue-after-shortcut.png",
+      "bytes": 48005,
+      "sha256": "5235fc455396cbe20922cd7a2fc298f46ac2145b485f72bb130b3daf01a6fe6b",
+      "encoding": "base64"
+    },
+    {
+      "path": ".github/pr-ui-evidence/1803/83af8eb3e04321453c4f42f55a4a8def8866a2fd/after/queue-before-shortcut.png",
+      "bytes": 46902,
+      "sha256": "80c318061658291baac7342f5327af9b89b2037b0774868ecf6b905f21064d0d",
+      "encoding": "base64"
+    },
+    {
+      "path": ".github/pr-ui-evidence/1803/83af8eb3e04321453c4f42f55a4a8def8866a2fd/after/provenance.json",
+      "bytes": 1684,
+      "sha256": "bbad4b5dd4b5447ddf059b8615f0db4da5a68191d73812d992d3a6d2a9d1e138",
+      "encoding": "utf-8"
+    }
+  ]
+}

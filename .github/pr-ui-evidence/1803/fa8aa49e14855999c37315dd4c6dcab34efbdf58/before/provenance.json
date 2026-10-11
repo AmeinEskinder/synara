@@ -1,0 +1,49 @@
+{
+  "target": {
+    "id": "pr1803-before",
+    "pr": 1803,
+    "original": 1206,
+    "variant": "before",
+    "source": "fa8aa49e14855999c37315dd4c6dcab34efbdf58",
+    "mode": "append-describe",
+    "fixture": "PrUiEvidence1206.snippet.ts",
+    "destination": "apps/web/src/components/ChatView.browser.tsx"
+  },
+  "source": "fa8aa49e14855999c37315dd4c6dcab34efbdf58",
+  "sourceTree": "1ec4c27e2f03f5411aafa1e6ac5238e334018b61",
+  "driver": "feb5a3a3fc11c37f9b8c16309ca5c3525b60d358",
+  "overlays": [
+    {
+      "path": "apps/web/src/components/ChatView.browser.tsx",
+      "originalSha256": "d0f39ab7acdc35bdcdc9d5057cc6704955571750152b7938addd0a085db349bc",
+      "fixtureSha256": "db6f89ca3daedd5a482701f27f3f166a2ceee3a6fddb90ffa46cb83a85c171fb",
+      "sha256": "efbdb684832a65b1bfcc5eb4266e2a65c2bb08fafe390b40a1394026db9f3a0d"
+    },
+    {
+      "path": "apps/web/vitest.pr-ui-evidence.config.ts",
+      "originalSha256": null,
+      "sha256": "f142102d7d8fc9aa6c53fd665967a2851160d46ab190f1dc88d4252581ac6240"
+    }
+  ],
+  "status": "completed",
+  "applicationCodeModified": false,
+  "createdAt": "2026-10-11T00:16:01.747Z",
+  "images": [
+    {
+      "name": "follow-up-shortcut-settings.png",
+      "bytes": 104528,
+      "sha256": "44e5872c25e362230dc2ade31cc044eec76d76cd6ee1e39ddc6652e7c34e13e1"
+    },
+    {
+      "name": "queue-after-shortcut.png",
+      "bytes": 49184,
+      "sha256": "f36f1e19dd1f26a75b046d3aaf2395620680625d0d5e56c0c46a3b7c66134ad6"
+    },
+    {
+      "name": "queue-before-shortcut.png",
+      "bytes": 49147,
+      "sha256": "6d372acd3edf96d553c5a91c98eb6b2181b8adb1ce65b66e6949f9754fc24483"
+    }
+  ],
+  "completedAt": "2026-10-11T00:17:21.628Z"
+}
