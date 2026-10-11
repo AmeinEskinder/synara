@@ -1,15 +1,5 @@
 [
   {
-    "id": "pr1803-before",
-    "pr": 1803,
-    "original": 1206,
-    "variant": "before",
-    "source": "fa8aa49e14855999c37315dd4c6dcab34efbdf58",
-    "mode": "append-describe",
-    "fixture": "PrUiEvidence1206.snippet.ts",
-    "destination": "apps/web/src/components/ChatView.browser.tsx"
-  },
-  {
     "id": "pr1803-after",
     "pr": 1803,
     "original": 1206,

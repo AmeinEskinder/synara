@@ -5,44 +5,110 @@ it("PR UI evidence: Ctrl+Enter sends the first queued message from an empty comp
   expect(directory).toMatch(/^\//);
   localStorage.setItem("synara:app-settings:v1", JSON.stringify({ followUpBehavior: "steer" }));
   const restoreNativeApi = installDeterministicSendNativeApi();
-  for (const [id, prompt] of [
-    ["first", "Review the focused repair"],
-    ["second", "Keep the remaining work queued"],
-  ] as const) {
-    useComposerDraftStore.getState().enqueueQueuedTurn(THREAD_ID, {
-      id,
-      kind: "chat",
-      createdAt: NOW_ISO,
-      previewText: prompt,
-      prompt,
-      images: [],
-      files: [],
-      assistantSelections: [],
-      browserAnnotations: [],
-      terminalContexts: [],
-      fileComments: [],
-      pastedTexts: [],
-      pullRequestContexts: [],
-      skills: [],
-      mentions: [],
-      selectedProvider: "codex",
-      selectedModel: "gpt-5",
-      selectedPromptEffort: null,
-      modelSelection: { provider: "codex", model: "gpt-5" },
-      runtimeMode: "full-access",
-      interactionMode: "default",
-      envMode: "local",
+  const diagnosticApi = readNativeApi();
+  expect(diagnosticApi).toBeDefined();
+  const diagnosticStartedAt = performance.now();
+  const targetMessageId = MessageId.makeUnsafe("evidence-queued-shortcut");
+  const diagnosticStates: unknown[] = [];
+  const diagnosticThreadEvents: unknown[] = [];
+  const diagnosticShellEvents: unknown[] = [];
+  let diagnosticStateSignature = "";
+  let diagnosticDropped = 0;
+  const recordDiagnostic = (records: unknown[], value: unknown) => {
+    if (records.length < 48) records.push(value);
+    else diagnosticDropped += 1;
+  };
+  const recordDiagnosticState = () => {
+    const state = useStore.getState();
+    const value = {
+      shellSequence: state.shellSnapshotSequence,
+      threadPresent: state.threadIds?.includes(THREAD_ID) ?? false,
+      messageCount: state.messageIdsByThreadId?.[THREAD_ID]?.length ?? 0,
+      targetPresent: state.messageIdsByThreadId?.[THREAD_ID]?.includes(targetMessageId) ?? false,
+      detailSync: state.threadDetailSyncById?.[THREAD_ID] ?? null,
+      appliedSequence: state.threadDetailAppliedSequenceById?.[THREAD_ID] ?? null,
+      sessionStatus: state.threadSessionById?.[THREAD_ID]?.status ?? null,
+    };
+    const signature = JSON.stringify(value);
+    if (signature === diagnosticStateSignature) return;
+    diagnosticStateSignature = signature;
+    recordDiagnostic(diagnosticStates, {
+      elapsedMs: performance.now() - diagnosticStartedAt,
+      ...value,
     });
-  }
-  const mounted = await mountChatView({
-    viewport: { ...DEFAULT_VIEWPORT, width: 1280, height: 900 },
-    snapshot: createSnapshotForTargetUser({
-      targetMessageId: MessageId.makeUnsafe("evidence-queued-shortcut"),
-      targetText: "The current turn is running; two follow-ups are waiting.",
-      sessionStatus: "running",
-    }),
+  };
+  recordDiagnosticState();
+  const stopDiagnosticState = useStore.subscribe(recordDiagnosticState);
+  const stopDiagnosticThread = diagnosticApi!.orchestration.onThreadEvent((item) => {
+    recordDiagnostic(diagnosticThreadEvents, {
+      elapsedMs: performance.now() - diagnosticStartedAt,
+      kind: item.kind,
+      ...(item.kind === "snapshot"
+        ? {
+            threadId: item.snapshot.thread.id,
+            sequence: item.snapshot.snapshotSequence,
+            messageCount: item.snapshot.thread.messages.length,
+            targetPresent: item.snapshot.thread.messages.some(
+              (message) => message.id === targetMessageId,
+            ),
+          }
+        : {}),
+    });
   });
+  const stopDiagnosticShell = diagnosticApi!.orchestration.onShellEvent((item) => {
+    recordDiagnostic(diagnosticShellEvents, {
+      elapsedMs: performance.now() - diagnosticStartedAt,
+      kind: item.kind,
+      ...(item.kind === "snapshot"
+        ? { sequence: item.snapshot.snapshotSequence, threadCount: item.snapshot.threads.length }
+        : {}),
+    });
+  });
+  // Observation only: keep the original mount guard, fixture responses, and
+  // shortcut assertions intact. A passing observed run cannot explain the
+  // earlier unobserved hydration failure by itself.
+  let mounted: MountedChatView | undefined;
+  let captureStage = "preparing";
   try {
+    for (const [id, prompt] of [
+      ["first", "Review the focused repair"],
+      ["second", "Keep the remaining work queued"],
+    ] as const) {
+      useComposerDraftStore.getState().enqueueQueuedTurn(THREAD_ID, {
+        id,
+        kind: "chat",
+        createdAt: NOW_ISO,
+        previewText: prompt,
+        prompt,
+        images: [],
+        files: [],
+        assistantSelections: [],
+        browserAnnotations: [],
+        terminalContexts: [],
+        fileComments: [],
+        pastedTexts: [],
+        pullRequestContexts: [],
+        skills: [],
+        mentions: [],
+        selectedProvider: "codex",
+        selectedModel: "gpt-5",
+        selectedPromptEffort: null,
+        modelSelection: { provider: "codex", model: "gpt-5" },
+        runtimeMode: "full-access",
+        interactionMode: "default",
+        envMode: "local",
+      });
+    }
+    captureStage = "mounting";
+    mounted = await mountChatView({
+      viewport: { ...DEFAULT_VIEWPORT, width: 1280, height: 900 },
+      snapshot: createSnapshotForTargetUser({
+        targetMessageId,
+        targetText: "The current turn is running; two follow-ups are waiting.",
+        sessionStatus: "running",
+      }),
+    });
+    captureStage = "hydrated";
     const editor = await waitForComposerEditor();
     await vi.waitFor(() => {
       expect(editor.textContent?.trim()).toBe("");
@@ -103,8 +169,48 @@ it("PR UI evidence: Ctrl+Enter sends the first queued message from an empty comp
       .toHaveAttribute("aria-checked", "true");
     await waitForLayout();
     await page.screenshot({ path: `${directory}/follow-up-shortcut-settings.png` });
+    captureStage = "captured";
   } finally {
-    await mounted.cleanup();
-    restoreNativeApi();
+    recordDiagnosticState();
+    stopDiagnosticState();
+    stopDiagnosticThread();
+    stopDiagnosticShell();
+    const requestCounts: Record<string, number> = {};
+    const threadRequests: unknown[] = [];
+    for (const request of wsRequests) {
+      requestCounts[request._tag] = (requestCounts[request._tag] ?? 0) + 1;
+      if (request._tag.startsWith("orchestration.") && "threadId" in request) {
+        recordDiagnostic(threadRequests, {
+          tag: request._tag,
+          threadId: request.threadId,
+          afterSequence: request.afterSequence ?? null,
+          fromSequenceExclusive: request.fromSequenceExclusive ?? null,
+          batchReplay: request.batchReplay ?? null,
+          messageWindow: request.messageWindow ?? null,
+        });
+      }
+    }
+    console.log(
+      "SYNARA_QUEUED_SHORTCUT_HYDRATION " +
+        JSON.stringify({
+          variant,
+          captureStage,
+          expectedSequence: fixture.snapshot.snapshotSequence,
+          expectedMessageCount:
+            fixture.snapshot.threads.find((thread) => thread.id === THREAD_ID)?.messages.length ??
+            0,
+          requestCounts,
+          threadRequests,
+          states: diagnosticStates,
+          threadEvents: diagnosticThreadEvents,
+          shellEvents: diagnosticShellEvents,
+          droppedRecords: diagnosticDropped,
+        }),
+    );
+    try {
+      await mounted?.cleanup();
+    } finally {
+      restoreNativeApi();
+    }
   }
 });
