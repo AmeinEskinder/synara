@@ -21,6 +21,16 @@ risoluzioni presenti nei vecchi merge, che il semplice replay lineare non ricrea
 - Nessuna migrazione dei database delle app, deploy API o modifica a Supabase
   eseguita per questo aggiornamento. Nessuna modifica alle scelte dei modelli.
 
+Verifiche finali: fmt, lint (zero errori), typecheck, migration-lineage e Windows
+runtime boundary passati. Suite workspace completata per pacchetti: 8.641 test
+server, 5.581 web, 1.414 desktop; API 362/362 su PostgreSQL temporaneo, più contratti,
+shared, script, profili e analytics. I primi tentativi avevano incontrato il limite
+del sandbox sui listener e poi spazio disco esaurito durante le build; gli artefatti
+temporanei creati nel passaggio sono stati rimossi e i controlli interessati ripetuti.
+Il singolo timeout sotto carico passa anche isolatamente. Test browser mirati: 45/45.
+Mobile: 252 test core e 9 test transcript su ciascun simulatore, iPhone e iPad,
+passati. Nessuna nuova prova di provider reali, Windows confezionato o consegna APNs.
+
 ## Integrazione main e parità mobile — 8 ottobre 2026
 
 Integrato `origin/main` fino a `587dd3c` nella PR #1412 tramite merge, senza
