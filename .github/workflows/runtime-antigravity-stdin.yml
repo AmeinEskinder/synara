@@ -1,0 +1,154 @@
+name: Antigravity stdin ownership controls
+
+on:
+  push:
+    branches:
+      - codex/runtime-antigravity-stdin-20261011
+    paths:
+      - .github/workflows/runtime-antigravity-stdin.yml
+      - scripts/runtime-antigravity-stdin/runner.mjs
+
+permissions:
+  contents: read
+
+concurrency:
+  group: runtime-antigravity-stdin-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  native:
+    name: Windows ${{ matrix.case }} prompt transport
+    runs-on: windows-2022
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - case: before
+            source: 92f0d641ce24a4c0bea9c55278795a016aa4a953
+          - case: after
+            source: 9475ed7c3ff05336fa90a4702d4a1ba2ae94e1b0
+    defaults:
+      run:
+        shell: bash
+    env:
+      RUNTIME_STDIN_CASE: ${{ matrix.case }}
+      RUNTIME_STDIN_SOURCE: ${{ matrix.source }}
+    steps:
+      - name: Checkout immutable application source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ matrix.source }}
+          persist-credentials: false
+      - name: Checkout independently reviewed driver
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          path: .runtime-stdin-driver
+          persist-credentials: false
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
+        with:
+          scope: runtime
+      - name: Verify source and install identical test fixture
+        id: prepare
+        run: node .runtime-stdin-driver/scripts/runtime-antigravity-stdin/runner.mjs prepare
+      - name: Run actual native cases and retain failure exit
+        run: node .runtime-stdin-driver/scripts/runtime-antigravity-stdin/runner.mjs native
+      - name: Verify exact expected control result
+        if: always() && steps.prepare.outcome == 'success'
+        run: node .runtime-stdin-driver/scripts/runtime-antigravity-stdin/runner.mjs verify-native
+      - name: Upload source pins and actual outcomes
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: antigravity-stdin-windows-${{ matrix.case }}-${{ matrix.source }}
+          path: ${{ runner.temp }}/antigravity-stdin-output/
+          if-no-files-found: error
+          retention-days: 30
+
+  focused:
+    name: Exact repaired source checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      RUNTIME_STDIN_CASE: after
+      RUNTIME_STDIN_SOURCE: 9475ed7c3ff05336fa90a4702d4a1ba2ae94e1b0
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - name: Checkout immutable repaired source
+        uses: actions/checkout@v6
+        with:
+          ref: 9475ed7c3ff05336fa90a4702d4a1ba2ae94e1b0
+          persist-credentials: false
+      - name: Checkout independently reviewed driver
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          path: .runtime-stdin-driver
+          persist-credentials: false
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
+        with:
+          scope: runtime
+      - name: Verify exact source
+        id: prepare
+        run: node .runtime-stdin-driver/scripts/runtime-antigravity-stdin/runner.mjs prepare
+      - name: Server adapter and result regressions
+        run: node .runtime-stdin-driver/scripts/runtime-antigravity-stdin/runner.mjs server
+      - name: Shared planner and spawning regressions
+        if: always() && steps.prepare.outcome == 'success'
+        run: node .runtime-stdin-driver/scripts/runtime-antigravity-stdin/runner.mjs shared
+      - name: Check formatting of every changed source
+        id: format
+        if: always() && steps.prepare.outcome == 'success'
+        run: |
+          set -o pipefail
+          bunx oxfmt --check packages/shared/src/windowsProcess.ts packages/shared/src/windowsProcess.test.ts packages/shared/src/platformProcess.ts apps/server/src/provider/Layers/AntigravityAdapter.ts apps/server/src/provider/Layers/AntigravityAdapter.test.ts 2>&1 | tee "$RUNTIME_STDIN_OUTPUT/format.log"
+      - name: Check scoped lint
+        id: lint
+        if: always() && steps.prepare.outcome == 'success'
+        run: |
+          set -o pipefail
+          bunx oxlint --report-unused-disable-directives packages/shared/src/windowsProcess.ts packages/shared/src/windowsProcess.test.ts packages/shared/src/platformProcess.ts apps/server/src/provider/Layers/AntigravityAdapter.ts apps/server/src/provider/Layers/AntigravityAdapter.test.ts 2>&1 | tee "$RUNTIME_STDIN_OUTPUT/lint.log"
+      - name: Server typecheck
+        id: server_types
+        if: always() && steps.prepare.outcome == 'success'
+        run: |
+          set -o pipefail
+          bun run --cwd apps/server typecheck 2>&1 | tee "$RUNTIME_STDIN_OUTPUT/server-types.log"
+      - name: Shared typecheck
+        id: shared_types
+        if: always() && steps.prepare.outcome == 'success'
+        run: |
+          set -o pipefail
+          bun run --cwd packages/shared typecheck 2>&1 | tee "$RUNTIME_STDIN_OUTPUT/shared-types.log"
+      - name: Windows process boundary
+        id: boundary
+        if: always() && steps.prepare.outcome == 'success'
+        run: |
+          set -o pipefail
+          node scripts/check-windows-runtime-boundary.ts 2>&1 | tee "$RUNTIME_STDIN_OUTPUT/boundary.log"
+      - name: Verify unchanged source and all actual outcomes
+        if: always() && steps.prepare.outcome == 'success'
+        env:
+          FORMAT_OUTCOME: ${{ steps.format.outcome }}
+          LINT_OUTCOME: ${{ steps.lint.outcome }}
+          SERVER_TYPES_OUTCOME: ${{ steps.server_types.outcome }}
+          SHARED_TYPES_OUTCOME: ${{ steps.shared_types.outcome }}
+          BOUNDARY_OUTCOME: ${{ steps.boundary.outcome }}
+        run: node .runtime-stdin-driver/scripts/runtime-antigravity-stdin/runner.mjs verify-focused
+      - name: Export formatted copies without modifying tested source
+        if: always() && steps.prepare.outcome == 'success'
+        run: |
+          node .runtime-stdin-driver/scripts/runtime-antigravity-stdin/runner.mjs format-copy
+          bunx oxfmt --write --config "$GITHUB_WORKSPACE/.oxfmtrc.json" "$RUNTIME_STDIN_OUTPUT/formatted"
+          node .runtime-stdin-driver/scripts/runtime-antigravity-stdin/runner.mjs verify-source
+      - name: Upload exact source checks and review copies
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: antigravity-stdin-focused-9475ed7
+          path: ${{ runner.temp }}/antigravity-stdin-output/
+          if-no-files-found: error
+          retention-days: 30
