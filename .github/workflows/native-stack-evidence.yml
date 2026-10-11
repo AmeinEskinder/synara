@@ -58,6 +58,9 @@ jobs:
         uses: ./.github/actions/setup-workspace
         with:
           electron: true
+      - name: Install Playwright video runtime
+        timeout-minutes: 3
+        run: ./apps/web/node_modules/.bin/playwright install ffmpeg
       - name: Configure Electron sandbox helper
         run: |
           node <<'NODE'
