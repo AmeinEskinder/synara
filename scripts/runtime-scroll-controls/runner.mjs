@@ -59,7 +59,7 @@ if (process.argv[2] === "prepare") {
     assert.equal(failures.length, 1);
     assert.match(
       failures[0].fullName,
-      /retains observed keyboard ownership across row compensation \(moved up: true\)/,
+      /retains observed 'keyboard' ownership across row compensation \(moved up: true\)/,
     );
     assert.match(failures[0].failureMessages.join("\n"), /expected false to be true/);
   } else {
