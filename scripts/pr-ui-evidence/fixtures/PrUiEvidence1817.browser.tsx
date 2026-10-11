@@ -19,7 +19,10 @@ it("PR UI evidence: actual permission selection, stable description and separate
   const previousBridge = Object.getOwnPropertyDescriptor(window, "desktopBridge");
   Object.defineProperty(window, "desktopBridge", {
     configurable: true,
-    value: { appSnap: { captureCurrentApp: vi.fn() } },
+    value: {
+      appSnap: { captureCurrentApp: vi.fn() },
+      setTheme: vi.fn().mockResolvedValue(undefined),
+    },
   });
   window.addEventListener(REQUEST_CURRENT_APP_SNAP_EVENT, captureRequests);
   const host = document.createElement("div");
