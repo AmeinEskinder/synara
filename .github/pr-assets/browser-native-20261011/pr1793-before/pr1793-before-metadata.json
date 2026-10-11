@@ -1,0 +1,477 @@
+{
+  "source": "a833303024f405cd20bda83f96204d0b9a0f39c5",
+  "sourceTree": "4a06cb3deefc57c791de2329cc985ec14690a93d",
+  "lockfileSha256": "e04d95a03e02e86d0c78fed226bdb9faa3519e0eb8a73868c7434f08df567879",
+  "label": "pr1793-before",
+  "scenario": "restart",
+  "variant": "before",
+  "launches": [
+    {
+      "phase": "first",
+      "hostUrl": "http://127.0.0.1:5173/e2e/nativeStack/nativeStack.html",
+      "http": {
+        "status": 200,
+        "htmlSha256": "2a485d177ba8d482a94d8f97d36027d03fdcf6f9dbb738bddf56a6fcbab251ac"
+      },
+      "pid": 3954,
+      "startup": {
+        "ready": true,
+        "managerRegistered": true,
+        "windows": [
+          {
+            "id": 1,
+            "url": "http://127.0.0.1:5173/e2e/nativeStack/nativeStack.html",
+            "loading": true
+          }
+        ],
+        "contents": [
+          {
+            "id": 1,
+            "type": "window",
+            "url": "http://127.0.0.1:5173/e2e/nativeStack/nativeStack.html"
+          }
+        ]
+      },
+      "hostWindowId": 1,
+      "electronVersion": "43.4.1",
+      "exit": {
+        "forced": false,
+        "exitCode": 0,
+        "signalCode": null,
+        "error": null
+      }
+    },
+    {
+      "phase": "restart",
+      "hostUrl": "http://127.0.0.1:5173/e2e/nativeStack/nativeStack.html",
+      "http": {
+        "status": 200,
+        "htmlSha256": "2a485d177ba8d482a94d8f97d36027d03fdcf6f9dbb738bddf56a6fcbab251ac"
+      },
+      "pid": 4101,
+      "startup": {
+        "ready": true,
+        "managerRegistered": true,
+        "windows": [
+          {
+            "id": 1,
+            "url": "http://127.0.0.1:5173/e2e/nativeStack/nativeStack.html",
+            "loading": true
+          }
+        ],
+        "contents": [
+          {
+            "id": 1,
+            "type": "window",
+            "url": "http://127.0.0.1:5173/e2e/nativeStack/nativeStack.html"
+          }
+        ]
+      },
+      "hostWindowId": 1,
+      "electronVersion": "43.4.1",
+      "exit": {
+        "forced": false,
+        "exitCode": 0,
+        "signalCode": null,
+        "error": null
+      }
+    }
+  ],
+  "commands": [
+    {
+      "executable": "bun",
+      "args": [
+        "build",
+        "e2e/nativeStack/nativeStackMain.ts",
+        "--target=node",
+        "--format=cjs",
+        "--outfile=/tmp/synara-native-stack-sx4NcW/nativeStackMain.cjs",
+        "--external=electron",
+        "--external=betterwright",
+        "--banner=process.on('uncaughtException',error=>{console.error(error);process.exit(1)});process.on('unhandledRejection',error=>{console.error(error);process.exit(1)});module.paths.unshift(\"/home/runner/work/synara/synara/apps/desktop/node_modules\");"
+      ]
+    },
+    {
+      "executable": "bun",
+      "args": [
+        "build",
+        "../desktop/src/browserAnnotations/guestPreload.ts",
+        "--target=node",
+        "--format=cjs",
+        "--outfile=/tmp/synara-native-stack-sx4NcW/annotationPreload.cjs",
+        "--external=electron"
+      ]
+    }
+  ],
+  "observations": [
+    {
+      "kind": "native-input-focused",
+      "tabId": "f442e99c-c0e8-4f86-89e6-13554cac03bf",
+      "state": {
+        "state": {
+          "threadId": "native-stack-evidence",
+          "version": 8,
+          "open": true,
+          "activeTabId": "f442e99c-c0e8-4f86-89e6-13554cac03bf",
+          "tabs": [
+            {
+              "id": "f442e99c-c0e8-4f86-89e6-13554cac03bf",
+              "url": "http://127.0.0.1:38395/page?tab=A",
+              "title": "A workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": false,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:38395/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:38395/page?tab=A",
+              "lastError": null
+            }
+          ],
+          "lastError": null
+        },
+        "runtimes": [
+          {
+            "tabId": "f442e99c-c0e8-4f86-89e6-13554cac03bf",
+            "id": 2,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 260,
+              "y": 81,
+              "width": 1019,
+              "height": 818
+            },
+            "viewVisible": true
+          }
+        ],
+        "automationKeys": [],
+        "attachedRuntimeKey": "native-stack-evidence:f442e99c-c0e8-4f86-89e6-13554cac03bf"
+      }
+    },
+    {
+      "contract": "actual process restart before reveal",
+      "before": {
+        "state": {
+          "threadId": "native-stack-evidence",
+          "version": 22,
+          "open": true,
+          "activeTabId": "f442e99c-c0e8-4f86-89e6-13554cac03bf",
+          "tabs": [
+            {
+              "id": "f442e99c-c0e8-4f86-89e6-13554cac03bf",
+              "url": "http://127.0.0.1:38395/page?tab=A",
+              "title": "A workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": false,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:38395/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:38395/page?tab=A",
+              "lastError": null
+            },
+            {
+              "id": "f682660e-fbed-4b98-b040-fa7d385e586f",
+              "url": "http://127.0.0.1:38395/page?tab=B",
+              "title": "B workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": true,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:38395/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:38395/page?tab=B",
+              "lastError": null
+            }
+          ],
+          "lastError": null
+        },
+        "runtimes": [
+          {
+            "tabId": "f442e99c-c0e8-4f86-89e6-13554cac03bf",
+            "id": 2,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 260,
+              "y": 81,
+              "width": 1019,
+              "height": 818
+            },
+            "viewVisible": true
+          },
+          {
+            "tabId": "f682660e-fbed-4b98-b040-fa7d385e586f",
+            "id": 3,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0
+            },
+            "viewVisible": false
+          }
+        ],
+        "automationKeys": [],
+        "attachedRuntimeKey": "native-stack-evidence:f442e99c-c0e8-4f86-89e6-13554cac03bf"
+      },
+      "hidden": {
+        "state": {
+          "threadId": "native-stack-evidence",
+          "version": 22,
+          "open": true,
+          "activeTabId": "f442e99c-c0e8-4f86-89e6-13554cac03bf",
+          "tabs": [
+            {
+              "id": "f442e99c-c0e8-4f86-89e6-13554cac03bf",
+              "url": "http://127.0.0.1:38395/page?tab=A",
+              "title": "A workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": false,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:38395/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:38395/page?tab=A",
+              "lastError": null
+            },
+            {
+              "id": "f682660e-fbed-4b98-b040-fa7d385e586f",
+              "url": "http://127.0.0.1:38395/page?tab=B",
+              "title": "B workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": true,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:38395/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:38395/page?tab=B",
+              "lastError": null
+            }
+          ],
+          "lastError": null
+        },
+        "runtimes": [
+          {
+            "tabId": "f442e99c-c0e8-4f86-89e6-13554cac03bf",
+            "id": 2,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0
+            },
+            "viewVisible": false
+          },
+          {
+            "tabId": "f682660e-fbed-4b98-b040-fa7d385e586f",
+            "id": 3,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0
+            },
+            "viewVisible": false
+          }
+        ],
+        "automationKeys": [],
+        "attachedRuntimeKey": null
+      },
+      "restored": {
+        "state": {
+          "threadId": "native-stack-evidence",
+          "version": 0,
+          "open": false,
+          "activeTabId": null,
+          "tabs": [],
+          "lastError": null
+        },
+        "runtimes": [],
+        "automationKeys": [],
+        "attachedRuntimeKey": null
+      },
+      "stateFile": null
+    }
+  ],
+  "images": [
+    {
+      "name": "pr1793-before-before-shutdown.png",
+      "bytes": 73676,
+      "sha256": "a80f94cb5fe5aa9b453c174e0794f00854a77d4f08810621ae3502f69781f49e",
+      "captureMethod": "Electron desktopCapturer of isolated X11 screen",
+      "screenMetadata": {
+        "display": {
+          "id": 60,
+          "bounds": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "scaleFactor": 1
+        },
+        "imageSize": {
+          "width": 1280,
+          "height": 900
+        },
+        "sourceId": "screen:400:0"
+      },
+      "state": {
+        "state": {
+          "threadId": "native-stack-evidence",
+          "version": 22,
+          "open": true,
+          "activeTabId": "f442e99c-c0e8-4f86-89e6-13554cac03bf",
+          "tabs": [
+            {
+              "id": "f442e99c-c0e8-4f86-89e6-13554cac03bf",
+              "url": "http://127.0.0.1:38395/page?tab=A",
+              "title": "A workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": false,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:38395/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:38395/page?tab=A",
+              "lastError": null
+            },
+            {
+              "id": "f682660e-fbed-4b98-b040-fa7d385e586f",
+              "url": "http://127.0.0.1:38395/page?tab=B",
+              "title": "B workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": true,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:38395/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:38395/page?tab=B",
+              "lastError": null
+            }
+          ],
+          "lastError": null
+        },
+        "runtimes": [
+          {
+            "tabId": "f442e99c-c0e8-4f86-89e6-13554cac03bf",
+            "id": 2,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 260,
+              "y": 81,
+              "width": 1019,
+              "height": 818
+            },
+            "viewVisible": true
+          },
+          {
+            "tabId": "f682660e-fbed-4b98-b040-fa7d385e586f",
+            "id": 3,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0
+            },
+            "viewVisible": false
+          }
+        ],
+        "automationKeys": [],
+        "attachedRuntimeKey": "native-stack-evidence:f442e99c-c0e8-4f86-89e6-13554cac03bf"
+      },
+      "page": {
+        "webContentsId": 2,
+        "value": {
+          "label": "A",
+          "nonce": "b088762c-e22a-43a3-a331-849d8f9e0b2f",
+          "draft": "Transient draft must not be persisted",
+          "scrollY": 0,
+          "historyLength": 1,
+          "historyState": null,
+          "url": "http://127.0.0.1:38395/page?tab=A",
+          "operations": 0
+        }
+      }
+    },
+    {
+      "name": "pr1793-before-fresh-workspace.png",
+      "bytes": 47762,
+      "sha256": "28721a3a55016987e1695266ffc08ced367a9697ffd82359a92b0de81be52318",
+      "captureMethod": "Electron desktopCapturer of isolated X11 screen",
+      "screenMetadata": {
+        "display": {
+          "id": 60,
+          "bounds": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "scaleFactor": 1
+        },
+        "imageSize": {
+          "width": 1280,
+          "height": 900
+        },
+        "sourceId": "screen:400:0"
+      },
+      "state": {
+        "state": {
+          "threadId": "native-stack-evidence",
+          "version": 1,
+          "open": true,
+          "activeTabId": "bc24cd33-af87-4cca-b23b-139ece73308a",
+          "tabs": [
+            {
+              "id": "bc24cd33-af87-4cca-b23b-139ece73308a",
+              "url": "about:blank",
+              "title": "New tab",
+              "runtimeSurface": "native",
+              "status": "suspended",
+              "isLoading": false,
+              "canGoBack": false,
+              "canGoForward": false,
+              "faviconUrl": null,
+              "lastCommittedUrl": null,
+              "lastError": null
+            }
+          ],
+          "lastError": null
+        },
+        "runtimes": [],
+        "automationKeys": [],
+        "attachedRuntimeKey": null
+      },
+      "page": null
+    }
+  ],
+  "screenRecordings": [
+    {
+      "name": "pr1793-before-native-screen.webm",
+      "startedAt": "2026-10-11T15:29:19.664Z",
+      "endedAt": "2026-10-11T15:29:23.548Z",
+      "method": "FFmpeg x11grab of the isolated 1280x900 display at 24fps",
+      "bytes": 266879,
+      "sha256": "aca0a7bc9d54300f8f066f07f3acc80b7925af62c5cbe90a0856487d7dc1a3ed",
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "error": null
+      }
+    }
+  ],
+  "errors": [],
+  "boundary": "Unmodified production React BrowserPanel, DesktopBrowserManager and MCP browser tool transport in an isolated Electron fixture; synthetic loopback pages and empty local-server discovery; no provider account or full-app claim"
+}

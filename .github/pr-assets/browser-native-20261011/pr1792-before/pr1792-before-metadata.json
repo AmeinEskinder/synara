@@ -1,0 +1,1064 @@
+{
+  "source": "b5f8aca51d93fd610cade6be0c119e02301726b5",
+  "sourceTree": "87e3333562b58119f60a746ccfdd97228e3f6dac",
+  "lockfileSha256": "e04d95a03e02e86d0c78fed226bdb9faa3519e0eb8a73868c7434f08df567879",
+  "label": "pr1792-before",
+  "scenario": "parallel",
+  "variant": "before",
+  "launches": [
+    {
+      "phase": "first",
+      "hostUrl": "http://127.0.0.1:5173/e2e/nativeStack/nativeStack.html",
+      "http": {
+        "status": 200,
+        "htmlSha256": "2a485d177ba8d482a94d8f97d36027d03fdcf6f9dbb738bddf56a6fcbab251ac"
+      },
+      "pid": 4173,
+      "startup": {
+        "ready": true,
+        "managerRegistered": true,
+        "windows": [
+          {
+            "id": 1,
+            "url": "http://127.0.0.1:5173/e2e/nativeStack/nativeStack.html",
+            "loading": true
+          }
+        ],
+        "contents": [
+          {
+            "id": 1,
+            "type": "window",
+            "url": "http://127.0.0.1:5173/e2e/nativeStack/nativeStack.html"
+          }
+        ]
+      },
+      "hostWindowId": 1,
+      "electronVersion": "43.4.1",
+      "exit": {
+        "forced": false,
+        "exitCode": 0,
+        "signalCode": null,
+        "error": null
+      }
+    }
+  ],
+  "commands": [
+    {
+      "executable": "bun",
+      "args": [
+        "build",
+        "e2e/nativeStack/nativeStackMain.ts",
+        "--target=node",
+        "--format=cjs",
+        "--outfile=/tmp/synara-native-stack-JXSCQj/nativeStackMain.cjs",
+        "--external=electron",
+        "--external=betterwright",
+        "--banner=process.on('uncaughtException',error=>{console.error(error);process.exit(1)});process.on('unhandledRejection',error=>{console.error(error);process.exit(1)});module.paths.unshift(\"/home/runner/work/synara/synara/apps/desktop/node_modules\");"
+      ]
+    },
+    {
+      "executable": "bun",
+      "args": [
+        "build",
+        "../desktop/src/browserAnnotations/guestPreload.ts",
+        "--target=node",
+        "--format=cjs",
+        "--outfile=/tmp/synara-native-stack-JXSCQj/annotationPreload.cjs",
+        "--external=electron"
+      ]
+    }
+  ],
+  "observations": [
+    {
+      "kind": "native-input-focused",
+      "tabId": "b75abb83-7a3c-4cfb-9840-bfcf73f87298",
+      "state": {
+        "state": {
+          "threadId": "native-stack-evidence",
+          "version": 24,
+          "open": true,
+          "activeTabId": "b75abb83-7a3c-4cfb-9840-bfcf73f87298",
+          "tabs": [
+            {
+              "id": "752d2925-7319-45cb-9ad9-094f71857c75",
+              "url": "http://127.0.0.1:33877/page?tab=Agent",
+              "title": "Agent workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": true,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:33877/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:33877/page?tab=Agent",
+              "lastError": null
+            },
+            {
+              "id": "b75abb83-7a3c-4cfb-9840-bfcf73f87298",
+              "url": "http://127.0.0.1:33877/page?tab=Human",
+              "title": "Human workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": true,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:33877/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:33877/page?tab=Human",
+              "lastError": null
+            }
+          ],
+          "lastError": null
+        },
+        "runtimes": [
+          {
+            "tabId": "752d2925-7319-45cb-9ad9-094f71857c75",
+            "id": 2,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 1280,
+              "height": 800
+            },
+            "viewVisible": false
+          },
+          {
+            "tabId": "b75abb83-7a3c-4cfb-9840-bfcf73f87298",
+            "id": 3,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 260,
+              "y": 81,
+              "width": 1019,
+              "height": 818
+            },
+            "viewVisible": true
+          }
+        ],
+        "automationKeys": [
+          "native-stack-evidence:752d2925-7319-45cb-9ad9-094f71857c75"
+        ],
+        "attachedRuntimeKey": "native-stack-evidence:b75abb83-7a3c-4cfb-9840-bfcf73f87298"
+      }
+    },
+    {
+      "contract": "ordinary human new-tab race",
+      "agentTabId": "752d2925-7319-45cb-9ad9-094f71857c75",
+      "agentBefore": {
+        "webContentsId": 2,
+        "value": {
+          "label": "Agent",
+          "nonce": "f70ecca3-9374-4fd0-9b59-13c0bae419e9",
+          "draft": "",
+          "scrollY": 0,
+          "historyLength": 2,
+          "historyState": null,
+          "url": "http://127.0.0.1:33877/page?tab=Agent",
+          "operations": 0
+        }
+      },
+      "humanTabId": "b75abb83-7a3c-4cfb-9840-bfcf73f87298",
+      "outcome": {
+        "error": "Error: MCP tool failure: {\"isError\":true,\"content\":[{\"type\":\"text\",\"text\":\"{\\\"error\\\":{\\\"code\\\":\\\"BrowserInterruptedByHuman\\\",\\\"effectMayHaveCommitted\\\":true,\\\"message\\\":\\\"The browser operation was interrupted by human control.\\\",\\\"phase\\\":\\\"runtime\\\",\\\"retryable\\\":true,\\\"tabId\\\":\\\"752d2925-7319-45cb-9ad9-094f71857c75\\\"},\\\"type\\\":\\\"synara_browser_error\\\",\\\"version\\\":1}\"}]}"
+      },
+      "status": {
+        "available": true,
+        "physicalScope": "visible-shared-electron-webview",
+        "assignedTabId": "752d2925-7319-45cb-9ad9-094f71857c75",
+        "authorization": "not-required"
+      },
+      "visible": {
+        "state": {
+          "threadId": "native-stack-evidence",
+          "version": 24,
+          "open": true,
+          "activeTabId": "b75abb83-7a3c-4cfb-9840-bfcf73f87298",
+          "tabs": [
+            {
+              "id": "752d2925-7319-45cb-9ad9-094f71857c75",
+              "url": "http://127.0.0.1:33877/page?tab=Agent",
+              "title": "Agent workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": true,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:33877/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:33877/page?tab=Agent",
+              "lastError": null
+            },
+            {
+              "id": "b75abb83-7a3c-4cfb-9840-bfcf73f87298",
+              "url": "http://127.0.0.1:33877/page?tab=Human",
+              "title": "Human workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": true,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:33877/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:33877/page?tab=Human",
+              "lastError": null
+            }
+          ],
+          "lastError": null
+        },
+        "runtimes": [
+          {
+            "tabId": "752d2925-7319-45cb-9ad9-094f71857c75",
+            "id": 2,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 1280,
+              "height": 800
+            },
+            "viewVisible": false
+          },
+          {
+            "tabId": "b75abb83-7a3c-4cfb-9840-bfcf73f87298",
+            "id": 3,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 260,
+              "y": 81,
+              "width": 1019,
+              "height": 818
+            },
+            "viewVisible": true
+          }
+        ],
+        "automationKeys": [
+          "native-stack-evidence:752d2925-7319-45cb-9ad9-094f71857c75"
+        ],
+        "attachedRuntimeKey": "native-stack-evidence:b75abb83-7a3c-4cfb-9840-bfcf73f87298"
+      },
+      "humanBefore": {
+        "webContentsId": 3,
+        "value": {
+          "label": "Human",
+          "nonce": "a733df50-5949-45f8-8665-919793c8649d",
+          "draft": "Human draft remains mine",
+          "scrollY": 0,
+          "historyLength": 2,
+          "historyState": null,
+          "url": "http://127.0.0.1:33877/page?tab=Human",
+          "operations": 0
+        }
+      },
+      "humanAfter": {
+        "webContentsId": 3,
+        "value": {
+          "label": "Human",
+          "nonce": "a733df50-5949-45f8-8665-919793c8649d",
+          "draft": "Human draft remains mine",
+          "scrollY": 0,
+          "historyLength": 2,
+          "historyState": null,
+          "url": "http://127.0.0.1:33877/page?tab=Human",
+          "operations": 0
+        }
+      }
+    },
+    {
+      "kind": "native-input-focused",
+      "tabId": "38b0a5b2-29c5-49f6-8d0a-e975765bbb47",
+      "state": {
+        "state": {
+          "threadId": "native-stack-evidence",
+          "version": 43,
+          "open": true,
+          "activeTabId": "38b0a5b2-29c5-49f6-8d0a-e975765bbb47",
+          "tabs": [
+            {
+              "id": "752d2925-7319-45cb-9ad9-094f71857c75",
+              "url": "http://127.0.0.1:33877/page?tab=Agent",
+              "title": "Agent workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": true,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:33877/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:33877/page?tab=Agent",
+              "lastError": null
+            },
+            {
+              "id": "b75abb83-7a3c-4cfb-9840-bfcf73f87298",
+              "url": "http://127.0.0.1:33877/page?tab=Human",
+              "title": "Human workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": true,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:33877/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:33877/page?tab=Human",
+              "lastError": null
+            },
+            {
+              "id": "570a6494-478f-474b-9976-9dbf406c773d",
+              "url": "http://127.0.0.1:33877/page?tab=OAuth",
+              "title": "OAuth workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": false,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:33877/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:33877/page?tab=OAuth",
+              "lastError": null,
+              "openerTabId": "752d2925-7319-45cb-9ad9-094f71857c75"
+            },
+            {
+              "id": "38b0a5b2-29c5-49f6-8d0a-e975765bbb47",
+              "url": "http://127.0.0.1:33877/page?tab=HumanOAuth",
+              "title": "HumanOAuth workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": true,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:33877/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:33877/page?tab=HumanOAuth",
+              "lastError": null
+            }
+          ],
+          "lastError": null
+        },
+        "runtimes": [
+          {
+            "tabId": "752d2925-7319-45cb-9ad9-094f71857c75",
+            "id": 2,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 1280,
+              "height": 800
+            },
+            "viewVisible": false
+          },
+          {
+            "tabId": "b75abb83-7a3c-4cfb-9840-bfcf73f87298",
+            "id": 3,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0
+            },
+            "viewVisible": false
+          },
+          {
+            "tabId": "570a6494-478f-474b-9976-9dbf406c773d",
+            "id": 4,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0
+            },
+            "viewVisible": false
+          },
+          {
+            "tabId": "38b0a5b2-29c5-49f6-8d0a-e975765bbb47",
+            "id": 5,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 260,
+              "y": 81,
+              "width": 1019,
+              "height": 818
+            },
+            "viewVisible": true
+          }
+        ],
+        "automationKeys": [
+          "native-stack-evidence:752d2925-7319-45cb-9ad9-094f71857c75"
+        ],
+        "attachedRuntimeKey": "native-stack-evidence:38b0a5b2-29c5-49f6-8d0a-e975765bbb47"
+      }
+    },
+    {
+      "contract": "oauth human new-tab race",
+      "agentTabId": "752d2925-7319-45cb-9ad9-094f71857c75",
+      "agentBefore": {
+        "webContentsId": 2,
+        "value": {
+          "label": "Agent",
+          "nonce": "f70ecca3-9374-4fd0-9b59-13c0bae419e9",
+          "draft": "",
+          "scrollY": 0,
+          "historyLength": 2,
+          "historyState": null,
+          "url": "http://127.0.0.1:33877/page?tab=Agent",
+          "operations": 0
+        }
+      },
+      "humanTabId": "38b0a5b2-29c5-49f6-8d0a-e975765bbb47",
+      "outcome": {
+        "error": "Error: MCP tool failure: {\"isError\":true,\"content\":[{\"type\":\"text\",\"text\":\"{\\\"error\\\":{\\\"code\\\":\\\"BrowserInterruptedByHuman\\\",\\\"effectMayHaveCommitted\\\":true,\\\"message\\\":\\\"The browser operation was interrupted by human control.\\\",\\\"phase\\\":\\\"runtime\\\",\\\"retryable\\\":true,\\\"tabId\\\":\\\"752d2925-7319-45cb-9ad9-094f71857c75\\\"},\\\"type\\\":\\\"synara_browser_error\\\",\\\"version\\\":1}\"}]}"
+      },
+      "status": {
+        "available": true,
+        "physicalScope": "visible-shared-electron-webview",
+        "assignedTabId": "752d2925-7319-45cb-9ad9-094f71857c75",
+        "authorization": "not-required"
+      },
+      "visible": {
+        "state": {
+          "threadId": "native-stack-evidence",
+          "version": 43,
+          "open": true,
+          "activeTabId": "38b0a5b2-29c5-49f6-8d0a-e975765bbb47",
+          "tabs": [
+            {
+              "id": "752d2925-7319-45cb-9ad9-094f71857c75",
+              "url": "http://127.0.0.1:33877/page?tab=Agent",
+              "title": "Agent workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": true,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:33877/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:33877/page?tab=Agent",
+              "lastError": null
+            },
+            {
+              "id": "b75abb83-7a3c-4cfb-9840-bfcf73f87298",
+              "url": "http://127.0.0.1:33877/page?tab=Human",
+              "title": "Human workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": true,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:33877/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:33877/page?tab=Human",
+              "lastError": null
+            },
+            {
+              "id": "570a6494-478f-474b-9976-9dbf406c773d",
+              "url": "http://127.0.0.1:33877/page?tab=OAuth",
+              "title": "OAuth workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": false,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:33877/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:33877/page?tab=OAuth",
+              "lastError": null,
+              "openerTabId": "752d2925-7319-45cb-9ad9-094f71857c75"
+            },
+            {
+              "id": "38b0a5b2-29c5-49f6-8d0a-e975765bbb47",
+              "url": "http://127.0.0.1:33877/page?tab=HumanOAuth",
+              "title": "HumanOAuth workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": true,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:33877/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:33877/page?tab=HumanOAuth",
+              "lastError": null
+            }
+          ],
+          "lastError": null
+        },
+        "runtimes": [
+          {
+            "tabId": "752d2925-7319-45cb-9ad9-094f71857c75",
+            "id": 2,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 1280,
+              "height": 800
+            },
+            "viewVisible": false
+          },
+          {
+            "tabId": "b75abb83-7a3c-4cfb-9840-bfcf73f87298",
+            "id": 3,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0
+            },
+            "viewVisible": false
+          },
+          {
+            "tabId": "570a6494-478f-474b-9976-9dbf406c773d",
+            "id": 4,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0
+            },
+            "viewVisible": false
+          },
+          {
+            "tabId": "38b0a5b2-29c5-49f6-8d0a-e975765bbb47",
+            "id": 5,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 260,
+              "y": 81,
+              "width": 1019,
+              "height": 818
+            },
+            "viewVisible": true
+          }
+        ],
+        "automationKeys": [
+          "native-stack-evidence:752d2925-7319-45cb-9ad9-094f71857c75"
+        ],
+        "attachedRuntimeKey": "native-stack-evidence:38b0a5b2-29c5-49f6-8d0a-e975765bbb47"
+      },
+      "humanBefore": {
+        "webContentsId": 5,
+        "value": {
+          "label": "HumanOAuth",
+          "nonce": "c5b247a2-1be9-4a08-b23c-a17553fa6a29",
+          "draft": "HumanOAuth draft remains mine",
+          "scrollY": 0,
+          "historyLength": 2,
+          "historyState": null,
+          "url": "http://127.0.0.1:33877/page?tab=HumanOAuth",
+          "operations": 0
+        }
+      },
+      "humanAfter": {
+        "webContentsId": 5,
+        "value": {
+          "label": "HumanOAuth",
+          "nonce": "c5b247a2-1be9-4a08-b23c-a17553fa6a29",
+          "draft": "HumanOAuth draft remains mine",
+          "scrollY": 0,
+          "historyLength": 2,
+          "historyState": null,
+          "url": "http://127.0.0.1:33877/page?tab=HumanOAuth",
+          "operations": 0
+        }
+      }
+    },
+    {
+      "contract": "explicitly correlated popup adoption",
+      "result": {
+        "tabId": "752d2925-7319-45cb-9ad9-094f71857c75",
+        "value": true,
+        "serializedByteCount": 4,
+        "openedTabId": "9ab8ace0-c676-4984-bea9-b6f533b5ea28"
+      },
+      "status": {
+        "available": true,
+        "physicalScope": "visible-shared-electron-webview",
+        "assignedTabId": "9ab8ace0-c676-4984-bea9-b6f533b5ea28",
+        "authorization": "not-required"
+      },
+      "page": {
+        "webContentsId": 6,
+        "value": {
+          "label": "Popup",
+          "nonce": "2596b3c2-50dd-49e0-9ce5-1ca9558f2687",
+          "draft": "",
+          "scrollY": 0,
+          "historyLength": 1,
+          "historyState": null,
+          "url": "http://127.0.0.1:33877/page?tab=Popup",
+          "operations": 0
+        }
+      }
+    }
+  ],
+  "images": [
+    {
+      "name": "pr1792-before-ordinary-human-page.png",
+      "bytes": 73279,
+      "sha256": "32cf128a4a03e0f3a7903089ab3515fc285f0c12f50d2792b366b9f3ba3d033c",
+      "captureMethod": "Electron desktopCapturer of isolated X11 screen",
+      "screenMetadata": {
+        "display": {
+          "id": 60,
+          "bounds": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "scaleFactor": 1
+        },
+        "imageSize": {
+          "width": 1280,
+          "height": 900
+        },
+        "sourceId": "screen:400:0"
+      },
+      "state": {
+        "state": {
+          "threadId": "native-stack-evidence",
+          "version": 24,
+          "open": true,
+          "activeTabId": "b75abb83-7a3c-4cfb-9840-bfcf73f87298",
+          "tabs": [
+            {
+              "id": "752d2925-7319-45cb-9ad9-094f71857c75",
+              "url": "http://127.0.0.1:33877/page?tab=Agent",
+              "title": "Agent workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": true,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:33877/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:33877/page?tab=Agent",
+              "lastError": null
+            },
+            {
+              "id": "b75abb83-7a3c-4cfb-9840-bfcf73f87298",
+              "url": "http://127.0.0.1:33877/page?tab=Human",
+              "title": "Human workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": true,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:33877/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:33877/page?tab=Human",
+              "lastError": null
+            }
+          ],
+          "lastError": null
+        },
+        "runtimes": [
+          {
+            "tabId": "752d2925-7319-45cb-9ad9-094f71857c75",
+            "id": 2,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 1280,
+              "height": 800
+            },
+            "viewVisible": false
+          },
+          {
+            "tabId": "b75abb83-7a3c-4cfb-9840-bfcf73f87298",
+            "id": 3,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 260,
+              "y": 81,
+              "width": 1019,
+              "height": 818
+            },
+            "viewVisible": true
+          }
+        ],
+        "automationKeys": [
+          "native-stack-evidence:752d2925-7319-45cb-9ad9-094f71857c75"
+        ],
+        "attachedRuntimeKey": "native-stack-evidence:b75abb83-7a3c-4cfb-9840-bfcf73f87298"
+      },
+      "page": {
+        "webContentsId": 3,
+        "value": {
+          "label": "Human",
+          "nonce": "a733df50-5949-45f8-8665-919793c8649d",
+          "draft": "Human draft remains mine",
+          "scrollY": 0,
+          "historyLength": 2,
+          "historyState": null,
+          "url": "http://127.0.0.1:33877/page?tab=Human",
+          "operations": 0
+        }
+      }
+    },
+    {
+      "name": "pr1792-before-oauth-human-page.png",
+      "bytes": 79715,
+      "sha256": "6fc8dadc69da0a3033fee5bbf36fdb8408017728b79c22a94c4f9511ddf3346c",
+      "captureMethod": "Electron desktopCapturer of isolated X11 screen",
+      "screenMetadata": {
+        "display": {
+          "id": 60,
+          "bounds": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "scaleFactor": 1
+        },
+        "imageSize": {
+          "width": 1280,
+          "height": 900
+        },
+        "sourceId": "screen:400:0"
+      },
+      "state": {
+        "state": {
+          "threadId": "native-stack-evidence",
+          "version": 43,
+          "open": true,
+          "activeTabId": "38b0a5b2-29c5-49f6-8d0a-e975765bbb47",
+          "tabs": [
+            {
+              "id": "752d2925-7319-45cb-9ad9-094f71857c75",
+              "url": "http://127.0.0.1:33877/page?tab=Agent",
+              "title": "Agent workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": true,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:33877/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:33877/page?tab=Agent",
+              "lastError": null
+            },
+            {
+              "id": "b75abb83-7a3c-4cfb-9840-bfcf73f87298",
+              "url": "http://127.0.0.1:33877/page?tab=Human",
+              "title": "Human workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": true,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:33877/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:33877/page?tab=Human",
+              "lastError": null
+            },
+            {
+              "id": "570a6494-478f-474b-9976-9dbf406c773d",
+              "url": "http://127.0.0.1:33877/page?tab=OAuth",
+              "title": "OAuth workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": false,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:33877/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:33877/page?tab=OAuth",
+              "lastError": null,
+              "openerTabId": "752d2925-7319-45cb-9ad9-094f71857c75"
+            },
+            {
+              "id": "38b0a5b2-29c5-49f6-8d0a-e975765bbb47",
+              "url": "http://127.0.0.1:33877/page?tab=HumanOAuth",
+              "title": "HumanOAuth workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": true,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:33877/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:33877/page?tab=HumanOAuth",
+              "lastError": null
+            }
+          ],
+          "lastError": null
+        },
+        "runtimes": [
+          {
+            "tabId": "752d2925-7319-45cb-9ad9-094f71857c75",
+            "id": 2,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 1280,
+              "height": 800
+            },
+            "viewVisible": false
+          },
+          {
+            "tabId": "b75abb83-7a3c-4cfb-9840-bfcf73f87298",
+            "id": 3,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0
+            },
+            "viewVisible": false
+          },
+          {
+            "tabId": "570a6494-478f-474b-9976-9dbf406c773d",
+            "id": 4,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0
+            },
+            "viewVisible": false
+          },
+          {
+            "tabId": "38b0a5b2-29c5-49f6-8d0a-e975765bbb47",
+            "id": 5,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 260,
+              "y": 81,
+              "width": 1019,
+              "height": 818
+            },
+            "viewVisible": true
+          }
+        ],
+        "automationKeys": [
+          "native-stack-evidence:752d2925-7319-45cb-9ad9-094f71857c75"
+        ],
+        "attachedRuntimeKey": "native-stack-evidence:38b0a5b2-29c5-49f6-8d0a-e975765bbb47"
+      },
+      "page": {
+        "webContentsId": 5,
+        "value": {
+          "label": "HumanOAuth",
+          "nonce": "c5b247a2-1be9-4a08-b23c-a17553fa6a29",
+          "draft": "HumanOAuth draft remains mine",
+          "scrollY": 0,
+          "historyLength": 2,
+          "historyState": null,
+          "url": "http://127.0.0.1:33877/page?tab=HumanOAuth",
+          "operations": 0
+        }
+      }
+    },
+    {
+      "name": "pr1792-before-correlated-popup.png",
+      "bytes": 74798,
+      "sha256": "c824a3f6a8184c86d6dcc96e5f0c1876f782f3368d1c01417883dba71398ffff",
+      "captureMethod": "Electron desktopCapturer of isolated X11 screen",
+      "screenMetadata": {
+        "display": {
+          "id": 60,
+          "bounds": {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 900
+          },
+          "scaleFactor": 1
+        },
+        "imageSize": {
+          "width": 1280,
+          "height": 900
+        },
+        "sourceId": "screen:400:0"
+      },
+      "state": {
+        "state": {
+          "threadId": "native-stack-evidence",
+          "version": 51,
+          "open": true,
+          "activeTabId": "9ab8ace0-c676-4984-bea9-b6f533b5ea28",
+          "tabs": [
+            {
+              "id": "752d2925-7319-45cb-9ad9-094f71857c75",
+              "url": "http://127.0.0.1:33877/page?tab=Agent",
+              "title": "Agent workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": true,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:33877/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:33877/page?tab=Agent",
+              "lastError": null
+            },
+            {
+              "id": "b75abb83-7a3c-4cfb-9840-bfcf73f87298",
+              "url": "http://127.0.0.1:33877/page?tab=Human",
+              "title": "Human workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": true,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:33877/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:33877/page?tab=Human",
+              "lastError": null
+            },
+            {
+              "id": "570a6494-478f-474b-9976-9dbf406c773d",
+              "url": "http://127.0.0.1:33877/page?tab=OAuth",
+              "title": "OAuth workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": false,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:33877/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:33877/page?tab=OAuth",
+              "lastError": null,
+              "openerTabId": "752d2925-7319-45cb-9ad9-094f71857c75"
+            },
+            {
+              "id": "38b0a5b2-29c5-49f6-8d0a-e975765bbb47",
+              "url": "http://127.0.0.1:33877/page?tab=HumanOAuth",
+              "title": "HumanOAuth workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": true,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:33877/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:33877/page?tab=HumanOAuth",
+              "lastError": null
+            },
+            {
+              "id": "9ab8ace0-c676-4984-bea9-b6f533b5ea28",
+              "url": "http://127.0.0.1:33877/page?tab=Popup",
+              "title": "Popup workspace",
+              "runtimeSurface": "native",
+              "status": "live",
+              "isLoading": false,
+              "canGoBack": false,
+              "canGoForward": false,
+              "faviconUrl": "http://127.0.0.1:33877/favicon.ico",
+              "lastCommittedUrl": "http://127.0.0.1:33877/page?tab=Popup",
+              "lastError": null
+            }
+          ],
+          "lastError": null
+        },
+        "runtimes": [
+          {
+            "tabId": "752d2925-7319-45cb-9ad9-094f71857c75",
+            "id": 2,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 1280,
+              "height": 800
+            },
+            "viewVisible": false
+          },
+          {
+            "tabId": "b75abb83-7a3c-4cfb-9840-bfcf73f87298",
+            "id": 3,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0
+            },
+            "viewVisible": false
+          },
+          {
+            "tabId": "570a6494-478f-474b-9976-9dbf406c773d",
+            "id": 4,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0
+            },
+            "viewVisible": false
+          },
+          {
+            "tabId": "38b0a5b2-29c5-49f6-8d0a-e975765bbb47",
+            "id": 5,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "width": 0,
+              "height": 0
+            },
+            "viewVisible": false
+          },
+          {
+            "tabId": "9ab8ace0-c676-4984-bea9-b6f533b5ea28",
+            "id": 6,
+            "destroyed": false,
+            "native": true,
+            "bounds": {
+              "x": 260,
+              "y": 91,
+              "width": 1019,
+              "height": 808
+            },
+            "viewVisible": true
+          }
+        ],
+        "automationKeys": [
+          "native-stack-evidence:752d2925-7319-45cb-9ad9-094f71857c75",
+          "native-stack-evidence:9ab8ace0-c676-4984-bea9-b6f533b5ea28"
+        ],
+        "attachedRuntimeKey": "native-stack-evidence:9ab8ace0-c676-4984-bea9-b6f533b5ea28"
+      },
+      "page": {
+        "webContentsId": 6,
+        "value": {
+          "label": "Popup",
+          "nonce": "2596b3c2-50dd-49e0-9ce5-1ca9558f2687",
+          "draft": "",
+          "scrollY": 0,
+          "historyLength": 1,
+          "historyState": null,
+          "url": "http://127.0.0.1:33877/page?tab=Popup",
+          "operations": 0
+        }
+      }
+    }
+  ],
+  "screenRecordings": [
+    {
+      "name": "pr1792-before-native-screen.webm",
+      "startedAt": "2026-10-11T15:15:48.615Z",
+      "endedAt": "2026-10-11T15:15:55.981Z",
+      "method": "FFmpeg x11grab of the isolated 1280x900 display at 24fps",
+      "bytes": 435711,
+      "sha256": "e8929d7cd12636ef03275c13dc4fa60f1a99e6bd1c374a0c416b960cc4e49da8",
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "error": null
+      }
+    }
+  ],
+  "errors": [],
+  "boundary": "Unmodified production React BrowserPanel, DesktopBrowserManager and MCP browser tool transport in an isolated Electron fixture; synthetic loopback pages and empty local-server discovery; no provider account or full-app claim"
+}

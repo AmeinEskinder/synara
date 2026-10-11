@@ -1,0 +1,55 @@
+{
+  "target": {
+    "id": "pr1790-before",
+    "scenario": "retention",
+    "variant": "before",
+    "source": "907161a60bbb4b16d53feec693eafd2c7e1b66a0"
+  },
+  "source": "907161a60bbb4b16d53feec693eafd2c7e1b66a0",
+  "sourceTree": "dd18cd280d50366d57ceb6d300c2528ed7796e63",
+  "lockfileSha256": "e04d95a03e02e86d0c78fed226bdb9faa3519e0eb8a73868c7434f08df567879",
+  "driver": "01a06146be70ed08a1bf2e43cd51d5a530289abb",
+  "overlays": [
+    {
+      "path": "apps/web/e2e/nativeStack/captureNativeStack.mjs",
+      "sha256": "9a10b79a96562e90aa0f59891d336818d0ad0f8a1a1056bd4a73de3d936a08ee"
+    },
+    {
+      "path": "apps/web/e2e/nativeStack/nativeStack.html",
+      "sha256": "d57cbb6a52d9239e5d1e577ef523adef2507a3d046de2097e280290b4aa16888"
+    },
+    {
+      "path": "apps/web/e2e/nativeStack/nativeStack.tsx",
+      "sha256": "8aa68ceec0ba587c1069ed2ae69413291f07cbbaa24318b784fdb950e4c5b1ad"
+    },
+    {
+      "path": "apps/web/e2e/nativeStack/nativeStackMain.ts",
+      "sha256": "c96e9e59daf88a6bd25cede121259a5533648e4b62720e6e0e07f2e77d5a745a"
+    },
+    {
+      "path": "apps/web/e2e/nativeStack/nativeStackPreload.cjs",
+      "sha256": "9369a5a6a929946b707ece9addf90555dbbc970680b510157d2f310745cdf221"
+    },
+    {
+      "path": "apps/web/e2e/nativeStack/nativeStackSite.mjs",
+      "sha256": "f3476a1b79c68903601272e1fccad897431c3f5b1d892f4623075c2e573def56"
+    }
+  ],
+  "status": "completed",
+  "applicationCodeModified": false,
+  "createdAt": "2026-10-11T15:23:13.865Z",
+  "images": [
+    {
+      "name": "pr1790-before-returned-A.png",
+      "sha256": "57873c7fe327185449004579c9d24da77050a0809505ecf85d1e3d67c4f4a35c",
+      "bytes": 71545
+    },
+    {
+      "name": "pr1790-before-returned-B.png",
+      "sha256": "e885c48a8313d326705ed1dfe949be0a5d6a4d1a6909b522279a201e99033044",
+      "bytes": 71749
+    }
+  ],
+  "metadataSha256": "b280ea68078c58e0391c0e12d1589d29b876ba6e8fa740a3525f5f7d7062b3dd",
+  "completedAt": "2026-10-11T15:23:33.517Z"
+}

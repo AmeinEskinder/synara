@@ -1,0 +1,60 @@
+{
+  "target": {
+    "id": "pr1792-after",
+    "scenario": "parallel",
+    "variant": "after",
+    "source": "a833303024f405cd20bda83f96204d0b9a0f39c5"
+  },
+  "source": "a833303024f405cd20bda83f96204d0b9a0f39c5",
+  "sourceTree": "4a06cb3deefc57c791de2329cc985ec14690a93d",
+  "lockfileSha256": "e04d95a03e02e86d0c78fed226bdb9faa3519e0eb8a73868c7434f08df567879",
+  "driver": "28faacc25248d795be85a58b0ea1eb0aa632d333",
+  "overlays": [
+    {
+      "path": "apps/web/e2e/nativeStack/captureNativeStack.mjs",
+      "sha256": "9a10b79a96562e90aa0f59891d336818d0ad0f8a1a1056bd4a73de3d936a08ee"
+    },
+    {
+      "path": "apps/web/e2e/nativeStack/nativeStack.html",
+      "sha256": "d57cbb6a52d9239e5d1e577ef523adef2507a3d046de2097e280290b4aa16888"
+    },
+    {
+      "path": "apps/web/e2e/nativeStack/nativeStack.tsx",
+      "sha256": "8aa68ceec0ba587c1069ed2ae69413291f07cbbaa24318b784fdb950e4c5b1ad"
+    },
+    {
+      "path": "apps/web/e2e/nativeStack/nativeStackMain.ts",
+      "sha256": "c96e9e59daf88a6bd25cede121259a5533648e4b62720e6e0e07f2e77d5a745a"
+    },
+    {
+      "path": "apps/web/e2e/nativeStack/nativeStackPreload.cjs",
+      "sha256": "9369a5a6a929946b707ece9addf90555dbbc970680b510157d2f310745cdf221"
+    },
+    {
+      "path": "apps/web/e2e/nativeStack/nativeStackSite.mjs",
+      "sha256": "f3476a1b79c68903601272e1fccad897431c3f5b1d892f4623075c2e573def56"
+    }
+  ],
+  "status": "completed",
+  "applicationCodeModified": false,
+  "createdAt": "2026-10-11T15:14:08.508Z",
+  "images": [
+    {
+      "name": "pr1792-after-correlated-popup.png",
+      "sha256": "57b446f9f2c40140e3489bc946b8792b69c6039223fad1eb2f9439c04d8f7f87",
+      "bytes": 74885
+    },
+    {
+      "name": "pr1792-after-oauth-human-page.png",
+      "sha256": "00eb2c0b81f439366b187ce999a8ab961526d5741194cfde7c735e48b863a23b",
+      "bytes": 79778
+    },
+    {
+      "name": "pr1792-after-ordinary-human-page.png",
+      "sha256": "34aece6571e4e871038bb667e1f3a8cef00b7ea69bad99c343e48aa4c08bc192",
+      "bytes": 73342
+    }
+  ],
+  "metadataSha256": "749f2bdb888772725abbd6bf34add65d2dd6f846d491b790950c3361a6d2ad3f",
+  "completedAt": "2026-10-11T15:14:23.524Z"
+}
