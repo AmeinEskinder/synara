@@ -5,6 +5,7 @@ import { page } from "vitest/browser";
 import { expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";
 import { REQUEST_CURRENT_APP_SNAP_EVENT } from "../appSnap.logic";
+import { useTheme } from "../hooks/useTheme";
 import { RuntimeUsageControls } from "./BranchToolbar";
 
 it("PR UI evidence: actual permission selection, stable description and separate capture action", async () => {
@@ -35,6 +36,7 @@ it("PR UI evidence: actual permission selection, stable description and separate
   });
   document.body.append(host);
   function Controls() {
+    useTheme();
     const [mode, setMode] = useState<RuntimeMode>("auto");
     return (
       <>
@@ -89,6 +91,11 @@ it("PR UI evidence: actual permission selection, stable description and separate
   };
   try {
     await page.getByRole("button").click();
+    await expect
+      .poll(() =>
+        getComputedStyle(document.documentElement).getPropertyValue("--color-text-accent").trim(),
+      )
+      .not.toBe("");
     const auto = page.getByRole("menuitemradio", { name: /Approve for me/ });
     const full = page.getByRole("menuitemradio", { name: /Full access/ });
     const ask = page.getByRole("menuitemradio", { name: /Ask for approval/ });
