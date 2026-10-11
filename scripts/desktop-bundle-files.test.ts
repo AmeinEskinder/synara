@@ -56,9 +56,9 @@ describe("desktop bundle file selection", () => {
     }
     expect(preserveDependencyDiagnostics({})).toBe(false);
     expect(preserveDependencyDiagnostics({ SYNARA_SERVER_SOURCEMAP: "false" })).toBe(false);
-    expect(excluded("node_modules/zod/src/index.ts", createDesktopBundleFilePatterns("linux"))).toBe(
-      true,
-    );
+    expect(
+      excluded("node_modules/zod/src/index.ts", createDesktopBundleFilePatterns("linux")),
+    ).toBe(true);
   });
 
   it("retains vendored licenses and non-TypeScript source assets", () => {
