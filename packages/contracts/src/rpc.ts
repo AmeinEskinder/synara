@@ -515,6 +515,15 @@ export const WsOrchestrationReconcileProviderDeliveryRpc = Rpc.make(
   },
 );
 
+export const WsOrchestrationStartParallelRunRpc = Rpc.make(
+  ORCHESTRATION_WS_METHODS.startParallelRun,
+  {
+    payload: OrchestrationRpcSchemas.startParallelRun.input,
+    success: OrchestrationRpcSchemas.startParallelRun.output,
+    error: WsRpcError,
+  },
+);
+
 export const WsOrchestrationPrepareQuitResumeRpc = Rpc.make(
   ORCHESTRATION_WS_METHODS.prepareQuitResume,
   {
@@ -1919,6 +1928,7 @@ export const WsFeatureRpcGroup = RpcGroup.make(
   WsOrchestrationListProviderDeliveryBlockersRpc,
   WsOrchestrationReconcileProviderDeliveryRpc,
   WsOrchestrationPrepareQuitResumeRpc,
+  WsOrchestrationStartParallelRunRpc,
   WsOrchestrationSubscribeShellRpc,
   WsOrchestrationUnsubscribeShellRpc,
   WsOrchestrationSubscribeThreadRpc,

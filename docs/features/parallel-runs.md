@@ -1,0 +1,31 @@
+# Parallel model runs
+
+In a code project, open a chat and choose **Parallel run** in its header. Enter
+one task and choose two or three provider/model attempts. Matching providers copy
+the current model settings. Every attempt gets a separate conversation, provider
+session and managed worktree. They all start from the same committed HEAD;
+uncommitted source changes are excluded. The source access mode is frozen for the
+batch. A provider/model without Auto support falls back to approval mode.
+
+The sidebar groups these independent attempts without using the Beta Groups
+coordinator feature. Open any attempt and choose **Compare attempts** to inspect
+answers, status, branches and changes from the common base. **Stop all attempts**
+uses the existing interrupt path. Wait for all attempts to settle before selecting
+one. **Keep this attempt** archives the other conversations and preserves their
+branches and files. Use the existing Worktrees settings panel for explicit removal.
+
+**Compare in new thread** sends the task, answer excerpts, branch names and
+worktree locations to the currently selected model in a new approval-mode chat.
+It asks for a recommendation; it does not merge code. Large answers are marked as
+excerpts, and the original conversations remain available for inspection.
+
+All worktrees and threads are staged before provider turns are admitted. A lost
+acknowledgement can be retried with the original run id and command ids, so an
+accepted prompt is not delivered a second time. The frozen request is also stored
+with the group. After a partial launch and reload, **Resume launch** retries it.
+A changed or dirty orphan worktree, deleted attempt, archived source/attempt, or
+changed request is preserved and reported instead of being overwritten. Starting
+a new run after an error preserves any attempts that were already created.
+
+The first version is bounded to three attempts. Automatic judging and automatic
+branch merging remain outside this feature.

@@ -1,0 +1,374 @@
+import {
+  ModelSelection,
+  type OrchestrationStartParallelRunInput,
+  type ProviderKind,
+  type ModelSlug,
+  type ThreadId,
+  type OrchestrationThread,
+} from "@synara/contracts";
+import { useQuery } from "@tanstack/react-query";
+import { Schema } from "effect";
+import { useMemo, useState } from "react";
+import { ensureNativeApi } from "~/nativeApi";
+import { useStore } from "~/store";
+
+import type { Thread, Project } from "~/types";
+import { newCommandId, newMessageId, newThreadId } from "~/lib/utils";
+import {
+  parallelAttemptSettled,
+  parallelComparisonPrompt,
+  selectParallelRunAttempt,
+} from "~/lib/parallelRuns";
+import { Button } from "../ui/button";
+import { Dialog, DialogPopup, DialogTitle, DialogDescription, DialogFooter } from "../ui/dialog";
+import { Textarea } from "../ui/textarea";
+import { ProviderModelPicker } from "./ProviderModelPicker";
+import type { ComponentProps } from "react";
+
+type PickerProps = ComponentProps<typeof ProviderModelPicker>;
+
+export function ParallelRunsControl(props: {
+  thread: Thread;
+  project: Project;
+  selection: ModelSelection;
+  picker: Pick<
+    PickerProps,
+    | "providers"
+    | "modelOptionsByProvider"
+    | "modelOptionsByProviderInstance"
+    | "providerInstances"
+    | "loadingModelProviders"
+    | "discoveryErrorsByProvider"
+  >;
+  onNavigate: (id: ThreadId) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [prompt, setPrompt] = useState("");
+  const [selections, setSelections] = useState<ModelSelection[]>([
+    props.selection,
+    props.selection,
+  ]);
+  const [request, setRequest] = useState<OrchestrationStartParallelRunInput | null>(null);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const summaries = useStore((state) => state.sidebarThreadSummaryById);
+  const runId = props.thread.parallelRun?.runId;
+  const attempts = useMemo(
+    () =>
+      runId
+        ? Object.values(summaries)
+            .filter((thread) => thread.parallelRun?.runId === runId)
+            .toSorted((a, b) => a.parallelRun!.index - b.parallelRun!.index)
+        : [],
+    [summaries, runId],
+  );
+  const details = useQuery({
+    queryKey: ["parallel-run", runId, attempts.map((thread) => thread.id)],
+    enabled: open && !!runId,
+    queryFn: async () => {
+      const api = ensureNativeApi();
+      return Promise.all(
+        attempts.map(async (thread) => {
+          const detailPromise = api.orchestration.getThreadDetailSnapshot({ threadId: thread.id });
+          const diffPromise = thread.worktreePath
+            ? api.git
+                .readWorkingTreeDiff({
+                  cwd: thread.worktreePath,
+                  scope: "ref",
+                  compareRef: thread.parallelRun!.baseCommit,
+                })
+                .catch(() => null)
+            : null;
+          const [detail, diff] = await Promise.all([detailPromise, diffPromise]);
+          return { thread: detail?.thread ?? null, diff };
+        }),
+      );
+    },
+    refetchInterval: open && runId ? 3_000 : false,
+  });
+  const incompleteLaunch =
+    !!props.thread.parallelRun?.request &&
+    (attempts.length !== props.thread.parallelRun.count ||
+      attempts.some((attempt) => !attempt.latestTurn && !attempt.session));
+  const settled =
+    attempts.length === props.thread.parallelRun?.count && attempts.every(parallelAttemptSettled);
+  const perform = async (action: () => Promise<void>) => {
+    setPending(true);
+    setError(null);
+    try {
+      await action();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setPending(false);
+    }
+  };
+  const launch = () =>
+    perform(async () => {
+      const input = request ?? {
+        runId: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
+        sourceThreadId: props.thread.id,
+        runtimeMode: props.thread.runtimeMode,
+        interactionMode: props.thread.interactionMode,
+        prompt: prompt.trim(),
+        attempts: selections,
+      };
+      setRequest(input);
+      const result = await ensureNativeApi().orchestration.startParallelRun(input);
+      setOpen(false);
+      setRequest(null);
+      props.onNavigate(result.threadIds[0]!);
+    });
+  const compare = () =>
+    perform(async () => {
+      const threads = details.data?.flatMap((value) => (value.thread ? [value.thread] : [])) ?? [];
+      if (threads.length !== attempts.length)
+        throw new Error("Wait for the attempt details to load.");
+      const api = ensureNativeApi();
+      const id = newThreadId();
+      const createdAt = new Date().toISOString();
+      await api.orchestration.dispatchCommand({
+        type: "thread.create",
+        commandId: newCommandId(),
+        threadId: id,
+        projectId: props.project.id,
+        title: "Compare parallel attempts",
+        modelSelection: props.selection,
+        runtimeMode: "approval-required",
+        interactionMode: "default",
+        envMode: "local",
+        branch: null,
+        worktreePath: null,
+        createdAt,
+      });
+      await api.orchestration.dispatchCommand({
+        type: "thread.turn.start",
+        commandId: newCommandId(),
+        threadId: id,
+        message: {
+          messageId: newMessageId(),
+          role: "user",
+          text: parallelComparisonPrompt(threads as OrchestrationThread[]),
+          attachments: [],
+        },
+        modelSelection: props.selection,
+        runtimeMode: "approval-required",
+        interactionMode: "default",
+        createdAt,
+      });
+      setOpen(false);
+      props.onNavigate(id);
+    });
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => {
+          setError(null);
+          setOpen(true);
+        }}
+      >
+        {runId ? "Compare attempts" : "Parallel run"}
+      </Button>
+      <Dialog
+        open={open}
+        onOpenChange={(value) => {
+          if (!pending) setOpen(value);
+        }}
+      >
+        <DialogPopup className={runId ? "max-w-5xl" : undefined}>
+          <DialogTitle>{runId ? "Parallel attempts" : "Run the same task in parallel"}</DialogTitle>
+          <DialogDescription>
+            {runId
+              ? "Inspect each answer and its changes from the common base. Keeping an attempt archives the other conversations and preserves their branches and worktrees."
+              : "Choose two or three attempts. Each gets an independent thread and worktree from the same commit. Uncommitted source changes are excluded. The source thread’s access mode applies to every attempt. Providers without Auto support use approval mode."}
+          </DialogDescription>
+          {runId ? (
+            <div className="grid gap-3 overflow-auto p-4 text-ui sm:grid-cols-3">
+              {attempts.map((attempt, index) => (
+                <section key={attempt.id} className="min-w-0 rounded-lg border p-3">
+                  <h3 className="font-medium">
+                    Attempt {attempt.parallelRun!.index + 1} · {attempt.modelSelection.model}
+                  </h3>
+                  <p className="break-all text-ui-xs text-muted-foreground">{attempt.branch}</p>
+                  <p>
+                    {attempt.archivedAt ? "Archived" : (attempt.latestTurn?.state ?? "Starting")}
+                  </p>
+                  <pre className="max-h-64 overflow-auto whitespace-pre-wrap font-sans">
+                    {details.data?.[index]?.thread?.messages.findLast(
+                      (message) => message.role === "assistant",
+                    )?.text ?? "Waiting for an answer…"}
+                  </pre>
+                  <details className="my-2">
+                    <summary>Changes from base</summary>
+                    <pre className="max-h-64 overflow-auto text-ui-xs">
+                      {details.data?.[index]?.diff?.patch || "No diff available."}
+                    </pre>
+                    {details.data?.[index]?.diff?.truncated ? (
+                      <p>Diff truncated; open the attempt to inspect all changes.</p>
+                    ) : null}
+                  </details>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setOpen(false);
+                        props.onNavigate(attempt.id);
+                      }}
+                    >
+                      Open
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={!settled || pending || !!attempt.archivedAt}
+                      onClick={() =>
+                        void perform(async () => {
+                          await selectParallelRunAttempt(ensureNativeApi(), runId, attempt.id);
+                          setOpen(false);
+                          props.onNavigate(attempt.id);
+                        })
+                      }
+                    >
+                      Keep this attempt
+                    </Button>
+                  </div>
+                </section>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-3 p-4">
+              <Textarea
+                aria-label="Task for every attempt"
+                value={prompt}
+                disabled={pending || !!request}
+                onChange={(event) => setPrompt(event.target.value)}
+                placeholder="Describe the task for every model…"
+              />
+              {selections.map((selection, index) => (
+                <div key={`attempt-${index + 1}`} className="flex items-center gap-2 text-ui">
+                  <span>Attempt {index + 1}</span>
+                  <ProviderModelPicker
+                    {...props.picker}
+                    provider={selection.provider}
+                    model={selection.model as ModelSlug}
+                    {...(selection.instanceId
+                      ? { selectedProviderInstanceId: selection.instanceId }
+                      : {})}
+                    lockedProvider={null}
+                    disabled={pending || !!request}
+                    onProviderModelChange={(provider: ProviderKind, model, instanceId) =>
+                      setSelections((values) =>
+                        values.map((value, slot) =>
+                          slot === index
+                            ? Schema.decodeUnknownSync(ModelSelection)({
+                                provider,
+                                model,
+                                instanceId: instanceId ?? provider,
+                                ...(provider === value.provider && value.options
+                                  ? { options: value.options }
+                                  : {}),
+                              })
+                            : value,
+                        ),
+                      )
+                    }
+                  />
+                </div>
+              ))}
+              <Button
+                variant="outline"
+                disabled={pending || !!request}
+                onClick={() =>
+                  setSelections((values) =>
+                    values.length === 2 ? [...values, props.selection] : values.slice(0, 2),
+                  )
+                }
+              >
+                {selections.length === 2 ? "Add third attempt" : "Remove third attempt"}
+              </Button>
+              <p className="text-ui-xs text-muted-foreground">
+                Current model settings are copied for matching providers.
+              </p>
+            </div>
+          )}
+          {error || details.error ? (
+            <p role="alert" className="px-4 text-ui text-destructive">
+              {error ?? String(details.error)}
+            </p>
+          ) : null}
+          <DialogFooter>
+            {runId ? (
+              <>
+                {incompleteLaunch ? (
+                  <Button
+                    disabled={pending}
+                    onClick={() =>
+                      void perform(async () => {
+                        const recovered = await ensureNativeApi().orchestration.startParallelRun(
+                          props.thread.parallelRun!.request!,
+                        );
+                        await details.refetch();
+                        setOpen(false);
+                        props.onNavigate(recovered.threadIds[0]!);
+                      })
+                    }
+                  >
+                    Resume launch
+                  </Button>
+                ) : null}
+                <Button
+                  variant="outline"
+                  disabled={pending || settled}
+                  onClick={() =>
+                    void perform(async () => {
+                      for (const attempt of attempts)
+                        await ensureNativeApi().orchestration.dispatchCommand({
+                          type: "thread.turn.interrupt",
+                          commandId: newCommandId(),
+                          threadId: attempt.id,
+                          createdAt: new Date().toISOString(),
+                        });
+                    })
+                  }
+                >
+                  Stop all attempts
+                </Button>
+                <Button
+                  disabled={pending || !settled || !details.data}
+                  onClick={() => void compare()}
+                >
+                  Compare in new thread
+                </Button>
+              </>
+            ) : (
+              <>
+                {request ? (
+                  <Button
+                    variant="outline"
+                    disabled={pending}
+                    onClick={() => {
+                      setRequest(null);
+                      setError(null);
+                    }}
+                  >
+                    Start a new run
+                  </Button>
+                ) : null}
+                <Button disabled={pending || !prompt.trim()} onClick={() => void launch()}>
+                  {pending
+                    ? "Starting…"
+                    : request
+                      ? "Retry same run"
+                      : `Start ${selections.length} attempts`}
+                </Button>
+              </>
+            )}
+          </DialogFooter>
+        </DialogPopup>
+      </Dialog>
+    </>
+  );
+}

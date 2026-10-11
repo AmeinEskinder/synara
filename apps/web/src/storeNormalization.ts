@@ -204,6 +204,7 @@ export function threadShellsEqual(left: ThreadShell | undefined, right: ThreadSh
     (left.sidechatContext?.url ?? null) === (right.sidechatContext?.url ?? null) &&
     (left.sidechatLastActivityAt ?? null) === (right.sidechatLastActivityAt ?? null) &&
     (left.sidechatExpiredAt ?? null) === (right.sidechatExpiredAt ?? null) &&
+    deepEqualJson(left.parallelRun ?? null, right.parallelRun ?? null) &&
     deepEqualJson(left.lastKnownPr ?? null, right.lastKnownPr ?? null) &&
     (left.handoff ?? null) === (right.handoff ?? null) &&
     (left.isProjectImport ?? false) === (right.isProjectImport ?? false) &&
@@ -1951,6 +1952,7 @@ export function normalizeThreadFromReadModel(
     (previous.sidechatContext?.url ?? null) === (incoming.sidechatContext?.url ?? null) &&
     (previous.sidechatLastActivityAt ?? null) === (incoming.sidechatLastActivityAt ?? null) &&
     (previous.sidechatExpiredAt ?? null) === (incoming.sidechatExpiredAt ?? null) &&
+    deepEqualJson(previous.parallelRun ?? null, incoming.parallelRun ?? null) &&
     deepEqualJson(previous.lastKnownPr ?? null, lastKnownPr) &&
     (previous.handoff ?? null) === handoff &&
     (previous.isProjectImport ?? false) === (incoming.isProjectImport ?? false) &&
@@ -2012,6 +2014,7 @@ export function normalizeThreadFromReadModel(
     sidechatContext: incoming.sidechatContext ?? null,
     sidechatLastActivityAt: incoming.sidechatLastActivityAt ?? null,
     sidechatExpiredAt: incoming.sidechatExpiredAt ?? null,
+    ...(incoming.parallelRun ? { parallelRun: incoming.parallelRun } : {}),
     lastKnownPr,
     handoff,
     ...(incoming.isProjectImport ? { isProjectImport: true } : {}),
@@ -2159,6 +2162,7 @@ export function normalizeThreadShellSnapshot(
     sidechatContext: incoming.sidechatContext ?? null,
     sidechatLastActivityAt: incoming.sidechatLastActivityAt ?? null,
     sidechatExpiredAt: incoming.sidechatExpiredAt ?? null,
+    ...(incoming.parallelRun ? { parallelRun: incoming.parallelRun } : {}),
     lastKnownPr,
     handoff,
     ...(incoming.isProjectImport ? { isProjectImport: true } : {}),
