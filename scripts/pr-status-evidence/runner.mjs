@@ -148,8 +148,8 @@ if (command === "matrix") {
     }
   }
   const pngs = readdirSync(output).filter((name) => name.endsWith(".png"));
-  if (actualExitCode === 0 && pngs.length !== 8)
-    throw new Error("Expected all eight status screenshots.");
+  if (actualExitCode === 0 && pngs.length !== 10)
+    throw new Error("Expected eight asserted status screenshots and two pre-assertion observations.");
   for (const path of pngs) {
     const bytes = readFileSync(resolve(output, path));
     if (bytes.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a")

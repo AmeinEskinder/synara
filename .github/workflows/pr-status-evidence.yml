@@ -97,3 +97,64 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
+
+  regression-control:
+    name: Unchanged browser regression ${{ matrix.variant }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: before
+            source: ca7345b440a7a2fd3d9ffa4637d708cc1a1519e8
+          - variant: after
+            source: 63c33e00238b4ca13aa52ecee29bb6494ed4f642
+    env:
+      PR_STATUS_CONTROL_VARIANT: ${{ matrix.variant }}
+      PR_STATUS_CONTROL_SOURCE: ${{ matrix.source }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ matrix.source }}
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          path: .pr-status-driver
+          persist-credentials: false
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
+        with:
+          electron: "false"
+      - name: Cache Playwright browsers
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('bun.lock') }}
+      - name: Install browser runtime
+        run: ./apps/web/node_modules/.bin/playwright install chromium
+      - name: Verify unchanged two-test suite
+        run: node .pr-status-driver/scripts/pr-status-evidence/control.mjs prepare
+      - name: Run both actual regressions
+        working-directory: apps/web
+        run: |
+          set +e
+          bunx vitest run --config vitest.browser.config.ts src/components/chat/MessagesTimeline.workingStatus.browser.tsx --reporter=default --reporter=json --outputFile="$PR_STATUS_CONTROL_OUTPUT/vitest.json" 2>&1 | tee "$PR_STATUS_CONTROL_OUTPUT/vitest.log"
+          result=("${PIPESTATUS[@]}")
+          set -e
+          printf '{"vitest":%s,"tee":%s}\n' "${result[0]}" "${result[1]}" > "$PR_STATUS_CONTROL_OUTPUT/exits.json"
+          if [ "${result[0]}" -ne 0 ]; then exit "${result[0]}"; fi
+          exit "${result[1]}"
+      - name: Verify exact source and retain original outcome
+        if: always()
+        run: node .pr-status-driver/scripts/pr-status-evidence/control.mjs verify
+      - name: Upload raw regression result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: status-regression-${{ matrix.variant }}-${{ matrix.source }}
+          path: .pr-status-control/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
