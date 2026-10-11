@@ -70,10 +70,10 @@ it("PR UI evidence: actual permission selection, stable description and separate
   }
   const screen = await render(<Controls />, { container: host });
   const clearPointerHighlight = async () => {
-    // A modal menu intentionally makes the outside page inert. Move within
-    // its padding while open, using a real pointer action on a reachable target.
+    // A modal menu makes the outside page inert and clips its rounded corners.
+    // Its visible separator is a non-item target that clears row highlighting.
     if (document.querySelector('[role="menu"]')) {
-      await page.getByRole("menu").hover({ position: { x: 2, y: 2 }, timeout: 5_000 });
+      await page.getByRole("separator").hover({ timeout: 5_000 });
     } else {
       await page.getByRole("heading", { name: "Permission mode review" }).hover({ timeout: 5_000 });
     }
