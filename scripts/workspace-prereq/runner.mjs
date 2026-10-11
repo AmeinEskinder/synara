@@ -47,14 +47,14 @@ if (process.argv[2] === "prepare") {
   const observer = join(driver, "observe.cjs");
   const env = {
     SYNARA_PREREQ_TRACE_DIR: traces,
-    NODE_OPTIONS:
-      `${process.env.NODE_OPTIONS || ""} --require ${JSON.stringify(observer.replaceAll("\\", "/"))}`.trim(),
   };
   assert.ok(process.env.GITHUB_ENV);
   for (const [name, value] of Object.entries(env)) {
     assert.ok(!/[\r\n]/.test(value));
     appendFileSync(process.env.GITHUB_ENV, `${name}=${value}\n`);
   }
+  assert.ok(process.env.GITHUB_OUTPUT);
+  appendFileSync(process.env.GITHUB_OUTPUT, `observer=${observer.replaceAll("\\", "/")}\n`);
   writeFileSync(
     provenancePath,
     JSON.stringify(

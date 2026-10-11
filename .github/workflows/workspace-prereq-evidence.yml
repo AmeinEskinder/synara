@@ -35,12 +35,15 @@ jobs:
         with:
           node-version-file: package.json
       - name: Record provenance and enable compiler I/O observation
+        id: prepare
         env:
           SYNARA_PREREQ_OUTPUT: ${{ runner.temp }}/workspace-prereq-evidence
         run: node .prereq-driver/scripts/workspace-prereq/runner.mjs prepare
       - name: Run unchanged canonical workspace setup
         id: setup
         uses: ./.github/actions/setup-workspace
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096 --require "${{ steps.prepare.outputs.observer }}"
         with:
           scope: "runtime"
       - name: Verify Windows terminal PTY native dependency under Bun
