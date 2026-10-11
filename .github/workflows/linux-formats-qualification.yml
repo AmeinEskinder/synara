@@ -6,6 +6,8 @@ on:
     paths:
       - .github/workflows/linux-formats-qualification.yml
       - .github/scripts/linux-formats-qualification.mjs
+      - .github/scripts/rpm-install-integrity.mjs
+      - .github/scripts/rpm-install-integrity.test.mjs
 
 permissions:
   contents: read
@@ -20,7 +22,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 65
     env:
-      LINUX_FORMATS_QUALIFICATION_SOURCE_SHA: 77ea643504f5ab5908176669a2056205014bbfe2
+      LINUX_FORMATS_QUALIFICATION_SOURCE_SHA: 3af35fb285e796b425ede511f09b2f656b7835ed
       LINUX_FORMATS_QUALIFICATION_DRIVER_SHA: ${{ github.sha }}
       NODE_OPTIONS: --max-old-space-size=4096
       ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
@@ -52,6 +54,10 @@ jobs:
           node-version-file: source/package.json
       - name: Record and verify source and driver provenance
         run: node ../driver/.github/scripts/linux-formats-qualification.mjs prepare "$PWD" "$RUNNER_TEMP/linux-formats-evidence"
+      - name: Check conditional RPM permission verification rejects other mismatches
+        run: |
+          set -euo pipefail
+          node --test ../driver/.github/scripts/rpm-install-integrity.test.mjs 2>&1 | tee "$RUNNER_TEMP/linux-formats-evidence/rpm-integrity-tests.log"
       - name: Install pinned native toolchain and Linux build dependencies
         run: |
           set -euo pipefail

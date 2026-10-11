@@ -7,6 +7,7 @@ import {
   copyFileSync,
   createReadStream,
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -20,6 +21,7 @@ import { homedir, tmpdir } from "node:os";
 import { stripTypeScriptTypes } from "node:module";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { assertRpmInstallIntegrity } from "./rpm-install-integrity.mjs";
 
 const [phase, sourceArgument, evidenceArgument] = process.argv.slice(2);
 assert.ok(
@@ -170,6 +172,12 @@ async function qualify() {
       sourceTree: run("git", ["rev-parse", "HEAD^{tree}"]).trim(),
       driverTree: run("git", ["-C", driver, "rev-parse", "HEAD^{tree}"]).trim(),
       driverScriptSha256: await sha256(fileURLToPath(import.meta.url)),
+      rpmIntegrityScriptSha256: await sha256(
+        join(driver, ".github/scripts/rpm-install-integrity.mjs"),
+      ),
+      rpmIntegrityTestSha256: await sha256(
+        join(driver, ".github/scripts/rpm-install-integrity.test.mjs"),
+      ),
       driverWorkflowSha256: await sha256(
         join(driver, ".github/workflows/linux-formats-qualification.yml"),
       ),
@@ -191,6 +199,10 @@ async function qualify() {
   assert.equal(provenance.debianVersion, debianVersion);
   assert.equal(provenance.lockfileSha256, lockfileSha256);
   assert.equal(provenance.canonicalStartupSha256, await sha256(canonicalPath));
+  assert.equal(
+    provenance.rpmIntegrityScriptSha256,
+    await sha256(join(driver, ".github/scripts/rpm-install-integrity.mjs")),
+  );
   assert.equal(
     provenance.installedStartupAdapterSha256,
     await sha256(join(evidence, "installed-linux-startup.ts")),
@@ -225,6 +237,17 @@ async function qualify() {
       log: "rpm-requires.txt",
     });
     run("rpm", ["--query", "--package", "--list", rpm], { log: "rpm-contents.txt" });
+    run(
+      "rpm",
+      [
+        "--query",
+        "--package",
+        "--queryformat",
+        "[%{FILENAMES}\t%{FILEMODES:octal}\t%{FILELINKTOS}\n]",
+        rpm,
+      ],
+      { log: "rpm-archive-modes-and-link-targets.txt" },
+    );
     run("rpm", ["--query", "--package", "--scripts", rpm], { log: "rpm-scripts.txt" });
     save("package-inventory.json", { fields, rpmFields, payloads });
     assert.equal(fields.Package, packageName);
@@ -355,12 +378,75 @@ async function qualify() {
   ).split("\n");
   assert.ok(installedFiles.includes(installedExecutable));
   assert.equal(realpathSync("/usr/bin/synara"), installedExecutable);
-  assert.equal(
-    isRpm
-      ? run("rpm", ["--verify", packageName], { log: "rpm-verify.txt" }).trim()
-      : run("dpkg", ["--verify", packageName], { log: "dpkg-verify.txt" }).trim(),
-    "",
-  );
+  if (isRpm) {
+    const sandboxPath = "/opt/Synara/chrome-sandbox";
+    const modes = run(
+      "rpm",
+      ["--query", "--queryformat", "[%{FILENAMES}\t%{FILEMODES:octal}\n]", packageName],
+      { log: "rpm-installed-modes.txt" },
+    )
+      .trim()
+      .split("\n")
+      .map((line) => line.split("\t"));
+    const sandboxModes = modes.filter(([path]) => path === sandboxPath);
+    assert.equal(sandboxModes.length, 1);
+    assert.match(sandboxModes[0][1], /^[0-7]+$/);
+    const sandbox = lstatSync(sandboxPath);
+    const installedScript = run("rpm", ["--query", "--scripts", packageName], {
+      log: "rpm-installed-scripts.txt",
+    });
+    let hasUserNamespaceLink = false;
+    try {
+      hasUserNamespaceLink = lstatSync("/proc/self/ns/user").isSymbolicLink();
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+    }
+    const probe = hasUserNamespaceLink
+      ? spawnSync("unshare", ["--user", "true"], { encoding: "utf8", timeout: 10_000, shell: false })
+      : null;
+    const raw = spawnSync("rpm", ["--verify", packageName], {
+      encoding: "utf8",
+      timeout: 60_000,
+      shell: false,
+    });
+    const verification = {
+      status: raw.status,
+      stdout: raw.stdout ?? "",
+      stderr: raw.stderr ?? "",
+      error: raw.error?.message ?? null,
+    };
+    writeFileSync(join(evidence, "rpm-verify.txt"), verification.stdout + verification.stderr);
+    const namespaces = {
+      hasUserNamespaceLink,
+      status: probe?.status ?? null,
+      error: probe?.error?.message ?? null,
+    };
+    const result = assertRpmInstallIntegrity({
+      verification,
+      installedScript,
+      sandbox: {
+        path: sandboxPath,
+        regularFile: sandbox.isFile(),
+        uid: sandbox.uid,
+        gid: sandbox.gid,
+        archiveMode: Number.parseInt(sandboxModes[0][1], 8),
+        permissions: sandbox.mode & 0o7777,
+      },
+      namespaces,
+    });
+    save("rpm-install-integrity.json", {
+      sourceSha,
+      driverSha,
+      result,
+      verification,
+      namespaces,
+      namespaceStdout: probe?.stdout ?? "",
+      namespaceStderr: probe?.stderr ?? "",
+      installedScriptSha256: createHash("sha256").update(installedScript).digest("hex"),
+    });
+  } else {
+    assert.equal(run("dpkg", ["--verify", packageName], { log: "dpkg-verify.txt" }).trim(), "");
+  }
   const desktopFile = installedFiles.find((path) =>
     /^\/usr\/share\/applications\/[^/]+\.desktop$/.test(path),
   );
