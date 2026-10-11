@@ -3668,6 +3668,76 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
         });
       });
 
+    const reclaimGeneratedFiles: GitCoreShape["reclaimGeneratedFiles"] = (input) =>
+      Effect.gen(function* () {
+        const [generated, plan] = yield* Effect.all(
+          [
+            executeGit(
+              "GitCore.reclaimGeneratedFiles.list",
+              input.cwd,
+              ["ls-files", "--others", "--ignored", "--exclude-standard", "--directory", "-z"],
+              { maxOutputBytes: WORKTREE_TRANSFER_MAX_OUTPUT_BYTES },
+            ).pipe(
+              Effect.map((result) =>
+                parseNullSeparatedPaths(result.stdout).map((entry) => entry.replace(/\/+$/u, "")),
+              ),
+            ),
+            planWorktreeTransfer(input.cwd),
+          ],
+          { concurrency: "unbounded" },
+        );
+        const claimed = [...plan.copyPaths, ...plan.linkPaths];
+        // A claimed path inside a generated directory protects the whole directory:
+        // `--directory` lists it as one entry, and removing it would take the claim with it.
+        const isClaimed = (entry: string) =>
+          claimed.some(
+            (claim) =>
+              claim === entry || claim.startsWith(`${entry}/`) || entry.startsWith(`${claim}/`),
+          );
+        const removedPaths: string[] = [];
+        const protectedPaths: string[] = [];
+        for (const entry of [...new Set(generated)].toSorted()) {
+          const absolutePath = nodePath.join(input.cwd, entry);
+          if (isClaimed(entry)) {
+            protectedPaths.push(entry);
+            continue;
+          }
+          const stat = yield* Effect.tryPromise({
+            try: () =>
+              nodeFs.lstat(absolutePath).catch((cause: unknown) => {
+                if (hasNodeErrorCode(cause, "ENOENT")) return null;
+                throw cause;
+              }),
+            catch: (cause) =>
+              createGitCommandError(
+                "GitCore.reclaimGeneratedFiles",
+                input.cwd,
+                ["worktree", "reclaim", entry],
+                `could not inspect ${entry}.`,
+                cause,
+              ),
+          });
+          if (stat === null) continue;
+          if (stat.isSymbolicLink()) {
+            protectedPaths.push(entry);
+            continue;
+          }
+          yield* Effect.tryPromise({
+            try: () => nodeFs.rm(absolutePath, { recursive: true, force: true }),
+            catch: (cause) =>
+              createGitCommandError(
+                "GitCore.reclaimGeneratedFiles",
+                input.cwd,
+                ["worktree", "reclaim", entry],
+                `could not remove ${entry}.`,
+                cause,
+              ),
+          });
+          removedPaths.push(entry);
+        }
+        return { removedPaths, protectedPaths };
+      });
+
     const readWorktreeIdentity = (worktreePath: string) =>
       Effect.gen(function* () {
         const gitDirResult = yield* executeGit(
@@ -4543,6 +4613,7 @@ export const makeGitCore = (options?: { executeOverride?: GitCoreShape["execute"
       recordWorktreeOwnership,
       verifyWorktreeOwnership,
       snapshotWorktree,
+      reclaimGeneratedFiles,
       createDetachedWorktree,
       fetchPullRequestBranch,
       fetchPullRequestCommit,
