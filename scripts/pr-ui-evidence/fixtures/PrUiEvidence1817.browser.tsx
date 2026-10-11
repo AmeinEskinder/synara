@@ -69,8 +69,17 @@ it("PR UI evidence: actual permission selection, stable description and separate
     );
   }
   const screen = await render(<Controls />, { container: host });
+  const clearPointerHighlight = async () => {
+    // A modal menu intentionally makes the outside page inert. Move within
+    // its padding while open, using a real pointer action on a reachable target.
+    if (document.querySelector('[role="menu"]')) {
+      await page.getByRole("menu").hover({ position: { x: 2, y: 2 }, timeout: 5_000 });
+    } else {
+      await page.getByRole("heading", { name: "Permission mode review" }).hover({ timeout: 5_000 });
+    }
+  };
   const snapshot = async (name: string) => {
-    await page.getByRole("heading", { name: "Permission mode review" }).hover();
+    await clearPointerHighlight();
     await document.fonts.ready;
     await new Promise<void>((done) =>
       requestAnimationFrame(() => requestAnimationFrame(() => done())),
@@ -84,7 +93,7 @@ it("PR UI evidence: actual permission selection, stable description and separate
     const full = page.getByRole("menuitemradio", { name: /Full access/ });
     const ask = page.getByRole("menuitemradio", { name: /Ask for approval/ });
     await expect.element(auto).toHaveAttribute("aria-checked", "true");
-    await page.getByRole("heading", { name: "Permission mode review" }).hover();
+    await clearPointerHighlight();
     const color = (item: typeof auto) => getComputedStyle(item.element()).color;
     expect(color(full)).not.toBe(color(ask));
     if (variant === "after") {
