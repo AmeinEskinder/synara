@@ -69,12 +69,12 @@ Release smoke shares the static runner, removing one checkout/install/runner and
 one duplicate identity scan. The platform-independent Windows boundary scanner
 runs there once; native Windows validation is not removed. Release quality lanes
 still install the full workspace and run the audited test suite while unsigned
-preparation proceeds in parallel, unless the exact release commit already passed the latest main-push CI run
-from `ci.yml` — the lanes
-then skip the suite and still report success, so packaging keeps waiting on the
-same gates. Release installs restore the same caches read-only: full lanes reuse
-the modules and Bun archives, filtered lanes only the Bun package archive.
-Signing, notarization,
+preparation proceeds in parallel. Publication may reuse the latest main-push
+`ci.yml` run only when every required job succeeded for the exact source commit,
+run, and attempt. Docs-only runs with skipped lanes and incomplete API evidence
+fall back to running release gates. Packaging still waits on the same gates.
+Full release lanes use the shared workspace caches; filtered lanes restore only
+the Bun package archive. Signing, notarization,
 source provenance, publication and production dependency staging are unchanged.
 
 ## Cross-platform setup measurements: September 14, 2026

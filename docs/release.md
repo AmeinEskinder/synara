@@ -11,6 +11,9 @@ This document covers build-only native validation and publishing desktop release
 - Runs lint, typecheck and tests alongside unsigned native, JavaScript and icon
   preparation. Packaging/signing waits for all quality gates. Narrow `native`, `icon`, and
   `js` validation stages cannot publish and omit these full-suite gates.
+- Publication reuses main CI only when every required job passed for the exact
+  release commit and latest run attempt. Skipped, missing, or stale job evidence
+  runs the release gates again.
 - Builds portable JavaScript once, verifies its source/lockfile/settings and
   output checksums on each consumer, and stages native dependencies per platform.
 - Builds four artifacts in parallel:
