@@ -203,12 +203,48 @@ if (command === "matrix") {
     }
     return { name, bytes: content.length, sha256: digest(content) };
   });
+  const videos = [];
+  const motionResults = [];
+  for (const motion of ["no-preference", "reduce"]) {
+    const videoDirectory = resolve(output, `video-${motion}`);
+    const names = readdirSync(videoDirectory).filter((name) => name.endsWith(".webm"));
+    if (names.length !== 1) throw new Error(`Expected one complete ${motion} context recording`);
+    const name = names[0];
+    const bytes = readFileSync(resolve(videoDirectory, name));
+    if (bytes.subarray(0, 4).toString("hex") !== "1a45dfa3" || bytes.length < 1024) {
+      throw new Error(`Invalid ${motion} WebM recording`);
+    }
+    videos.push({
+      name: `video-${motion}/${name}`,
+      bytes: bytes.length,
+      sha256: digest(bytes),
+      motion,
+    });
+    const log = readFileSync(resolve(output, `${motion}.log`), "utf8");
+    const prefix = "PR_RAIL_MOTION_RESULT ";
+    const lines = log.split("\n").filter((line) => line.includes(prefix));
+    if (lines.length !== 1) throw new Error(`Expected one asserted ${motion} motion observation`);
+    const result = JSON.parse(
+      lines[0]
+        .slice(lines[0].indexOf(prefix) + prefix.length)
+        .replace(/\x1b\[[0-9;]*m/g, "")
+        .trim(),
+    );
+    if (
+      result.motion !== motion ||
+      result.variant !== manifest.target.variant ||
+      result.frames.length < 2
+    ) {
+      throw new Error(`Unexpected ${motion} rail observation`);
+    }
+    motionResults.push({ ...result, logSha256: digest(log) });
+  }
   const actualExitCode = controlResult
     ? controlResult.testExitCode || controlResult.logExitCode
     : 0;
   writeFileSync(
     manifestPath,
-    `${JSON.stringify({ ...manifest, status: actualExitCode === 0 ? "completed" : "failed", ...(controlResult ? { controlResult } : {}), images, completedAt: new Date().toISOString() }, null, 2)}\n`,
+    `${JSON.stringify({ ...manifest, status: actualExitCode === 0 ? "completed" : "failed", ...(controlResult ? { controlResult } : {}), images, videos, motionResults, completedAt: new Date().toISOString() }, null, 2)}\n`,
   );
   console.log(
     JSON.stringify({

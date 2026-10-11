@@ -1,15 +1,20 @@
 [
   {
-    "id": "pr1655-control",
-    "pr": 1655,
-    "variant": "control",
-    "purpose": "regression-control",
-    "role": "author-head defect control; not a main baseline or screenshot",
-    "source": "977c97849b615cbe1fa566f376166cc3a41068f9",
-    "sourceTree": "b7074525a386fdc2f6a3cc8b69bd8d25c1e4a170",
-    "mode": "standalone",
-    "fixture": "PrUiEvidence1655Defects.browser.tsx",
-    "fixtureSha256": "a49c3e0bdd98a90d157546b95078c22d015337e46ea96224f6f1506c8293abb0",
-    "destination": "apps/web/src/components/PrUiEvidence1655Defects.browser.tsx"
+    "id": "pr1788-before",
+    "pr": 1788,
+    "variant": "before",
+    "source": "907161a60bbb4b16d53feec693eafd2c7e1b66a0",
+    "mode": "append-describe",
+    "fixture": "PrUiEvidence1703.snippet.ts",
+    "destination": "apps/web/src/components/ChatView.browser.tsx"
+  },
+  {
+    "id": "pr1788-after",
+    "pr": 1788,
+    "variant": "after",
+    "source": "bbc9f2e1b07ceb827977923ad83b8f981357ff5e",
+    "mode": "append-describe",
+    "fixture": "PrUiEvidence1703.snippet.ts",
+    "destination": "apps/web/src/components/ChatView.browser.tsx"
   }
 ]
