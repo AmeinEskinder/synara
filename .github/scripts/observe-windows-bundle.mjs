@@ -86,6 +86,12 @@ async function observeBuild(provenance) {
   let samples = 0;
   let sampleTail = Promise.resolve();
   const started = new Date().toISOString();
+  let rootExit = null;
+  let pipeClose = null;
+  let outputWasForciblyCut = false;
+  child.once("exit", (code, signal) => {
+    rootExit = { code, signal, at: new Date().toISOString() };
+  });
   for (const stream of [child.stdout, child.stderr])
     stream.on("data", (chunk) => {
       appendFileSync(log, chunk);
@@ -140,6 +146,7 @@ async function observeBuild(provenance) {
   sample();
   const interval = setInterval(sample, 30_000);
   let deadline;
+  let drainDeadline;
   let termination;
   let expired = false;
   const result = await new Promise((resolveResult) => {
@@ -150,31 +157,42 @@ async function observeBuild(provenance) {
         resolveResult(value);
       }
     };
-    child.once("error", (error) => finish({ exitCode: 127, error: String(error) }));
-    child.once("close", (code, signal) => finish({ exitCode: code ?? 1, signal }));
+    child.once("error", (error) => finish({ observerExitCode: 127, error: String(error) }));
+    child.once("close", (code, signal) => {
+      pipeClose = { code, signal, at: new Date().toISOString() };
+      finish({ observerExitCode: expired ? 124 : (code ?? 1) });
+    });
     deadline = setTimeout(() => {
       expired = true;
-      const kill = spawnSync("taskkill.exe", ["/pid", String(child.pid), "/T", "/F"], {
-        encoding: "utf8",
-        timeout: 15_000,
-        windowsHide: true,
-        shell: false,
-      });
       termination = {
-        status: kill.status,
-        error: kill.error?.message,
-        stdout: kill.stdout,
-        stderr: kill.stderr,
+        mechanism: "owned ChildProcess handle only",
+        rootExitAtDeadline: rootExit,
+        handleKillReturned: null,
+        descendantCleanup: "Not attempted by observer; runner-owned and unproven.",
       };
+      // Bun may already have exited while descendants still hold its pipes.
+      // Never signal a numerical PID here: that PID could have been reused.
+      try {
+        if (rootExit === null) termination.handleKillReturned = child.kill("SIGKILL");
+      } catch (error) {
+        termination.error = String(error);
+      }
       save("deadline-termination.json", termination);
-      child.stdout.destroy();
-      child.stderr.destroy();
-      child.kill();
-      finish({ exitCode: 124, error: "Thirty-minute child build deadline exceeded" });
+      drainDeadline = setTimeout(() => {
+        outputWasForciblyCut = true;
+        child.stdout.destroy();
+        child.stderr.destroy();
+        child.unref();
+        finish({
+          observerExitCode: 124,
+          error: "Thirty-minute build deadline and ten-second pipe drain exceeded",
+        });
+      }, 10_000);
     }, 30 * 60_000);
   });
   clearInterval(interval);
   clearTimeout(deadline);
+  clearTimeout(drainDeadline);
   await sampleTail;
   const completed = {
     sourceSha,
@@ -185,15 +203,24 @@ async function observeBuild(provenance) {
     bunVersion: run(bun, ["--version"]),
     args,
     ...result,
+    rootExit,
+    pipeClose,
     deadlineExceeded: expired,
+    outputWasForciblyCut,
+    logCompleteness: outputWasForciblyCut
+      ? "Partial: output pipes were forcibly closed after the deadline drain. The final tail may be missing."
+      : pipeClose
+        ? "Both output streams reached close; bytes observed by the driver are retained."
+        : "No completed output close was observed; inspect the recorded process error.",
     termination,
+    descendantCleanup: "Not performed or proven by this observer; left to the hosted runner.",
     processSamples: samples,
     logSha256: digest(log),
   };
   save("build-result.json", completed);
-  if (result.exitCode !== 0 || expired)
+  if (result.observerExitCode !== 0 || expired || rootExit?.code !== 0)
     throw new Error(
-      `Windows build failed with exit ${result.exitCode}; retained full log and process samples.`,
+      `Windows observer failed with status ${result.observerExitCode}; retained available log, actual root outcome and process samples.`,
     );
   assert.ok(samples > 0, "No successful process sample was captured");
 }
@@ -219,7 +246,7 @@ async function main() {
       version: "0.8.4",
       signed: false,
       qualification:
-        "Actual unchanged exact-head unsigned Windows NSIS build, measurement and canonical runtime/startup. Read-only descendant process sampling and a child deadline retain failure evidence before the whole-job timeout. No source mutation, signing, release, comparison benchmark, or original timeout-cause claim.",
+        "Actual unchanged exact-head unsigned Windows NSIS build, measurement and canonical runtime/startup. Read-only descendant sampling and an owned-child deadline retain available failure evidence before the job timeout. Actual root exit is separate from observer failure; any forcibly truncated tail is explicit. Descendant cleanup is runner-owned and unproven. No source mutation, signing, release, comparison benchmark, or original timeout-cause claim.",
     };
     save("provenance.json", provenance);
     appendFileSync(
@@ -244,8 +271,10 @@ async function main() {
   if (phase === "build") return observeBuild(provenance);
   const result = JSON.parse(readFileSync(join(evidence, "build-result.json"), "utf8"));
   const qualified =
-    result.exitCode === 0 &&
+    result.observerExitCode === 0 &&
+    result.rootExit?.code === 0 &&
     !result.deadlineExceeded &&
+    !result.outputWasForciblyCut &&
     process.env.MEASUREMENT_OUTCOME === "success" &&
     process.env.STARTUP_OUTCOME === "success";
   const files = readdirSync(evidence)
