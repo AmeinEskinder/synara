@@ -1,0 +1,91 @@
+name: Source-pinned Linux download controls capture
+'on':
+  push:
+    branches:
+    - cleanup/20261011/pr-1823-marketing-proof
+    paths:
+    - .github/workflows/pr1823-marketing-proof.yml
+    - scripts/pr1823-marketing/**
+permissions:
+  contents: read
+concurrency:
+  group: pr1823-marketing-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  capture:
+    name: Install controls ${{ matrix.os }} ${{ matrix.variant }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+        - ubuntu-24.04
+        - macos-15
+        variant:
+        - before
+        - after
+    env:
+      PR1823_VARIANT: ${{ matrix.variant }}
+      VISUAL_TEST: '1'
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+    - name: Checkout exact application source
+      uses: actions/checkout@v6
+      with:
+        ref: ${{ matrix.variant == 'before' && 'ec8c940e07582454a475250ade40147e3c89d59f' || '77ea643504f5ab5908176669a2056205014bbfe2'
+          }}
+        persist-credentials: false
+    - name: Checkout immutable capture driver
+      uses: actions/checkout@v6
+      with:
+        ref: ${{ github.sha }}
+        path: .pr1823-marketing-driver
+        persist-credentials: false
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version-file: package.json
+    - name: Setup Node
+      uses: actions/setup-node@v6
+      with:
+        node-version: 22.19.0
+    - name: Prepare source-pinned additive capture
+      run: node "$GITHUB_WORKSPACE/.pr1823-marketing-driver/scripts/pr1823-marketing/runner.mjs" prepare
+    - name: Install dependencies
+      run: bun install --frozen-lockfile
+    - name: Install actual Chromium
+      working-directory: apps/marketing
+      run: bunx playwright install --with-deps chromium
+    - name: Build actual deterministic production site
+      id: build
+      working-directory: apps/marketing
+      run: node "$GITHUB_WORKSPACE/.pr1823-marketing-driver/scripts/pr1823-marketing/runner.mjs" run build -- bun run build
+    - name: Run original unchanged snapshot assertion
+      id: original
+      working-directory: apps/marketing
+      run: node "$GITHUB_WORKSPACE/.pr1823-marketing-driver/scripts/pr1823-marketing/runner.mjs" run original-snapshot -- bunx playwright
+        test tests/visual/visual.spec.ts --grep install-desktop-light --retries=0 --output "$PR1823_OUTPUT_DIR/original-snapshot"
+    - name: Capture actual responsive format interactions
+      if: ${{ always() && steps.build.outcome == 'success' }}
+      id: capture
+      working-directory: apps/marketing
+      run: node "$GITHUB_WORKSPACE/.pr1823-marketing-driver/scripts/pr1823-marketing/runner.mjs" run capture -- bunx playwright test
+        --config playwright.pr1823.config.ts
+    - name: Generate candidate golden with the original test
+      if: ${{ always() && matrix.variant == 'after' && steps.capture.outcome == 'success' }}
+      working-directory: apps/marketing
+      run: node "$GITHUB_WORKSPACE/.pr1823-marketing-driver/scripts/pr1823-marketing/runner.mjs" run generate-golden -- bunx playwright
+        test tests/visual/visual.spec.ts --grep install-desktop-light --retries=0 --update-snapshots --output "$PR1823_OUTPUT_DIR/golden-generation"
+    - name: Verify source, raw results and artifact inventory
+      if: ${{ always() }}
+      run: node "$GITHUB_WORKSPACE/.pr1823-marketing-driver/scripts/pr1823-marketing/runner.mjs" verify
+    - name: Upload exact captures and original failure evidence
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: pr1823-marketing-${{ matrix.os }}-${{ matrix.variant }}
+        path: .pr1823-marketing-output/
+        include-hidden-files: true
+        if-no-files-found: error
+        retention-days: 30
