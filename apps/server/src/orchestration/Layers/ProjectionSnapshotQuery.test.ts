@@ -3087,6 +3087,8 @@ projectionSnapshotLayer("ProjectionSnapshotQuery", (it) => {
       const threads = yield* snapshotQuery.listManagedWorktreeThreads();
       assert.deepEqual(threads, [
         {
+          lastKnownPr: null,
+          busy: false,
           id: asThreadId("thread-worktree-active"),
           archivedAt: null,
           deletedAt: null,
@@ -3094,6 +3096,8 @@ projectionSnapshotLayer("ProjectionSnapshotQuery", (it) => {
           associatedWorktreePath: null,
         },
         {
+          lastKnownPr: null,
+          busy: false,
           id: asThreadId("thread-worktree-deleted"),
           archivedAt: "2026-07-24T00:00:08.000Z",
           deletedAt: "2026-07-24T00:00:09.000Z",

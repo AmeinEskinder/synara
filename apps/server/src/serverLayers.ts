@@ -1,3 +1,4 @@
+import { GitHubCliLive } from "./git/Layers/GitHubCli";
 import { ProjectionThreadMessageRepositoryLive } from "./persistence/Layers/ProjectionThreadMessages";
 import { OrchestrationCommandReceiptRepositoryLive } from "./persistence/Layers/OrchestrationCommandReceipts";
 import { QueuedTurnPromotionRepositoryLive } from "./persistence/Layers/QueuedTurnPromotions";
@@ -181,6 +182,9 @@ export function makeServerRuntimeServicesLayer(
   );
   const threadDeletionReactorLayer = provideThreadDeletionReactorDeviceService(
     ThreadDeletionReactorLive.pipe(
+      Layer.provideMerge(GitHubCliLive),
+      Layer.provideMerge(serverSettingsLayer),
+      Layer.provideMerge(AutomationRepositoryLive),
       Layer.provideMerge(profileStatsArchiveLayer),
       Layer.provideMerge(OrchestrationLayerLive),
       Layer.provideMerge(TerminalLayerLive),

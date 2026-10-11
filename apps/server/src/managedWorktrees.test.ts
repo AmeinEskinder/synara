@@ -8,6 +8,7 @@ import { Effect } from "effect";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { GitCoreShape } from "./git/Services/GitCore.ts";
+import type { ManagedWorktreeMergeCleanup, ManagedWorktreeThreadRef } from "./managedWorktrees.ts";
 import type { ProjectionSnapshotQueryShape } from "./orchestration/Services/ProjectionSnapshotQuery.ts";
 import {
   archivedWorktreeHasNoOtherOwners,
@@ -157,6 +158,110 @@ afterEach(async () => {
 });
 
 describe("managed worktrees", () => {
+  it.each([
+    "merged",
+    "disabled",
+    "active",
+    "busy",
+    "dirty",
+    "follow-up",
+    "closed",
+    "lookup-failed",
+    "shared-unmerged",
+    "protected",
+    "detached",
+    "restored-during-snapshot",
+    "snapshot-failed",
+  ])("verifies merge-aware removal safety: %s", async (scenario) => {
+    const { root, paths } = await makeManagedRoot(1);
+    const removals: string[] = [];
+    const snapshots: string[] = [];
+    const head = "a".repeat(40);
+    const pr = {
+      number: 1,
+      title: "Change",
+      url: "https://github.com/example/repo/pull/1",
+      headBranch: "synara/test",
+      baseBranch: "main",
+      state: "merged" as const,
+    };
+    const thread: ManagedWorktreeThreadRef = {
+      id: "owner",
+      archivedAt: scenario === "active" ? null : "2026-10-10T00:00:00Z",
+      worktreePath: paths[0]!,
+      lastKnownPr: pr,
+      busy: scenario === "busy",
+    };
+    const threads = [
+      thread,
+      ...(scenario === "shared-unmerged"
+        ? [{ ...thread, id: "sibling", lastKnownPr: { ...pr, url: pr.url + "2" } }]
+        : []),
+    ];
+    let restored = false;
+    const base = makeGit({
+      removals,
+      snapshots,
+      ...(scenario === "dirty" ? { dirtyPaths: new Set(paths) } : {}),
+    });
+    const git: GitCoreShape = {
+      ...base,
+      execute: (input) =>
+        input.args[0] === "rev-parse"
+          ? Effect.succeed({ code: 0, stdout: head + "\n", stderr: "" })
+          : base.execute(input),
+      statusDetails: (cwd) =>
+        scenario === "detached"
+          ? base.statusDetails(cwd).pipe(Effect.map((status) => ({ ...status, branch: null })))
+          : base.statusDetails(cwd),
+      snapshotWorktree: (input) =>
+        scenario === "snapshot-failed"
+          ? Effect.fail(new Error("No snapshot space") as never)
+          : base.snapshotWorktree(input).pipe(
+              Effect.tap(() =>
+                Effect.sync(() => {
+                  restored = scenario === "restored-during-snapshot";
+                }),
+              ),
+            ),
+    };
+    const policy: ManagedWorktreeMergeCleanup = {
+      enabled: Effect.succeed(scenario !== "disabled"),
+      isProtected: () => Effect.succeed(scenario === "protected"),
+      github: {
+        getPullRequestWithChecks: (input) =>
+          scenario === "lookup-failed"
+            ? Effect.fail(new Error("GitHub unavailable") as never)
+            : Effect.succeed({
+                summary: {
+                  number: 1,
+                  title: "Change",
+                  url: input.reference,
+                  headRefName: "synara/test",
+                  baseRefName: "main",
+                  state:
+                    scenario === "closed" || input.reference.endsWith("12") ? "closed" : "merged",
+                },
+                headSha: scenario === "follow-up" ? "b".repeat(40) : head,
+                checks: [],
+              }),
+      },
+    };
+    await Effect.runPromise(
+      pruneArchivedManagedWorktrees({
+        worktreesDir: root,
+        snapshotsDir: path.join(root, "snapshots"),
+        threads,
+        git,
+        mergeCleanup: policy,
+        readThreads: () => Effect.succeed(restored ? [{ ...thread, archivedAt: null }] : threads),
+      }),
+    );
+    expect(removals).toEqual(scenario === "merged" ? paths : []);
+    if (scenario === "merged" || scenario === "restored-during-snapshot")
+      expect(snapshots).toHaveLength(1);
+  });
+
   it("discovers linked worktrees and reports their primary checkout", async () => {
     const { root, paths } = await makeManagedRoot(2);
     const git = {

@@ -1279,6 +1279,13 @@ export class TerminalManagerRuntime extends EventEmitter<TerminalManagerEvents> 
     }
   }
 
+  hasLiveSessionsForThread(threadId: string): boolean {
+    return this.sessionsForThread(threadId).some(
+      (session) =>
+        session.process !== null || session.status === "starting" || session.status === "running",
+    );
+  }
+
   async closeSessionsOpenedAtOrBefore(input: TerminalCloseOpenedAtOrBeforeInput): Promise<void> {
     const cutoff = Date.parse(input.openedAtOrBefore);
     if (!Number.isFinite(cutoff)) {
@@ -2599,6 +2606,8 @@ export const TerminalManagerLive = Layer.effect(
           try: () => runtime.close(input),
           catch: (cause) => terminalErrorFromCause("Failed to close terminal", cause),
         }),
+      hasLiveSessionsForThread: (threadId) =>
+        Effect.sync(() => runtime.hasLiveSessionsForThread(threadId)),
       closeSessionsOpenedAtOrBefore: (input) =>
         Effect.tryPromise({
           try: () => runtime.closeSessionsOpenedAtOrBefore(input),

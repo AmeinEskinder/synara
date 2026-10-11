@@ -1,3 +1,4 @@
+import { resolveManagedWorktreeMergeCleanup } from "./managedWorktreeMergeCleanup";
 import { readEventLoopStatus } from "./eventLoopMonitor";
 import { makeGitActionRunner } from "./git/gitActionRunner";
 import { AgentGatewaySessionRegistry } from "./agentGateway/Services/AgentGatewaySessionRegistry";
@@ -1072,7 +1073,9 @@ const makeWsRpcHandlersLayer = () =>
           }
         });
 
+      const mergeCleanup = yield* resolveManagedWorktreeMergeCleanup;
       const pruneManagedWorktrees = pruneProjectedArchivedManagedWorktrees({
+        ...(mergeCleanup ? { mergeCleanup } : {}),
         homeDir: config.homeDir,
         worktreesDir: config.worktreesDir,
         snapshotQuery: projectionReadModelQuery,

@@ -1,3 +1,4 @@
+import { resolveManagedWorktreeMergeCleanup } from "../../managedWorktreeMergeCleanup";
 import { ProjectionThreadMessageRepository } from "../../persistence/Services/ProjectionThreadMessages.ts";
 /**
  * AgentGatewayLive - Synara app-control MCP tool surface.
@@ -183,6 +184,7 @@ export const makeAgentGateway = Effect.gen(function* () {
   const providerDiscovery = yield* ProviderDiscoveryService;
   const providerHealth = yield* ProviderHealth;
   const serverSettings = yield* ServerSettingsService;
+  const mergeCleanup = yield* resolveManagedWorktreeMergeCleanup;
   const operationRepository = yield* AgentGatewayOperationRepository;
   const projectionTurns = yield* ProjectionTurnRepository;
   const eventStore = yield* OrchestrationEventStore;
@@ -986,6 +988,7 @@ export const makeAgentGateway = Effect.gen(function* () {
         if (archived) {
           yield* Effect.forkDetach(
             pruneProjectedArchivedManagedWorktrees({
+              ...(mergeCleanup ? { mergeCleanup } : {}),
               homeDir: serverConfig.homeDir,
               worktreesDir: serverConfig.worktreesDir,
               snapshotQuery,

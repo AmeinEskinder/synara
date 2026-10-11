@@ -3,10 +3,11 @@ import type { Dirent } from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 
-import type { ServerManagedWorktree } from "@synara/contracts";
+import type { OrchestrationThreadPullRequest, ServerManagedWorktree } from "@synara/contracts";
 import { Effect } from "effect";
 
 import type { GitCoreShape } from "./git/Services/GitCore.ts";
+import type { GitHubCliShape } from "./git/Services/GitHubCli.ts";
 import type { ProjectionSnapshotQueryShape } from "./orchestration/Services/ProjectionSnapshotQuery.ts";
 
 const MANAGED_WORKTREE_SCAN_DEPTH = 6;
@@ -97,14 +98,90 @@ export interface ManagedWorktreeThreadRef {
   readonly deletedAt?: string | null | undefined;
   readonly worktreePath?: string | null | undefined;
   readonly associatedWorktreePath?: string | null | undefined;
+  readonly lastKnownPr?: OrchestrationThreadPullRequest | null | undefined;
+  readonly busy?: boolean | undefined;
 }
 
-export type ManagedWorktreeRemovalReason = "deleted" | "archived-retention";
+export type ManagedWorktreeRemovalReason = "deleted" | "archived-retention" | "merged";
+
+export interface ManagedWorktreeMergeCleanup {
+  readonly enabled: Effect.Effect<boolean, Error>;
+  readonly github: Pick<GitHubCliShape, "getPullRequestWithChecks">;
+  readonly isProtected: (threadId: string) => Effect.Effect<boolean, Error>;
+}
 
 export interface ManagedWorktreeRemovalCandidate {
   readonly entry: ServerManagedWorktree;
   readonly thread: ManagedWorktreeThreadRef;
   readonly reason: ManagedWorktreeRemovalReason;
+  readonly expectedHead?: string;
+}
+
+function mergedWorktreeCandidate(input: {
+  readonly entry: ServerManagedWorktree;
+  readonly threads: ReadonlyArray<ManagedWorktreeThreadRef>;
+  readonly git: GitCoreShape;
+  readonly policy: ManagedWorktreeMergeCleanup;
+}): Effect.Effect<ManagedWorktreeRemovalCandidate | null, Error> {
+  return Effect.gen(function* () {
+    const owners: ManagedWorktreeThreadRef[] = [];
+    for (const thread of input.threads) {
+      for (const recorded of [thread.worktreePath, thread.associatedWorktreePath]) {
+        if (
+          recorded &&
+          (yield* Effect.promise(() => canonicalizeRemovedPath(recorded))) === input.entry.path
+        ) {
+          owners.push(thread);
+          break;
+        }
+      }
+    }
+    const liveOwners = owners.filter((thread) => !isDeletedManagedWorktreeThread(thread));
+    if (
+      liveOwners.length === 0 ||
+      liveOwners.some(
+        (thread) =>
+          !isArchivedOnlyManagedWorktreeThread(thread) || thread.busy || !thread.lastKnownPr,
+      )
+    )
+      return null;
+    const status = yield* input.git.statusDetails(input.entry.path);
+    if (!status.branch || status.hasWorkingTreeChanges) return null;
+    const head = (yield* input.git.execute({
+      cwd: input.entry.path,
+      operation: "ManagedWorktrees.head",
+      args: ["rev-parse", "HEAD"],
+      timeoutMs: 5_000,
+    })).stdout.trim();
+    if (!/^[a-f0-9]{40,64}$/u.test(head)) return null;
+    for (const owner of liveOwners) {
+      if (yield* input.policy.isProtected(owner.id)) return null;
+      const pr = yield* input.policy.github.getPullRequestWithChecks({
+        cwd: input.entry.workspaceRoot,
+        reference: owner.lastKnownPr!.url,
+      });
+      // Equality also proves squash/rebase merges without accepting follow-up commits.
+      if (
+        pr.summary.state !== "merged" ||
+        pr.headSha !== head ||
+        pr.summary.headRefName !== status.branch
+      )
+        return null;
+    }
+    return {
+      entry: input.entry,
+      thread: liveOwners[0]!,
+      reason: "merged" as const,
+      expectedHead: head,
+    };
+  }).pipe(
+    Effect.catch((error) =>
+      Effect.logWarning("merged worktree cleanup could not verify merge", {
+        worktreePath: input.entry.path,
+        error: error.message,
+      }).pipe(Effect.as(null)),
+    ),
+  );
 }
 
 async function findLinkedWorktreeRoots(root: string, current = root, depth = 0): Promise<string[]> {
@@ -342,11 +419,16 @@ function removeManagedWorktreeSafely(input: {
   readonly snapshotsDir: string;
   readonly candidate: ManagedWorktreeRemovalCandidate;
   readonly git: GitCoreShape;
+  readonly revalidate?: (
+    candidate: ManagedWorktreeRemovalCandidate,
+  ) => Effect.Effect<boolean, Error>;
 }): Effect.Effect<boolean, Error> {
   const { entry, thread, reason } = input.candidate;
   const snapshotPath = snapshotOutputPath({
     snapshotsDir: input.snapshotsDir,
-    threadId: thread.id,
+    threadId: input.candidate.expectedHead
+      ? `${thread.id}-${input.candidate.expectedHead}`
+      : thread.id,
     worktreePath: entry.path,
   });
 
@@ -354,6 +436,7 @@ function removeManagedWorktreeSafely(input: {
     .withMutation(
       entry.workspaceRoot,
       Effect.gen(function* () {
+        if (input.revalidate && !(yield* input.revalidate(input.candidate))) return false;
         const alreadySnapshotted = yield* snapshotExists(snapshotPath);
         if (!alreadySnapshotted) {
           yield* input.git.snapshotWorktree({ cwd: entry.path, outputPath: snapshotPath });
@@ -382,6 +465,7 @@ function removeManagedWorktreeSafely(input: {
           return false;
         }
 
+        if (input.revalidate && !(yield* input.revalidate(input.candidate))) return false;
         yield* input.git.removeWorktree({
           cwd: entry.workspaceRoot,
           path: entry.path,
@@ -415,15 +499,60 @@ export function pruneArchivedManagedWorktrees(input: {
   readonly snapshotsDir: string;
   readonly threads: ReadonlyArray<ManagedWorktreeThreadRef>;
   readonly git: GitCoreShape;
+  readonly mergeCleanup?: ManagedWorktreeMergeCleanup;
+  readonly readThreads?: () => Effect.Effect<ReadonlyArray<ManagedWorktreeThreadRef>, Error>;
 }): Effect.Effect<ReadonlyArray<ServerManagedWorktree>, Error> {
   return Effect.gen(function* () {
     const inventory = yield* listManagedWorktrees(input);
+    // Merge proofs are immutable for this sweep. Recheck ownership, protection,
+    // dirty state and HEAD around snapshotting without repeating GitHub requests.
+    const proofs = new Map<
+      string,
+      ReturnType<ManagedWorktreeMergeCleanup["github"]["getPullRequestWithChecks"]>
+    >();
+    const mergeCleanup = input.mergeCleanup
+      ? {
+          ...input.mergeCleanup,
+          github: {
+            getPullRequestWithChecks: (
+              request: Parameters<
+                ManagedWorktreeMergeCleanup["github"]["getPullRequestWithChecks"]
+              >[0],
+            ) =>
+              Effect.gen(function* () {
+                const key = JSON.stringify([request.cwd, request.reference]);
+                let proof = proofs.get(key);
+                if (!proof) {
+                  proof = yield* Effect.cached(
+                    input.mergeCleanup!.github.getPullRequestWithChecks(request),
+                  );
+                  proofs.set(key, proof);
+                }
+                return yield* proof;
+              }),
+          },
+        }
+      : undefined;
     const canonicalByRecordedPath = yield* canonicalizeThreadWorktreePaths(input.threads);
-    const removalCandidates = classifyManagedWorktreeRemovalCandidates({
-      inventory,
-      threads: input.threads,
-      canonicalByRecordedPath,
-    });
+    const removalCandidates = [
+      ...classifyManagedWorktreeRemovalCandidates({
+        inventory,
+        threads: input.threads,
+        canonicalByRecordedPath,
+      }),
+    ];
+    if (mergeCleanup && (yield* mergeCleanup.enabled)) {
+      for (const entry of inventory) {
+        if (removalCandidates.some((candidate) => candidate.entry.path === entry.path)) continue;
+        const candidate = yield* mergedWorktreeCandidate({
+          entry,
+          threads: input.threads,
+          git: input.git,
+          policy: mergeCleanup,
+        });
+        if (candidate) removalCandidates.push(candidate);
+      }
+    }
     const removedPaths = new Set<string>();
     if (removalCandidates.length > 0) {
       yield* ensureSnapshotsDir(input.snapshotsDir);
@@ -435,6 +564,21 @@ export function pruneArchivedManagedWorktrees(input: {
             snapshotsDir: input.snapshotsDir,
             candidate,
             git: input.git,
+            ...(candidate.reason === "merged" && mergeCleanup
+              ? {
+                  revalidate: () =>
+                    Effect.gen(function* () {
+                      if (!(yield* mergeCleanup!.enabled)) return false;
+                      const fresh = yield* mergedWorktreeCandidate({
+                        entry: candidate.entry,
+                        threads: input.readThreads ? yield* input.readThreads() : input.threads,
+                        git: input.git,
+                        policy: mergeCleanup!,
+                      });
+                      return fresh !== null && fresh.expectedHead === candidate.expectedHead;
+                    }),
+                }
+              : {}),
           }).pipe(
             Effect.tap((removed) =>
               removed ? Effect.sync(() => removedPaths.add(candidate.entry.path)) : Effect.void,
@@ -455,6 +599,7 @@ export function pruneProjectedArchivedManagedWorktrees(input: {
   readonly worktreesDir: string;
   readonly snapshotQuery: ProjectionSnapshotQueryShape;
   readonly git: GitCoreShape;
+  readonly mergeCleanup?: ManagedWorktreeMergeCleanup;
 }): Effect.Effect<ReadonlyArray<ServerManagedWorktree>, Error> {
   return Effect.gen(function* () {
     // Deliberately not the shell snapshot: it hides soft-deleted threads, and a
@@ -465,6 +610,8 @@ export function pruneProjectedArchivedManagedWorktrees(input: {
       snapshotsDir: managedWorktreeSnapshotsDir(input.homeDir),
       threads,
       git: input.git,
+      readThreads: input.snapshotQuery.listManagedWorktreeThreads,
+      ...(input.mergeCleanup ? { mergeCleanup: input.mergeCleanup } : {}),
     });
   });
 }
