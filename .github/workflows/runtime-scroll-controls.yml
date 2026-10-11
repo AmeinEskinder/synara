@@ -1,0 +1,81 @@
+name: Runtime scroll ownership controls
+
+on:
+  push:
+    branches:
+      - codex/runtime-scroll-1143-20261011
+    paths:
+      - .github/workflows/runtime-scroll-controls.yml
+      - scripts/runtime-scroll-controls/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: runtime-scroll-controls-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_OPTIONS: --max-old-space-size=4096
+
+jobs:
+  comparison:
+    name: ${{ matrix.case }} keyboard ownership
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - case: before
+            source: 75ec05e69c819a57573a24be1a424f3e8420ebe8
+            hook: 1d4378e9fced76ff2a13431f437fe0bf951bdca3
+          - case: after
+            source: ab8a77a873e2443ffc9a9570cbd2919219fd41c9
+            hook: 1e67805a6037c8cd7728919da35cc7530b69ad73
+    env:
+      RUNTIME_SCROLL_CASE: ${{ matrix.case }}
+      RUNTIME_SCROLL_SOURCE: ${{ matrix.source }}
+      RUNTIME_SCROLL_HOOK_BLOB: ${{ matrix.hook }}
+    steps:
+      - name: Checkout immutable application source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ matrix.source }}
+          persist-credentials: false
+      - name: Checkout reviewed diagnostic driver
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          path: .runtime-scroll-driver
+          persist-credentials: false
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
+      - name: Cache Playwright browsers
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('bun.lock') }}
+      - name: Install Chromium
+        timeout-minutes: 10
+        run: ./apps/web/node_modules/.bin/playwright install chromium
+      - name: Verify source and record provenance
+        run: node .runtime-scroll-driver/scripts/runtime-scroll-controls/runner.mjs prepare
+      - name: Run unchanged browser suite and retain the raw exit status
+        id: browser
+        working-directory: apps/web
+        run: |
+          set -o pipefail
+          bunx vitest run --config vitest.browser.config.ts src/components/chat/useChatTranscriptScroll.browser.tsx --reporter=default --reporter=json --outputFile="$GITHUB_WORKSPACE/.runtime-scroll-output/vitest.json" 2>&1 | tee "$GITHUB_WORKSPACE/.runtime-scroll-output/vitest.log"
+      - name: Verify exact expected outcome without hiding baseline failure
+        if: always() && steps.browser.outcome != 'skipped'
+        run: node .runtime-scroll-driver/scripts/runtime-scroll-controls/runner.mjs verify
+      - name: Upload source pins and raw test reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runtime-scroll-${{ matrix.case }}-${{ matrix.source }}
+          path: .runtime-scroll-output/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
