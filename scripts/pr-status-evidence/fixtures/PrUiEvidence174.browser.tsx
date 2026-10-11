@@ -36,6 +36,9 @@ function StatusTimeline() {
         <p className="text-sm text-muted-foreground">
           Production timeline and theme, with a controlled conversation and status.
         </p>
+        <p data-testid="status-props" className="text-sm text-muted-foreground">
+          Requested status: {label}; chat size: {fontSize}px
+        </p>
         <nav aria-label="Evidence controls" className="flex flex-wrap gap-2 text-sm">
           <button className="rounded border px-2 py-1" onClick={() => setTheme("dark")}>
             Dark theme
@@ -200,6 +203,8 @@ it("PR UI evidence: working mark, semantic icon, type scale and actual motion pr
       expect(getComputedStyle(indicator()).animationTimingFunction).toBe("steps(40)");
     }
     await page.getByRole("button", { name: "Chat size 18", exact: true }).click();
+    await expect.element(page.getByTestId("status-props")).toHaveTextContent("chat size: 18px");
+    console.log("PR_STATUS_STATE_DIAGNOSTIC " + JSON.stringify({ variant, motion, requested: page.getByTestId("status-props").element().textContent, actualWorkingFont: getComputedStyle(indicator()).fontSize, actualWorkingText: indicator().textContent, actualUserFont: host.querySelector('[data-message-role="user"] .chat-markdown') instanceof HTMLElement ? getComputedStyle(host.querySelector<HTMLElement>('[data-message-role="user"] .chat-markdown')!).fontSize : null }));
     await expect.poll(() => getComputedStyle(indicator()).fontSize).toBe("18px");
     if (variant === "after") {
       const scaledMark = indicator().querySelector<SVGSVGElement>("svg")!;
