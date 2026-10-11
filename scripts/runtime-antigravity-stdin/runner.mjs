@@ -26,10 +26,10 @@ const cases = {
     originalTest: "ab36be4d82b5a165ed93ebbcf22de49cfa520883",
   },
   after: {
-    source: "9475ed7c3ff05336fa90a4702d4a1ba2ae94e1b0",
-    tree: "8436ff25d57f7262863fec71f9263f30ebf3f42d",
+    source: "44c8c8e93896af9d9e8d0fe91591bd6c55be61a1",
+    tree: "4c0cb96ef065024cbf692b10a8707b61ee2b2f11",
     production: "5fa183a93744105d02193cea546dbc61fc9ca8cc",
-    originalTest: "c97ceda3545edf3c2c1e45a1d0a7ec362ebeef76",
+    originalTest: "8c378198f9cc9532e3959c7139182a665870c14f",
   },
 };
 const pins = cases[caseName];
@@ -37,7 +37,7 @@ assert.ok(pins, "Only the reviewed Before/After cases are supported");
 assert.equal(process.env.RUNTIME_STDIN_SOURCE, pins.source);
 mkdirSync(output, { recursive: true });
 const fixture = "apps/server/src/provider/Layers/AntigravityAdapter.test.ts";
-const fixtureBlob = "c97ceda3545edf3c2c1e45a1d0a7ec362ebeef76";
+const fixtureBlob = "8c378198f9cc9532e3959c7139182a665870c14f";
 const production = "apps/server/src/provider/Layers/AntigravityAdapter.ts";
 const changed = [
   production,

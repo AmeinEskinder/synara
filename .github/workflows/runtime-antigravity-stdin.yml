@@ -27,11 +27,17 @@ jobs:
           - case: before
             source: 92f0d641ce24a4c0bea9c55278795a016aa4a953
           - case: after
-            source: 9475ed7c3ff05336fa90a4702d4a1ba2ae94e1b0
+            source: 44c8c8e93896af9d9e8d0fe91591bd6c55be61a1
     defaults:
       run:
         shell: bash
     env:
+      # Keep immutable source bytes unchanged on the native Windows checkout.
+      GIT_CONFIG_COUNT: "2"
+      GIT_CONFIG_KEY_0: core.autocrlf
+      GIT_CONFIG_VALUE_0: "false"
+      GIT_CONFIG_KEY_1: core.eol
+      GIT_CONFIG_VALUE_1: lf
       RUNTIME_STDIN_CASE: ${{ matrix.case }}
       RUNTIME_STDIN_SOURCE: ${{ matrix.source }}
     steps:
@@ -73,13 +79,13 @@ jobs:
     timeout-minutes: 25
     env:
       RUNTIME_STDIN_CASE: after
-      RUNTIME_STDIN_SOURCE: 9475ed7c3ff05336fa90a4702d4a1ba2ae94e1b0
+      RUNTIME_STDIN_SOURCE: 44c8c8e93896af9d9e8d0fe91591bd6c55be61a1
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - name: Checkout immutable repaired source
         uses: actions/checkout@v6
         with:
-          ref: 9475ed7c3ff05336fa90a4702d4a1ba2ae94e1b0
+          ref: 44c8c8e93896af9d9e8d0fe91591bd6c55be61a1
           persist-credentials: false
       - name: Checkout independently reviewed driver
         uses: actions/checkout@v6
@@ -148,7 +154,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: antigravity-stdin-focused-9475ed7
+          name: antigravity-stdin-focused-44c8c8e
           path: ${{ runner.temp }}/antigravity-stdin-output/
           if-no-files-found: error
           retention-days: 30
