@@ -1,0 +1,37 @@
+name: Preserve pinned review dependencies
+on:
+  push:
+    branches: [cleanup/20261011/review-dependency-recovery]
+    paths:
+      - .github/workflows/recover-review-dependencies.yml
+      - .github/scripts/recover-review-dependencies.mjs
+permissions:
+  contents: read
+jobs:
+  dependencies:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ec8c940e07582454a475250ade40147e3c89d59f
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          path: .review-dependency-driver
+          persist-credentials: false
+      - name: Install exact frozen workspace dependencies
+        uses: ./.github/actions/setup-workspace
+        with:
+          scope: full
+          electron: "false"
+      - name: Preserve dependencies and exact provenance
+        run: node .review-dependency-driver/.github/scripts/recover-review-dependencies.mjs
+      - uses: actions/upload-artifact@v7
+        with:
+          name: review-dependencies-ec8c940-linux-x64
+          path: ${{ runner.temp }}/review-dependencies
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
