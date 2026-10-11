@@ -1,0 +1,45 @@
+name: Observe permitted hosted macOS display access
+on:
+  push:
+    branches: [cleanup/20261011/mac-display-evidence]
+    paths:
+      - .github/workflows/mac-display-probe.yml
+      - .github/scripts/mac-display-probe.mjs
+permissions:
+  contents: read
+concurrency:
+  group: mac-display-probe-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  probe:
+    name: Display access on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-26]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ec8c940e07582454a475250ade40147e3c89d59f
+          path: source
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          path: driver
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.20.0
+      - name: Observe WindowServer and capture using existing permissions
+        working-directory: source
+        run: node ../driver/.github/scripts/mac-display-probe.mjs
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: mac-display-probe-${{ matrix.os }}-${{ github.sha }}
+          path: ${{ runner.temp }}/mac-display-probe
+          if-no-files-found: error
+          retention-days: 14
