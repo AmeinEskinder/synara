@@ -76,10 +76,12 @@ export async function startNativeStackSite() {
     },
     async close() {
       for (const gate of gates.values()) gate.release();
-      server.closeAllConnections();
-      await new Promise((resolve, reject) =>
+      const closed = new Promise((resolve, reject) =>
         server.close((error) => (error ? reject(error) : resolve())),
       );
+      server.closeAllConnections();
+      await closed;
     },
   };
 }
+

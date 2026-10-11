@@ -17,7 +17,6 @@ concurrency:
 
 env:
   NODE_OPTIONS: --max-old-space-size=4096
-  NATIVE_STACK_ONLY: pr1790-after
 
 jobs:
   targets:
@@ -78,7 +77,7 @@ jobs:
       - name: Exercise real native lifecycle and capture UI
         timeout-minutes: 10
         working-directory: apps/web
-        run: xvfb-run -a bun e2e/nativeStack/captureNativeStack.mjs
+        run: xvfb-run -a -s "-screen 0 1280x900x24" bun e2e/nativeStack/captureNativeStack.mjs
       - name: Verify assertions, PNG hashes and unchanged source
         run: node .native-stack-driver/scripts/native-stack-evidence/runner.mjs verify
       - name: Retain source-labelled native evidence and failed attempts

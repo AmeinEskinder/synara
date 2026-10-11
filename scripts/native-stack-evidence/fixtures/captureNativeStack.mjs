@@ -205,6 +205,8 @@ async function snapshot(current) {
         id: runtime.webContents.id,
         destroyed: runtime.webContents.isDestroyed(),
         native: runtime.ownsWebContents,
+        bounds: runtime.view?.getBounds() ?? null,
+        viewVisible: runtime.view?.getVisible() ?? null,
       })),
       automationKeys: [...manager.automationRuntimeKeys],
       attachedRuntimeKey: manager.attachedRuntimeKey,
@@ -377,15 +379,27 @@ async function capture(current, name) {
   await current.shell.evaluate(
     () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))),
   );
-  const png = await current.app.evaluate(async ({ BrowserWindow }, id) => {
-    const host = BrowserWindow.fromId(id);
-    if (!host) throw new Error("Native-stack host was closed");
-    return (await host.capturePage()).toPNG().toString("base64");
-  }, current.hostWindowId);
+  const screenCapture = await current.app.evaluate(async ({ desktopCapturer, screen }) => {
+    const display = screen.getPrimaryDisplay();
+    const sources = await desktopCapturer.getSources({
+      types: ["screen"],
+      thumbnailSize: display.size,
+    });
+    if (sources.length !== 1) throw new Error("Expected one isolated X11 display");
+    const image = sources[0].thumbnail;
+    if (image.isEmpty()) throw new Error("Native screen capture was empty");
+    return {
+      png: image.toPNG().toString("base64"),
+      display: { id: display.id, bounds: display.bounds, scaleFactor: display.scaleFactor },
+      imageSize: image.getSize(),
+      sourceId: sources[0].id,
+    };
+  });
   const nameWithLabel = `${label}-${name}.png`;
-  const bytes = Buffer.from(png, "base64");
+  const bytes = Buffer.from(screenCapture.png, "base64");
   writeFileSync(join(output, nameWithLabel), bytes);
-  images.push({ name: nameWithLabel, bytes: bytes.length, sha256: sha256(bytes), state, page });
+  const { png: _png, ...screenMetadata } = screenCapture;
+  images.push({ name: nameWithLabel, bytes: bytes.length, sha256: sha256(bytes), captureMethod: "Electron desktopCapturer of isolated X11 screen", screenMetadata, state, page });
 }
 async function retention(current) {
   await show(current);
@@ -683,7 +697,7 @@ try {
     try {
       await deadline(Promise.resolve(cleanup()), 5000, context);
     } catch (error) {
-      errors.push(`Cleanup: ${error}`);
+      errors.push(`${context}: ${error}`);
       process.exitCode = 1;
     }
   }
