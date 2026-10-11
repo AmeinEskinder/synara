@@ -16,7 +16,6 @@ jobs:
     timeout-minutes: 15
     env:
       NODE_OPTIONS: --max-old-space-size=4096
-      SYNARA_PREREQ_OUTPUT: ${{ runner.temp }}/workspace-prereq-evidence
     steps:
       - name: Checkout exact failing prerequisite source
         uses: actions/checkout@v6
@@ -36,6 +35,8 @@ jobs:
         with:
           node-version-file: package.json
       - name: Record provenance and enable compiler I/O observation
+        env:
+          SYNARA_PREREQ_OUTPUT: ${{ runner.temp }}/workspace-prereq-evidence
         run: node .prereq-driver/scripts/workspace-prereq/runner.mjs prepare
       - name: Run unchanged canonical workspace setup
         id: setup
@@ -79,6 +80,7 @@ jobs:
       - name: Retain actual compiler snapshots and patcher lifetimes
         if: always()
         env:
+          SYNARA_PREREQ_OUTPUT: ${{ runner.temp }}/workspace-prereq-evidence
           SYNARA_PREREQ_SETUP_OUTCOME: ${{ steps.setup.outcome }}
         run: node .prereq-driver/scripts/workspace-prereq/runner.mjs finish
       - name: Upload prerequisite observations
