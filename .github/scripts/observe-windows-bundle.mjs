@@ -89,6 +89,7 @@ async function observeBuild(provenance) {
   let rootExit = null;
   let pipeClose = null;
   let outputWasForciblyCut = false;
+  const processErrors = [];
   child.once("exit", (code, signal) => {
     rootExit = { code, signal, at: new Date().toISOString() };
   });
@@ -157,7 +158,16 @@ async function observeBuild(provenance) {
         resolveResult(value);
       }
     };
-    child.once("error", (error) => finish({ observerExitCode: 127, error: String(error) }));
+    child.once("error", (error) => {
+      processErrors.push({
+        at: new Date().toISOString(),
+        message: String(error),
+        afterDeadline: expired,
+      });
+      // A failed handle kill can emit error while the child still holds its
+      // pipes. Preserve the armed drain deadline in that case.
+      if (!expired) finish({ observerExitCode: 127, error: String(error) });
+    });
     child.once("close", (code, signal) => {
       pipeClose = { code, signal, at: new Date().toISOString() };
       finish({ observerExitCode: expired ? 124 : (code ?? 1) });
@@ -205,6 +215,7 @@ async function observeBuild(provenance) {
     ...result,
     rootExit,
     pipeClose,
+    processErrors,
     deadlineExceeded: expired,
     outputWasForciblyCut,
     logCompleteness: outputWasForciblyCut
