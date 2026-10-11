@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, realpathSync } from "node:fs";
+import { realpathSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -17,15 +18,26 @@ export const LEGACY_TYPESCRIPT_WORKSPACES = [
 export function patchWorkspaceTypeScript(root: string): void {
   const targets = new Map<string, string>();
   for (const workspace of LEGACY_TYPESCRIPT_WORKSPACES) {
-    const modules = join(root, workspace, "node_modules");
-    const compiler = join(modules, "typescript");
-    // Filtered installs intentionally omit some workspace dependency trees.
-    if (!existsSync(compiler)) continue;
-    const cli = join(modules, "@effect/language-service/cli.js");
-    if (!existsSync(cli)) {
-      throw new Error(`Missing Effect language-service patcher for installed ${workspace}`);
+    // Resolve as the workspace would: hoisted installs can place dependencies
+    // at the root, while isolated installs keep workspace links.
+    const require = createRequire(join(root, workspace, "package.json"));
+    let compiler: string;
+    try {
+      compiler = require.resolve("typescript/package.json");
+    } catch (error) {
+      // Filtered installs intentionally omit some workspace dependencies.
+      if (error instanceof Error && "code" in error && error.code === "MODULE_NOT_FOUND") continue;
+      throw error;
     }
-    const directory = realpathSync(compiler);
+    let cli: string;
+    try {
+      cli = require.resolve("@effect/language-service/cli.js");
+    } catch (cause) {
+      throw new Error(`Missing Effect language-service patcher for installed ${workspace}`, {
+        cause,
+      });
+    }
+    const directory = realpathSync(dirname(compiler));
     const patcher = realpathSync(cli);
     const previous = targets.get(directory);
     if (previous !== undefined && previous !== patcher) {

@@ -25,6 +25,7 @@ function install(root: string, workspace: string, compilerName: string, fail = f
   const patcher = join(root, "dependencies", `patcher-${compilerName}`);
   mkdirSync(compiler, { recursive: true });
   mkdirSync(patcher, { recursive: true });
+  writeFileSync(join(compiler, "package.json"), JSON.stringify({ name: "typescript" }));
   // A real child process claims a shared write marker. Parallel execution would
   // collide; completed lifetimes also make serial order visible to the parent.
   writeFileSync(
@@ -85,6 +86,16 @@ describe("workspace TypeScript preparation", () => {
     ]);
   });
 
+  it("patches a hoisted root compiler once when workspaces have no local dependency links", () => {
+    const root = fixture();
+    install(root, ".", "typescript-hoisted");
+    patchWorkspaceTypeScript(root);
+    expect(events(root)).toEqual([
+      { event: "start", compiler: "typescript-hoisted" },
+      { event: "end", compiler: "typescript-hoisted" },
+    ]);
+  });
+
   it("propagates the failing patcher's exit and does not start later compilers", () => {
     const root = fixture();
     install(root, "apps/server", "typescript-fails", true);
@@ -102,6 +113,10 @@ describe("workspace TypeScript preparation", () => {
   it("does not silently skip an installed compiler with a missing patcher", () => {
     const root = fixture();
     mkdirSync(join(root, "scripts/node_modules/typescript"), { recursive: true });
+    writeFileSync(
+      join(root, "scripts/node_modules/typescript/package.json"),
+      JSON.stringify({ name: "typescript" }),
+    );
     expect(() => patchWorkspaceTypeScript(root)).toThrow(
       "Missing Effect language-service patcher for installed scripts",
     );
