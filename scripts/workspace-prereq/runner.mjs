@@ -15,7 +15,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 
-const expectedSource = "1fb80ba1bcacbee06d3dcca762a7aca8fb28559c";
+const expectedSource = "3e366c3f6aaec1e8537e756b2dfd24d9440d6308";
 const driver = dirname(fileURLToPath(import.meta.url));
 const root = process.cwd();
 const output = resolve(process.env.SYNARA_PREREQ_OUTPUT);

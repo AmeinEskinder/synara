@@ -20,7 +20,7 @@ jobs:
       - name: Checkout exact repaired prerequisite source
         uses: actions/checkout@v6
         with:
-          ref: 1fb80ba1bcacbee06d3dcca762a7aca8fb28559c
+          ref: 3e366c3f6aaec1e8537e756b2dfd24d9440d6308
           persist-credentials: false
       - name: Checkout immutable observation driver
         uses: actions/checkout@v6
@@ -92,7 +92,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: windows-prereq-1fb80ba-driver-${{ github.sha }}
+          name: windows-prereq-3e366c3-driver-${{ github.sha }}
           path: ${{ runner.temp }}/workspace-prereq-evidence
           retention-days: 14
           if-no-files-found: error
