@@ -11,12 +11,12 @@ import {
   readSync,
   writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
 import { basename, extname, join, relative, resolve } from "node:path";
+import { parseArgs } from "node:util";
 
 // Read-only inventory: count regular-file bytes, never follow symlinks or
 // double-count an ASAR's contents in the installed application total.
-function inventory(root) {
+export function inventory(root) {
   const files = [];
   function visit(directory) {
     for (const name of readdirSync(directory).sort()) {
@@ -42,7 +42,7 @@ function group(files, key) {
     .sort((a, b) => b.bytes - a.bytes || a.name.localeCompare(b.name));
 }
 
-function summarize(files) {
+export function summarize(files) {
   return {
     bytes: files.reduce((sum, file) => sum + file.bytes, 0),
     fileCount: files.length,
@@ -52,7 +52,7 @@ function summarize(files) {
   };
 }
 
-function readAsar(path) {
+export function readAsar(path) {
   const fd = openSync(path, "r");
   try {
     const prefix = Buffer.alloc(16);
@@ -95,78 +95,157 @@ function readAsar(path) {
   }
 }
 
-const [sourceArgument, outputArgument, platform] = process.argv.slice(2);
-if (!sourceArgument || !outputArgument || !["mac", "linux", "win"].includes(platform)) {
-  throw new Error("Usage: node measure-bundle-size.mjs SOURCE OUTPUT_DIRECTORY mac|linux|win");
+// The caller owns this explicit temporary parent and gives it to the builder via
+// TMPDIR/TMP/TEMP. Never search the machine's global temp directory or use mtime
+// to choose between builds. The staged metadata must describe this checkout.
+export function selectBuildStage({
+  stageParent,
+  platform,
+  flavor,
+  sourceCommit,
+  lockfileSha256,
+  version,
+}) {
+  const prefix = `synara-desktop-${flavor}-${platform}-stage-`;
+  const stages = readdirSync(stageParent)
+    .filter((name) => name.startsWith(prefix))
+    .map((name) => join(stageParent, name))
+    .filter((path) => lstatSync(path).isDirectory());
+  if (stages.length !== 1)
+    throw new Error(
+      `Expected exactly one retained ${flavor}/${platform} build stage in ${stageParent}; found ${stages.length}. Use a fresh isolated temp parent and --keep-stage.`,
+    );
+  const stageRoot = stages[0];
+  const stage = join(stageRoot, "app");
+  if (!existsSync(join(stage, "dist")))
+    throw new Error(`Retained build stage has no packaged output: ${stageRoot}`);
+  const metadata = JSON.parse(readFileSync(join(stage, "package.json"), "utf8"));
+  for (const [key, expected] of Object.entries({
+    synaraCommitHash: sourceCommit,
+    synaraLockfileSha256: lockfileSha256,
+    synaraDesktopFlavor: flavor,
+    version,
+  })) {
+    if (metadata[key] !== expected)
+      throw new Error(`Build stage ${key} mismatch: expected ${expected}, got ${metadata[key]}.`);
+  }
+  return stageRoot;
 }
-const source = resolve(sourceArgument);
-const output = resolve(outputArgument);
-mkdirSync(output, { recursive: true });
-const stages = readdirSync(tmpdir())
-  .filter((name) => name.startsWith(`synara-desktop-${platform}-stage-`))
-  .map((name) => join(tmpdir(), name))
-  .filter((path) => existsSync(join(path, "app", "dist")))
-  .sort((a, b) => lstatSync(b).mtimeMs - lstatSync(a).mtimeMs);
-if (!stages[0])
-  throw new Error("No retained desktop build stage found; build with --keep-stage first.");
-const stage = join(stages[0], "app");
-const dist = join(stage, "dist");
-const packagedDirectories = readdirSync(dist).filter(
-  (name) =>
-    lstatSync(join(dist, name)).isDirectory() &&
-    (name.startsWith("mac") || name.endsWith("-unpacked")),
-);
-if (packagedDirectories.length !== 1)
-  throw new Error(
-    `Expected one native packaged application, got ${packagedDirectories.join(", ")}`,
+
+export function selectPackagedApplication(dist, platform, arch) {
+  const packagedDirectories = readdirSync(dist).filter(
+    (name) =>
+      lstatSync(join(dist, name)).isDirectory() &&
+      (name.startsWith("mac") || name.endsWith("-unpacked")),
   );
-const packagedRoot = join(dist, packagedDirectories[0]);
-const packagedFiles = inventory(packagedRoot);
-const asarFiles = packagedFiles.filter((file) => basename(file.path) === "app.asar");
-if (asarFiles.length !== 1) throw new Error("Expected one app.asar in the packaged application.");
-const asar = readAsar(join(packagedRoot, asarFiles[0].path));
-const artifacts = readdirSync(dist)
-  .filter((name) => /\.(dmg|zip|AppImage|exe)$/.test(name))
-  .map((name) => ({
-    name,
-    bytes: lstatSync(join(dist, name)).size,
-    sha256: createHash("sha256")
-      .update(readFileSync(join(dist, name)))
-      .digest("hex"),
-  }));
-if (artifacts.length === 0) throw new Error("No installer/update archives found.");
-const report = {
-  schemaVersion: 1,
-  sourceCommit: execFileSync("git", ["rev-parse", "HEAD"], {
+  if (packagedDirectories.length !== 1)
+    throw new Error(
+      `Expected one native packaged application, got ${packagedDirectories.join(", ")}`,
+    );
+  const expectedPackagedDirectory =
+    platform === "mac"
+      ? arch === "x64"
+        ? "mac"
+        : `mac-${arch}`
+      : `${platform}-${arch === "x64" ? "" : `${arch}-`}unpacked`;
+  if (packagedDirectories[0] !== expectedPackagedDirectory)
+    throw new Error(
+      `Packaged target mismatch: expected ${expectedPackagedDirectory}, got ${packagedDirectories[0]}.`,
+    );
+  return join(dist, packagedDirectories[0]);
+}
+
+function main() {
+  const { values } = parseArgs({
+    options: Object.fromEntries(
+      ["source", "output", "stage-parent", "platform", "flavor", "arch", "version"].map((key) => [
+        key,
+        { type: "string" },
+      ]),
+    ),
+  });
+  if (
+    Object.keys(values).length !== 7 ||
+    Object.values(values).some((value) => !value) ||
+    !["mac", "linux", "win"].includes(values.platform) ||
+    !["production", "beta", "canary", "cua"].includes(values.flavor) ||
+    !["x64", "arm64", ...(values.platform === "mac" ? ["universal"] : [])].includes(values.arch)
+  ) {
+    throw new Error(
+      "Usage: node measure-bundle-size.mjs --source SOURCE --output DIRECTORY --stage-parent ISOLATED_TEMP_DIRECTORY --platform mac|linux|win --flavor production|beta|canary|cua --arch x64|arm64|universal --version BUILD_VERSION",
+    );
+  }
+  const source = resolve(values.source);
+  const output = resolve(values.output);
+  const { platform, flavor, arch, version } = values;
+  const sourceCommit = execFileSync("git", ["rev-parse", "HEAD"], {
     cwd: source,
     encoding: "utf8",
-  }).trim(),
-  lockfileSha256: createHash("sha256")
+  }).trim();
+  const lockfileSha256 = createHash("sha256")
     .update(readFileSync(join(source, "bun.lock")))
-    .digest("hex"),
-  platform: process.platform,
-  arch: process.arch,
-  node: process.version,
-  bun: execFileSync("bun", ["--version"], { encoding: "utf8" }).trim(),
-  signed: false,
-  method:
-    "Unsigned production packaging; installed size is regular-file byte sum without following symlinks; installer size is exact file length. ASAR inventory is reported separately, not added again.",
-  artifacts,
-  installed: summarize(packagedFiles),
-  asar: { ...asar, archiveBytes: asarFiles[0].bytes },
-  web: summarize(inventory(join(source, "apps/server/dist/client"))),
-  desktopResources: summarize(inventory(join(stage, "apps/desktop/prod-resources"))),
-};
-writeFileSync(join(output, "bundle-size.json"), `${JSON.stringify(report, null, 2)}\n`);
-writeFileSync(join(output, "installed-files.json"), `${JSON.stringify(packagedFiles, null, 2)}\n`);
-console.log(
-  JSON.stringify(
-    {
-      ...report,
-      asar: { ...report.asar, files: undefined, packages: report.asar.packages.slice(0, 30) },
-    },
-    null,
-    2,
-  ),
-);
-console.log(`Bundle size report: ${join(output, "bundle-size.json")}`);
+    .digest("hex");
+  const stageRoot = selectBuildStage({
+    stageParent: resolve(values["stage-parent"]),
+    platform,
+    flavor,
+    sourceCommit,
+    lockfileSha256,
+    version,
+  });
+  const stage = join(stageRoot, "app");
+  const dist = join(stage, "dist");
+  const packagedRoot = selectPackagedApplication(dist, platform, arch);
+  const packagedFiles = inventory(packagedRoot);
+  const asarFiles = packagedFiles.filter((file) => basename(file.path) === "app.asar");
+  if (asarFiles.length !== 1) throw new Error("Expected one app.asar in the packaged application.");
+  const asar = readAsar(join(packagedRoot, asarFiles[0].path));
+  const artifacts = readdirSync(dist)
+    .filter((name) => /\.(dmg|zip|AppImage|exe)$/.test(name))
+    .map((name) => ({
+      name,
+      bytes: lstatSync(join(dist, name)).size,
+      sha256: createHash("sha256")
+        .update(readFileSync(join(dist, name)))
+        .digest("hex"),
+    }));
+  if (artifacts.length === 0) throw new Error("No installer/update archives found.");
+  const report = {
+    schemaVersion: 1,
+    sourceCommit,
+    lockfileSha256,
+    stageRoot,
+    target: { platform, flavor, arch, version },
+    platform: process.platform,
+    arch: process.arch,
+    node: process.version,
+    bun: execFileSync("bun", ["--version"], { encoding: "utf8" }).trim(),
+    signed: false,
+    method:
+      "Unsigned production packaging; installed size is regular-file byte sum without following symlinks; installer size is exact file length. ASAR inventory is reported separately, not added again.",
+    artifacts,
+    installed: summarize(packagedFiles),
+    asar: { ...asar, archiveBytes: asarFiles[0].bytes },
+    web: summarize(inventory(join(source, "apps/server/dist/client"))),
+    desktopResources: summarize(inventory(join(stage, "apps/desktop/prod-resources"))),
+  };
+  mkdirSync(output, { recursive: true });
+  writeFileSync(join(output, "bundle-size.json"), `${JSON.stringify(report, null, 2)}\n`);
+  writeFileSync(
+    join(output, "installed-files.json"),
+    `${JSON.stringify(packagedFiles, null, 2)}\n`,
+  );
+  console.log(
+    JSON.stringify(
+      {
+        ...report,
+        asar: { ...report.asar, files: undefined, packages: report.asar.packages.slice(0, 30) },
+      },
+      null,
+      2,
+    ),
+  );
+  console.log(`Bundle size report: ${join(output, "bundle-size.json")}`);
+}
+
+if (import.meta.main) main();
