@@ -1,0 +1,95 @@
+name: Source-pinned chat tab frame diagnostic
+
+on:
+  push:
+    branches:
+      - cleanup/20261011/chat-tab-frame-diagnostic
+    paths:
+      - .github/workflows/pr-tab-diagnostic.yml
+      - scripts/pr-tab-diagnostic/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-tab-diagnostic-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_OPTIONS: --max-old-space-size=4096
+
+jobs:
+  diagnose:
+    name: Tab frame diagnostic (${{ matrix.mode }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [focused, lane]
+    steps:
+      - name: Checkout exact failing application head
+        uses: actions/checkout@v6
+        with:
+          ref: 5e34d553e582a05cadc1343c6d29684fad3b2161
+          persist-credentials: false
+
+      - name: Checkout diagnostic driver
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          path: .pr-tab-diagnostic-driver
+          persist-credentials: false
+
+      - name: Setup workspace
+        uses: ./.github/actions/setup-workspace
+        with:
+          electron: "false"
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('bun.lock') }}
+
+      - name: Install browser runtime
+        timeout-minutes: 10
+        run: ./apps/web/node_modules/.bin/playwright install chromium
+
+      - name: Prepare test-only frame observer
+        env:
+          PR_TAB_DIAGNOSTIC_MODE: ${{ matrix.mode }}
+        run: node .pr-tab-diagnostic-driver/scripts/pr-tab-diagnostic/runner.mjs prepare
+
+      - name: Run unchanged correctness assertions
+        timeout-minutes: 12
+        working-directory: apps/web
+        env:
+          PR_TAB_DIAGNOSTIC_MODE: ${{ matrix.mode }}
+        run: |
+          args=(run --config vitest.browser.ci.config.ts --project chat-workflows)
+          if [ "$PR_TAB_DIAGNOSTIC_MODE" = focused ]; then
+            args+=(-t 'switches horizontal tabs without blanking the header or composer')
+          fi
+          set +e
+          bunx vitest "${args[@]}" 2>&1 | tee "$PR_TAB_DIAGNOSTIC_DIR/vitest.log"
+          result=("${PIPESTATUS[@]}")
+          set -e
+          printf '%s\n' "${result[0]}" > "$PR_TAB_DIAGNOSTIC_DIR/vitest-exit-code.txt"
+          printf '%s\n' "${result[1]}" > "$PR_TAB_DIAGNOSTIC_DIR/log-exit-code.txt"
+          if [ "${result[0]}" -ne 0 ]; then exit "${result[0]}"; fi
+          exit "${result[1]}"
+
+      - name: Verify exact source and preserve actual result
+        if: always()
+        run: node .pr-tab-diagnostic-driver/scripts/pr-tab-diagnostic/runner.mjs verify
+
+      - name: Upload diagnostic receipt and original failure screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: chat-tab-frame-${{ matrix.mode }}-5e34d553e582a05cadc1343c6d29684fad3b2161
+          path: .pr-tab-diagnostic-output/
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 30

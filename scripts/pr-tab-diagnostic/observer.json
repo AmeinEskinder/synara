@@ -1,0 +1,27 @@
+{
+  "source": "5e34d553e582a05cadc1343c6d29684fad3b2161",
+  "sourceTree": "dfce76edd016cf58601f8705d081e433f1dc47b3",
+  "path": "apps/web/src/components/ChatView.browser.tsx",
+  "sourceBlob": "1fd638007a36a7a4f74adab4ee0ea96c9deef34a",
+  "sourceSha256": "5574d81fea2e0982e2c9032765f2c1e53ff819b7386219e2dcc3306dea524273",
+  "start": "  it.each([\"saved\"] as const)(",
+  "end": "  it(\"closing the last visible tab returns to an unsent draft hidden from the strip\",",
+  "replacements": [
+    {
+      "before": "          let missingComposerFrames = 0;\n",
+      "after": "          let missingComposerFrames = 0;\n          const diagnosticFrames: unknown[] = [];\n"
+    },
+    {
+      "before": "            if (!editor) missingComposerFrames += 1;\n",
+      "after": "            if (!editor) missingComposerFrames += 1;\n            if (!editor || !activeTab) {\n              const form = document.querySelector<HTMLElement>('[data-chat-composer-form=\"true\"]');\n              const retainedEditor = form?.querySelector<HTMLElement>('[data-testid=\"composer-editor\"]');\n              const bounds = retainedEditor?.getBoundingClientRect();\n              const state = useStore.getState();\n              diagnosticFrames.push({\n                elapsedMs: performance.now() - startedAt,\n                targetId,\n                pathname: mounted.router.state.location.pathname,\n                activeTab: activeTab?.textContent,\n                formPresent: Boolean(form),\n                editorPresent: Boolean(retainedEditor),\n                contentEditable: retainedEditor?.getAttribute(\"contenteditable\"),\n                editorText: retainedEditor?.textContent,\n                editorBounds: bounds ? { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height } : null,\n                editorVisibility: retainedEditor ? getComputedStyle(retainedEditor).visibility : null,\n                editorDisplay: retainedEditor ? getComputedStyle(retainedEditor).display : null,\n                editorOpacity: retainedEditor ? getComputedStyle(retainedEditor).opacity : null,\n                sourceSync: state.threadDetailSyncById?.[THREAD_ID],\n                targetSync: state.threadDetailSyncById?.[targetId],\n                sourceSession: state.threadSessionById?.[THREAD_ID],\n                targetSession: state.threadSessionById?.[targetId],\n              });\n            }\n"
+    },
+    {
+      "before": "            missingComposerFrames,\n",
+      "after": "            missingComposerFrames,\n            diagnosticFrames,\n"
+    },
+    {
+      "before": "        expect(samples.every((sample) => sample.missingHeaderFrames === 0)).toBe(true);\n",
+      "after": "        console.info(`TAB_FRAME_DIAGNOSTIC ${JSON.stringify({ source: \"5e34d553e582a05cadc1343c6d29684fad3b2161\", targetKind, samples })}`);\n        expect(samples.every((sample) => sample.missingHeaderFrames === 0)).toBe(true);\n"
+    }
+  ]
+}
