@@ -7,12 +7,34 @@ import {
 import { Effect } from "effect";
 import type { ProviderAdapterShape } from "../Services/ProviderAdapter.ts";
 
+const capabilityMethods = [
+  ["supportsTurnSteering", "steerTurn"],
+  ["supportsRuntimeModelList", "listModels"],
+  ["supportsSkillDiscovery", "listSkills"],
+  ["supportsNativeSlashCommandDiscovery", "listCommands"],
+  ["supportsPluginDiscovery", "listPlugins"],
+  ["supportsPluginDiscovery", "readPlugin"],
+  ["supportsForkThroughTurn", "forkThread"],
+] as const;
+
+/** Enabled capabilities must have their public entry points. A provider may
+ * retain a method while disabling its discovery capability for a configuration. */
+export function assertAdapterCapabilityConformance<E>(
+  adapter: Pick<ProviderAdapterShape<E>, "capabilities" | (typeof capabilityMethods)[number][1]>,
+): void {
+  for (const [capability, method] of capabilityMethods) {
+    if (adapter.capabilities[capability] !== true) continue;
+    assert.equal(typeof adapter[method], "function", `${capability} requires ${method}`);
+  }
+}
+
 /** Exercise the public ownership contract, independent of the native transport. */
 export function assertAdapterCleanupConformance<E>(
   adapter: ProviderAdapterShape<E>,
   input: Omit<ProviderSessionStartInput, "threadId">,
 ): Effect.Effect<void, E> {
   return Effect.gen(function* () {
+    assertAdapterCapabilityConformance(adapter);
     const first = ThreadId.makeUnsafe("conformance-first");
     const second = ThreadId.makeUnsafe("conformance-second");
     yield* adapter.stopSession(first);
@@ -50,11 +72,15 @@ export function assertSessionTeardownConformance(
   events: ReadonlyArray<ProviderRuntimeEvent>,
   threadId: ThreadId,
 ): void {
-  let exited = false;
+  const exitedGenerations = new Set<ProviderRuntimeEvent["lifecycleGeneration"]>();
   for (const event of events) {
     if (event.threadId !== threadId) continue;
-    assert.equal(exited, false, "a stopped session must not emit further runtime events");
-    if (event.type === "session.exited") exited = true;
+    assert.equal(
+      exitedGenerations.has(event.lifecycleGeneration),
+      false,
+      "a stopped lifecycle generation must not emit further runtime events",
+    );
+    if (event.type === "session.exited") exitedGenerations.add(event.lifecycleGeneration);
   }
-  assert.equal(exited, true, "the observation must include the session exit fence");
+  assert.ok(exitedGenerations.size > 0, "the observation must include the session exit fence");
 }
