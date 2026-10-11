@@ -224,7 +224,10 @@ export function planProviderRuntimeReconciliation(input: {
   const liveSessionByThreadId = new Map(
     input.liveSessions.map((session) => [session.threadId, session]),
   );
-  const healthByProvider = new Map(input.pumpHealth.map((health) => [health.provider, health]));
+  const healthByProvider = new Map<
+    ProviderRuntimeBinding["provider"],
+    ProviderRuntimeEventPumpHealth
+  >(input.pumpHealth.map((health) => [health.provider, health]));
   const plans: ProviderRuntimeReconciliationPlan[] = [];
 
   for (const thread of input.threads) {
@@ -281,6 +284,11 @@ export function planProviderRuntimeReconciliation(input: {
     // still queued would otherwise be "recovered" as interrupted.
     if (input.runtimeJournalLagging === true && !abandoned) continue;
 
+    // A connection still owned by the adapter may be newer than this stale
+    // projection. Its own startup timeout must settle it; the shorter no-turn
+    // clock is not evidence that live work has ended.
+    if (liveSession?.status === "connecting" && !abandoned) continue;
+
     // Settling a projection is normally only safe when it names a concrete
     // in-flight turn; ProviderCommandReactor owns failures before a start
     // acquires one. A lifecycle stranded without a turn is the exception: both
@@ -304,8 +312,6 @@ export function planProviderRuntimeReconciliation(input: {
       });
       continue;
     }
-
-    if (liveSession?.status === "connecting" && !abandoned) continue;
 
     const liveSessionSettled =
       liveSession !== undefined &&

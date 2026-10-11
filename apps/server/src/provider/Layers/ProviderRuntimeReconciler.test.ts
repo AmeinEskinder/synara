@@ -123,7 +123,12 @@ describe("ProviderRuntimeReconcilerLive", () => {
     const snapshotQuery = {
       listStaleInFlightThreadIds: () => Effect.succeed([THREAD_ID]),
       getSnapshotSequence: () => Effect.succeed({ snapshotSequence: 1 }),
-      getThreadShellById: () => Effect.succeed(Option.some(snapshot.threads[0]!)),
+      getThreadShellsByIds: (threadIds: ReadonlyArray<ThreadId>, options: unknown) =>
+        Effect.sync(() => {
+          expect(threadIds).toEqual([THREAD_ID]);
+          expect(options).toEqual({ includeLatestMessageActivity: true });
+          return [snapshot.threads[0]!];
+        }),
       getShellSnapshot: () => Effect.die("full shell snapshot should not be loaded"),
     } as unknown as ProjectionSnapshotQueryShape;
     const directory = {
@@ -132,6 +137,7 @@ describe("ProviderRuntimeReconcilerLive", () => {
           {
             threadId: THREAD_ID,
             provider: "codex" as const,
+            providerInstanceId: "codex" as const,
             status: "starting" as const,
             runtimePayload: { activeTurnId: null },
           },
@@ -203,7 +209,12 @@ describe("ProviderRuntimeReconcilerLive", () => {
     const snapshotQuery = {
       listStaleInFlightThreadIds: () => Effect.succeed([THREAD_ID]),
       getSnapshotSequence: () => Effect.succeed({ snapshotSequence: 1 }),
-      getThreadShellById: () => Effect.succeed(Option.some(thread)),
+      getThreadShellsByIds: (threadIds: ReadonlyArray<ThreadId>, options: unknown) =>
+        Effect.sync(() => {
+          expect(threadIds).toEqual([THREAD_ID]);
+          expect(options).toEqual({ includeLatestMessageActivity: true });
+          return [thread];
+        }),
       getShellSnapshot: () => Effect.die("full shell snapshot should not be loaded"),
     } as unknown as ProjectionSnapshotQueryShape;
     const directory = {
@@ -212,6 +223,7 @@ describe("ProviderRuntimeReconcilerLive", () => {
           {
             threadId: THREAD_ID,
             provider: "codex" as const,
+            providerInstanceId: "codex" as const,
             status: "starting" as const,
             runtimePayload: { activeTurnId: null },
           },
@@ -279,6 +291,7 @@ describe("ProviderRuntimeReconcilerLive", () => {
       listStaleInFlightThreadIds: () => Effect.succeed([THREAD_ID]),
       getSnapshotSequence: () => Effect.succeed({ snapshotSequence: 1 }),
       getThreadShellById: () => Effect.succeed(Option.some(staleShellSnapshot().threads[0]!)),
+      getThreadShellsByIds: () => Effect.succeed([staleShellSnapshot().threads[0]!]),
       getShellSnapshot: () => Effect.die("full shell snapshot should not be loaded"),
     } as unknown as ProjectionSnapshotQueryShape;
     const directory = {
@@ -287,6 +300,7 @@ describe("ProviderRuntimeReconcilerLive", () => {
           {
             threadId: THREAD_ID,
             provider: "codex" as const,
+            providerInstanceId: "codex" as const,
             status: bindingStatus,
             runtimePayload: { activeTurnId: null },
           },

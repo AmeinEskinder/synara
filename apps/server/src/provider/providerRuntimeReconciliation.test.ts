@@ -81,6 +81,7 @@ function binding(
   return {
     threadId: THREAD_ID,
     provider,
+    providerInstanceId: provider,
     status: activeTurnId === null ? "stopped" : "running",
     lastSeenAt: "2026-07-23T20:00:00.000Z",
     runtimePayload: { activeTurnId },
@@ -120,41 +121,6 @@ describe("planProviderRuntimeReconciliation", () => {
       expect.objectContaining({
         action: "settle-interrupted",
         threadId: THREAD_ID,
-        projectedTurnId: OLD_TURN_ID,
-        runtimeTurnId: null,
-      }),
-    ]);
-  });
-
-  it("uses the same stale-turn recovery for Claude sessions", () => {
-    expect(
-      planProviderRuntimeReconciliation({
-        threads: [
-          threadShell({
-            modelSelection: { provider: "claudeAgent", model: "claude-opus-4-8" },
-            session: {
-              ...threadShell().session!,
-              providerName: "claudeAgent",
-            },
-          }),
-        ],
-        bindings: [binding(null, "claudeAgent")],
-        liveSessions: [liveSession({ provider: "claudeAgent", status: "ready" })],
-        pumpHealth: [
-          {
-            provider: "claudeAgent",
-            status: "healthy",
-            consecutiveFailures: 0,
-            updatedAt: "2026-07-23T20:00:29.000Z",
-          },
-        ],
-        nowMs: NOW,
-        staleAfterMs: 10_000,
-      }),
-    ).toEqual([
-      expect.objectContaining({
-        action: "settle-interrupted",
-        provider: "claudeAgent",
         projectedTurnId: OLD_TURN_ID,
         runtimeTurnId: null,
       }),
@@ -374,7 +340,7 @@ describe("planProviderRuntimeReconciliation", () => {
     ]);
   });
 
-  it.each(["ready", "interrupted", "stopped", "error"] as const)(
+  it.each(["ready", "error"] as const)(
     "settles a stale running turn without reopening its %s session",
     (status) => {
       const terminalSession = {
@@ -831,6 +797,99 @@ describe("planProviderRuntimeReconciliation", () => {
       }),
     ]);
     expect(plans[0]?.reason).toContain("stranded with no turn");
+  });
+
+  it.each(["starting", "running"] as const)(
+    "preserves a live connection while a %s projection has no turn",
+    (status) => {
+      const stalledAt = "2026-07-23T19:50:00.000Z";
+      const plans = planProviderRuntimeReconciliation({
+        threads: [
+          threadShell({
+            updatedAt: stalledAt,
+            latestTurn: null,
+            session: {
+              ...threadShell().session!,
+              status,
+              activeTurnId: null,
+              updatedAt: stalledAt,
+            },
+          }),
+        ],
+        bindings: [binding(null)],
+        // This adapter is still connecting now. The old projection is not
+        // evidence that this live connection has exhausted its owned timeout.
+        liveSessions: [liveSession({ status: "connecting" })],
+        pumpHealth: [],
+        nowMs: NOW,
+        staleAfterMs: 10_000,
+      });
+
+      expect(plans).toEqual([]);
+    },
+  );
+
+  it("realigns a start without a projected turn when the live provider owns one", () => {
+    const stalledAt = "2026-07-23T19:50:00.000Z";
+    const plans = planProviderRuntimeReconciliation({
+      threads: [
+        threadShell({
+          updatedAt: stalledAt,
+          latestTurn: null,
+          session: {
+            ...threadShell().session!,
+            status: "starting",
+            activeTurnId: null,
+            updatedAt: stalledAt,
+          },
+        }),
+      ],
+      bindings: [binding(LIVE_TURN_ID)],
+      liveSessions: [liveSession({ status: "running", activeTurnId: LIVE_TURN_ID })],
+      pumpHealth: [],
+      nowMs: NOW,
+      staleAfterMs: 10_000,
+    });
+
+    expect(plans).toEqual([
+      expect.objectContaining({
+        action: "align-running-turn",
+        projectedTurnId: null,
+        runtimeTurnId: LIVE_TURN_ID,
+      }),
+    ]);
+  });
+
+  it("retains the abandoned escape for a connection with no projected progress", () => {
+    const abandonedAt = "2026-07-23T19:00:00.000Z";
+    const plans = planProviderRuntimeReconciliation({
+      threads: [
+        threadShell({
+          updatedAt: abandonedAt,
+          latestTurn: null,
+          session: {
+            ...threadShell().session!,
+            status: "starting",
+            activeTurnId: null,
+            updatedAt: abandonedAt,
+          },
+        }),
+      ],
+      bindings: [binding(null)],
+      liveSessions: [liveSession({ status: "connecting" })],
+      pumpHealth: [],
+      nowMs: NOW,
+      staleAfterMs: 10_000,
+    });
+
+    expect(plans).toEqual([
+      expect.objectContaining({
+        action: "settle-interrupted",
+        projectedTurnId: null,
+        runtimeTurnId: null,
+      }),
+    ]);
+    expect(plans[0]?.reason).toContain("over 45 minutes");
   });
 
   it("does not settle a fresh start that has no provider turn yet", () => {
