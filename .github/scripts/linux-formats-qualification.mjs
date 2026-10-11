@@ -411,6 +411,7 @@ async function qualify() {
     });
     const verification = {
       status: raw.status,
+      signal: raw.signal,
       stdout: raw.stdout ?? "",
       stderr: raw.stderr ?? "",
       error: raw.error?.message ?? null,
@@ -419,11 +420,14 @@ async function qualify() {
     const namespaces = {
       hasUserNamespaceLink,
       status: probe?.status ?? null,
+      signal: probe?.signal ?? null,
       error: probe?.error?.message ?? null,
     };
-    const result = assertRpmInstallIntegrity({
+    const observation = {
+      sourceSha,
+      driverSha,
       verification,
-      installedScript,
+      namespaces,
       sandbox: {
         path: sandboxPath,
         regularFile: sandbox.isFile(),
@@ -432,18 +436,18 @@ async function qualify() {
         archiveMode: Number.parseInt(sandboxModes[0][1], 8),
         permissions: sandbox.mode & 0o7777,
       },
-      namespaces,
-    });
-    save("rpm-install-integrity.json", {
-      sourceSha,
-      driverSha,
-      result,
-      verification,
-      namespaces,
       namespaceStdout: probe?.stdout ?? "",
       namespaceStderr: probe?.stderr ?? "",
       installedScriptSha256: createHash("sha256").update(installedScript).digest("hex"),
+    };
+    save("rpm-install-integrity-observation.json", observation);
+    const result = assertRpmInstallIntegrity({
+      verification,
+      installedScript,
+      sandbox: observation.sandbox,
+      namespaces,
     });
+    save("rpm-install-integrity.json", { ...observation, result });
   } else {
     assert.equal(run("dpkg", ["--verify", packageName], { log: "dpkg-verify.txt" }).trim(), "");
   }
