@@ -1,9 +1,9 @@
-name: PR UI evidence
+name: Permission menu UI evidence
 
 on:
   push:
     branches:
-      - cleanup/20261010/ui-evidence
+      - cleanup/20261011/permission-menu-evidence
     paths:
       - .github/workflows/pr-ui-evidence.yml
       - scripts/pr-ui-evidence/**
@@ -79,7 +79,7 @@ jobs:
 
       - name: Install browser runtime
         timeout-minutes: 10
-        run: ./apps/web/node_modules/.bin/playwright install chromium
+        run: ./apps/web/node_modules/.bin/playwright install chromium ffmpeg
 
       - name: Prepare isolated capture fixture and provenance
         env:
@@ -91,7 +91,9 @@ jobs:
         if: matrix.kind == 'web'
         timeout-minutes: 10
         working-directory: apps/web
-        run: bunx vitest run --config vitest.pr-ui-evidence.config.ts
+        run: |
+          set -o pipefail
+          bunx vitest run --config vitest.pr-ui-evidence.config.ts 2>&1 | tee "$VITE_PR_UI_EVIDENCE_DIR/vitest.log"
 
       - name: Capture actual native browser UI
         if: matrix.kind == 'native'

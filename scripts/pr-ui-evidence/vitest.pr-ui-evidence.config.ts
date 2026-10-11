@@ -1,3 +1,4 @@
+import { playwright } from "@vitest/browser-playwright";
 import { defineConfig } from "vitest/config";
 
 import browserConfig from "./vitest.browser.config";
@@ -7,11 +8,22 @@ if (!fixture || !/^src\/components\/[A-Za-z0-9.]+\.browser\.tsx$/.test(fixture))
   throw new Error("An explicit reviewed browser fixture is required.");
 }
 
+const directory = process.env.VITE_PR_UI_EVIDENCE_DIR;
+if (!directory?.startsWith("/")) throw new Error("Explicit permission video output is required.");
+
 export default defineConfig({
   ...browserConfig,
   test: {
     ...browserConfig.test,
     include: [fixture],
+    browser: {
+      ...browserConfig.test?.browser,
+      provider: playwright({
+        contextOptions: {
+          recordVideo: { dir: `${directory}/video`, size: { width: 760, height: 680 } },
+        },
+      }),
+    },
     testNamePattern: /PR UI evidence/,
     passWithNoTests: false,
     fileParallelism: false,

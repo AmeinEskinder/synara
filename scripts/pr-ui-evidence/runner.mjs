@@ -203,12 +203,32 @@ if (command === "matrix") {
     }
     return { name, bytes: content.length, sha256: digest(content) };
   });
+  const videoNames = readdirSync(resolve(output, "video")).filter((name) => name.endsWith(".webm"));
+  if (videoNames.length !== 1) throw new Error("Expected one actual permission interaction video");
+  const videoName = `video/${videoNames[0]}`;
+  const videoBytes = readFileSync(resolve(output, videoName));
+  if (videoBytes.subarray(0, 4).toString("hex") !== "1a45dfa3" || videoBytes.length < 1024)
+    throw new Error("Invalid permission interaction video");
+  const videos = [{ name: videoName, bytes: videoBytes.length, sha256: digest(videoBytes) }];
+  const log = readFileSync(resolve(output, "vitest.log"), "utf8");
+  const prefix = "PR_PERMISSION_MENU_RESULT ";
+  const observations = log.split("\n").filter((line) => line.includes(prefix));
+  if (observations.length !== 1)
+    throw new Error("Missing asserted permission interaction observations");
+  const interaction = JSON.parse(
+    observations[0]
+      .slice(observations[0].indexOf(prefix) + prefix.length)
+      .replace(/\x1b\[[0-9;]*m/g, "")
+      .trim(),
+  );
+  if (interaction.variant !== manifest.target.variant)
+    throw new Error("Wrong permission interaction source variant");
   const actualExitCode = controlResult
     ? controlResult.testExitCode || controlResult.logExitCode
     : 0;
   writeFileSync(
     manifestPath,
-    `${JSON.stringify({ ...manifest, status: actualExitCode === 0 ? "completed" : "failed", ...(controlResult ? { controlResult } : {}), images, completedAt: new Date().toISOString() }, null, 2)}\n`,
+    `${JSON.stringify({ ...manifest, status: actualExitCode === 0 ? "completed" : "failed", ...(controlResult ? { controlResult } : {}), images, videos, interaction, logSha256: digest(log), completedAt: new Date().toISOString() }, null, 2)}\n`,
   );
   console.log(
     JSON.stringify({
