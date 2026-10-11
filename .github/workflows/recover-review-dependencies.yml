@@ -27,11 +27,45 @@ jobs:
           scope: full
           electron: "false"
       - name: Preserve dependencies and exact provenance
+        id: archive
         run: node .review-dependency-driver/.github/scripts/recover-review-dependencies.mjs
       - uses: actions/upload-artifact@v7
         with:
-          name: review-dependencies-ec8c940-linux-x64
-          path: ${{ runner.temp }}/review-dependencies
+          name: review-dependencies-ec8c940-metadata
+          path: |
+            ${{ runner.temp }}/review-dependencies/provenance.json
+            ${{ runner.temp }}/review-dependencies/bun
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+      - uses: actions/upload-artifact@v7
+        with:
+          name: review-dependencies-ec8c940-part-0
+          path: ${{ runner.temp }}/review-dependencies/dependencies.part-0
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+      - uses: actions/upload-artifact@v7
+        if: ${{ fromJSON(steps.archive.outputs.parts) >= 2 }}
+        with:
+          name: review-dependencies-ec8c940-part-1
+          path: ${{ runner.temp }}/review-dependencies/dependencies.part-1
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+      - uses: actions/upload-artifact@v7
+        if: ${{ fromJSON(steps.archive.outputs.parts) >= 3 }}
+        with:
+          name: review-dependencies-ec8c940-part-2
+          path: ${{ runner.temp }}/review-dependencies/dependencies.part-2
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+      - uses: actions/upload-artifact@v7
+        if: ${{ fromJSON(steps.archive.outputs.parts) >= 4 }}
+        with:
+          name: review-dependencies-ec8c940-part-3
+          path: ${{ runner.temp }}/review-dependencies/dependencies.part-3
           if-no-files-found: error
           compression-level: 0
           retention-days: 14

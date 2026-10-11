@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { arch, platform, release } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -48,6 +48,33 @@ const files = ["node_modules.tar.gz", "bun"].map((path) => ({
   bytes: statSync(join(output, path)).size,
   sha256: digest(join(output, path)),
 }));
+// The review connector downloads at most 512 MiB per artifact. Split the exact
+// archive bytes; reconstruction must match its recorded whole-file SHA256.
+const chunkSize = 384 * 1024 * 1024;
+const parts = [];
+const descriptor = openSync(archive, "r");
+try {
+  let offset = 0;
+  while (offset < statSync(archive).size) {
+    assert.ok(parts.length < 4, "Archive exceeded the bounded four-part upload");
+    const length = Math.min(chunkSize, statSync(archive).size - offset);
+    const bytes = Buffer.alloc(length);
+    let filled = 0;
+    while (filled < length) {
+      const read = readSync(descriptor, bytes, filled, length - filled, offset + filled);
+      assert.ok(read > 0, "Archive ended before its recorded size");
+      filled += read;
+    }
+    const path = `dependencies.part-${parts.length}`;
+    writeFileSync(join(output, path), bytes);
+    parts.push({ path, bytes: length, sha256: createHash("sha256").update(bytes).digest("hex") });
+    offset += length;
+  }
+} finally {
+  closeSync(descriptor);
+}
+assert.ok(process.env.GITHUB_OUTPUT);
+writeFileSync(process.env.GITHUB_OUTPUT, `parts=${parts.length}\n`, { flag: "a" });
 const receipt = {
   sourceSha,
   treeSha,
@@ -64,6 +91,7 @@ const receipt = {
   scriptSha256: digest(fileURLToPath(import.meta.url)),
   roots,
   files,
+  parts,
   qualification: "Frozen-lockfile dependency installation only. No tests, build, native desktop, or live provider verification claimed. Electron runtime was not downloaded. Validate archive paths, links, hashes and local runtime compatibility before using this artifact.",
 };
 writeFileSync(join(output, "provenance.json"), JSON.stringify(receipt, null, 2) + "\n");
