@@ -334,6 +334,20 @@ describe("SidebarSearchPalette.logic", () => {
     assert.include(result[0]?.snippet ?? "", "desktop notification toggles");
   });
 
+  it("does not apply local server hits to a remote chat with the same id", () => {
+    const local = { ...threads[0]!, messages: [] };
+    const remote = { ...local, host: { environmentId: "other-mac", name: "Other Mac" } };
+    const matches = new Map([[local.id, { excerpt: "unique persisted phrase", matchCount: 1 }]]);
+    const results = matchSidebarSearchThreads(
+      [local, remote],
+      "unique persisted phrase",
+      8,
+      matches,
+    );
+    assert.lengthOf(results, 1);
+    assert.isUndefined(results[0]?.thread.host);
+  });
+
   it("keeps a server hit whose excerpt misses some query tokens", () => {
     const unloaded = threads.map((thread) => ({ ...thread, messages: [] }));
     const serverMatches = new Map([
@@ -392,6 +406,7 @@ describe("workspaceSidebarSearch", () => {
     hasPendingUserInput: false,
     hasActionableProposedPlan: false,
     hasLiveTailWork: false,
+    pendingBackgroundWorkCount: 0,
     status: null,
   };
   const session: WorkspaceSession = {

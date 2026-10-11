@@ -82,6 +82,7 @@ import { ServerLoggerLive } from "./serverLogger";
 import { ServerSettingsService } from "./serverSettings";
 import { formatHostForUrl, isLoopbackHost, isWildcardHost } from "./startupAccess";
 import { startHostConnectivity } from "./hostConnectivity";
+import { remoteTlsIdentityPath } from "./remoteTransport/certificates";
 import { superviseHostConnectivity } from "./hostConnectivitySupervisor";
 import { RemoteSessionRegistryService } from "./remoteSessions/sessionRegistry";
 import { OrchestrationEngineService } from "./orchestration/Services/OrchestrationEngine";
@@ -94,11 +95,6 @@ import {
   verifyServerRuntime,
 } from "./externalMcp/bridge";
 import { externalMcpLauncher, externalMcpShellCommand } from "./externalMcp/launcher";
-import { fetchSynaraServerStatus, formatSynaraServerStatus } from "./serverStatusCli";
-import {
-  embeddedMigrationRuntimeSourceDigest,
-  verifyMigrationRuntimeIdentity,
-} from "./migrationBundleIdentity";
 import {
   ACCOUNT_URL_ENV_NAME,
   resolveAccountUrl,
@@ -117,7 +113,12 @@ import { createAccountLiveActivityReporter } from "./accountLiveActivityReporter
 import { createAccountInboxReporter } from "./accountInboxReporter";
 import { RecapStatsQuery } from "./recapStats";
 import { isServerBetaFeatureEnabled } from "./betaFeatureGate";
-import { INBOX_BETA_FEATURE } from "@synara/shared/betaFeatures";
+import { ACCOUNT_INBOX_BETA_FEATURE } from "@synara/shared/betaFeatures";
+import { fetchSynaraServerStatus, formatSynaraServerStatus } from "./serverStatusCli";
+import {
+  embeddedMigrationRuntimeSourceDigest,
+  verifyMigrationRuntimeIdentity,
+} from "./migrationBundleIdentity";
 
 export class StartupError extends Data.TaggedError("StartupError")<{
   readonly message: string;
@@ -474,6 +475,8 @@ const makeServerProgram = (input: CliInput) =>
     const localSessions = yield* SessionCredentialService;
     const serverSettings = yield* ServerSettingsService;
     const remoteSessions = yield* RemoteSessionRegistryService;
+    const remoteTrust = yield* RemoteDeviceTrustRepository;
+    const authControlPlane = yield* AuthControlPlane;
     yield* cliConfig.fixPath;
 
     const config = yield* ServerConfig;
@@ -548,7 +551,7 @@ const makeServerProgram = (input: CliInput) =>
     // Start the retention loop after the server is live so startup can serve
     // existing history first, then hide inactive threads from the app in the background.
     yield* startThreadRetentionJob(orchestrationEngine, projectionSnapshotQuery);
-    if (isServerBetaFeatureEnabled(INBOX_BETA_FEATURE)) {
+    if (isServerBetaFeatureEnabled(ACCOUNT_INBOX_BETA_FEATURE)) {
       const inboxReporter = createAccountInboxReporter({
         sql: yield* SqlClient.SqlClient,
         recapQuery: yield* RecapStatsQuery,
@@ -598,31 +601,6 @@ const makeServerProgram = (input: CliInput) =>
     if (process.env[SYNARA_DESKTOP_BUNDLE_ID_ENV] === SYNARA_BETA_BUNDLE_ID) {
       yield* startBetaUsageSnapshotJob(config.baseDir);
     }
-    // Event-driven account usage sync: every committed usage-relevant domain
-    // event nudges the reporter, which debounces, recomputes recent per-minute
-    // buckets from the local projections, and pushes absolute values to the
-    // account. Best-effort and fully inert while signed out — like the host
-    // registration above, it must never delay or fail a boot.
-    const usageReporterSql = yield* SqlClient.SqlClient;
-    const accountUsageReporter = createAccountUsageReporter({
-      sql: usageReporterSql,
-      baseDir: config.baseDir,
-      ...(config.devUrl ? { devUrl: config.devUrl } : {}),
-    });
-    registerAccountUsageReporterNudge(() => void accountUsageReporter.flushNow());
-    yield* Effect.addFinalizer(() =>
-      Effect.sync(() => {
-        registerAccountUsageReporterNudge(undefined);
-        accountUsageReporter.stop();
-      }),
-    );
-    yield* Effect.forkChild(
-      Stream.runForEach(orchestrationEngine.streamDomainEvents, (event) =>
-        isAccountUsageRelevantEventType(event.type)
-          ? Effect.sync(() => accountUsageReporter.notifyActivity())
-          : Effect.void,
-      ),
-    );
     // Optional Claude OAuth keepalive. Disabled by default because it touches
     // Claude Code auth data in the background; users can opt in with
     // SYNARA_CLAUDE_KEEPALIVE=1.
@@ -1026,9 +1004,104 @@ const statusCommand = Command.make("status", { accountUrl: accountUrlFlag }, ({ 
   Command.withDescription("Show the signed-in account, this host, and every registered host."),
 );
 
+const remoteListCommand = Command.make("list", {}, () =>
+  Effect.gen(function* () {
+    const parent = yield* baseServerCommand;
+    const result = yield* Effect.tryPromise({
+      try: () =>
+        requestLocalRemoteAccess(
+          resolveExternalMcpBaseDir(Option.getOrUndefined(parent.synaraHome)),
+          { operation: "list" },
+        ),
+      catch: (cause) =>
+        new StartupError({ message: "Could not read remote trust on this host.", cause }),
+    });
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+  }),
+);
+const remoteInviteCommand = Command.make(
+  "invite",
+  {
+    output: Flag.string("output").pipe(
+      Flag.withDescription("New private invitation file; transfer it through a trusted channel."),
+    ),
+  },
+  ({ output }) =>
+    Effect.gen(function* () {
+      const parent = yield* baseServerCommand;
+      yield* Effect.tryPromise({
+        try: async () => {
+          const result = await requestLocalRemoteAccess(
+            resolveExternalMcpBaseDir(Option.getOrUndefined(parent.synaraHome)),
+            { operation: "create-invitation" },
+          );
+          await saveRemoteInvitation(output, result);
+        },
+        catch: (cause) =>
+          new StartupError({ message: "Could not save the remote invitation.", cause }),
+      });
+      process.stdout.write(
+        "Invitation saved privately. It expires in ten minutes. Confirm the requesting device's exact JKT on this host.\n",
+      );
+    }),
+);
+const remoteApproveCommand = Command.make(
+  "approve",
+  { inviteId: Flag.string("invite-id"), deviceJkt: Flag.string("device-jkt") },
+  ({ inviteId, deviceJkt }) =>
+    Effect.gen(function* () {
+      const parent = yield* baseServerCommand;
+      yield* Effect.tryPromise({
+        try: () =>
+          requestLocalRemoteAccess(
+            resolveExternalMcpBaseDir(Option.getOrUndefined(parent.synaraHome)),
+            { operation: "approve", inviteId, deviceJkt },
+          ),
+        catch: (cause) =>
+          new StartupError({ message: "Could not approve that invitation and device JKT.", cause }),
+      });
+      process.stdout.write("Device approved on this host.\n");
+    }),
+);
+const remoteRejectCommand = Command.make(
+  "reject",
+  { inviteId: Flag.string("invite-id") },
+  ({ inviteId }) =>
+    Effect.gen(function* () {
+      const parent = yield* baseServerCommand;
+      yield* Effect.tryPromise({
+        try: () =>
+          requestLocalRemoteAccess(
+            resolveExternalMcpBaseDir(Option.getOrUndefined(parent.synaraHome)),
+            { operation: "cancel-invitation", inviteId },
+          ),
+        catch: (cause) =>
+          new StartupError({ message: "Could not cancel the remote invitation.", cause }),
+      });
+      process.stdout.write("Invitation cancelled.\n");
+    }),
+);
+const remoteCommand = Command.make("remote").pipe(
+  Command.withDescription(
+    "Manage owner-approved remote access on this computer (qualified Node 24 builds only).",
+  ),
+  Command.withSubcommands([
+    remoteListCommand,
+    remoteInviteCommand,
+    remoteApproveCommand,
+    remoteRejectCommand,
+  ]),
+);
+
 const serverCommand = baseServerCommand.pipe(
   Command.withHandler((input) => makeServerProgram(input)),
-  Command.withSubcommands([serverToolsCommand, mcpCommand, authCommand, statusCommand]),
+  Command.withSubcommands([
+    serverToolsCommand,
+    mcpCommand,
+    authCommand,
+    statusCommand,
+    remoteCommand,
+  ]),
 );
 
 export const synaraCli = serverCommand;

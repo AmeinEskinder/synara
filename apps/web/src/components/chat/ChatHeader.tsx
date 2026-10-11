@@ -628,6 +628,7 @@ export function ChatHeader({
               </div>
             ) : null}
             {threadTabs}
+            <ChatComputerLabel />
           </div>
         ) : (
           <div

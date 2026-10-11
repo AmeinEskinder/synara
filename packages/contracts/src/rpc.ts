@@ -1857,6 +1857,12 @@ export const WsHostsConfirmSyncKeyRpc = Rpc.make(WS_METHODS.hostsConfirmSyncKey,
   error: WsRpcError,
 });
 
+export const WsHostsRemoteAccessRpc = Rpc.make(WS_METHODS.hostsRemoteAccess, {
+  payload: RemoteAccessInput,
+  success: RemoteAccessResult,
+  error: WsRpcError,
+});
+
 export const WsHostsConnectRpc = Rpc.make(WS_METHODS.hostsConnect, {
   payload: HostsConnectInput,
   success: HostConnection,
@@ -2527,6 +2533,7 @@ export const WsFeatureRpcGroup: RpcGroup.RpcGroup<WsFeatureRpc> = RpcGroup.make(
   WsHostsOfferSyncKeyRpc,
   WsHostsReceiveSyncKeyRpc,
   WsHostsConfirmSyncKeyRpc,
+  WsHostsRemoteAccessRpc,
   WsHostsConnectRpc,
   WsHostsDisconnectRpc,
   WsHostsListConnectionsRpc,

@@ -87,6 +87,8 @@ export const WsBootstrapNegotiateInput = Schema.Struct({
 export type WsBootstrapNegotiateInput = typeof WsBootstrapNegotiateInput.Type;
 
 export const WsBootstrapNegotiateResult = Schema.Struct({
+  /** Controller reservation for a single remote renderer stream; never a credential. */
+  remoteAttachmentId: Schema.optional(Schema.String),
   protocolEpoch: Schema.Int,
   negotiatedRevision: NonNegativeInt,
   serverBuild: Schema.String,

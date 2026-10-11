@@ -3,7 +3,7 @@
 // and the public profile page (no I/O, safe to use during html-to-image render).
 // Layer: profile-ui shared utilities.
 
-import type { ProviderKind } from "@synara/contracts";
+import type { ProviderGlyphKey as ProviderKind } from "./providerIcon";
 
 // Compact token/count formatting matching the reference card ("17bn", "538m", "1.2k").
 export function formatCompact(value: number | null | undefined): string {
@@ -77,6 +77,15 @@ export function formatShortDate(day: string | null): string | null {
   return MONTH_DAY_FORMATTER.format(new Date(Date.UTC(year, month - 1, date)));
 }
 
+// 13 → "1 PM" — the hour label used by "Most active hour" on the profile panel,
+// the shareable card, and the public profile page.
+export function formatHourLabel(hour: number): string {
+  const normalized = ((hour % 24) + 24) % 24;
+  if (normalized === 0) return "12 AM";
+  if (normalized === 12) return "12 PM";
+  return normalized < 12 ? `${normalized} AM` : `${normalized - 12} PM`;
+}
+
 export function formatProviderLabel(provider: ProviderKind): string {
   switch (provider) {
     case "codex":
@@ -106,15 +115,6 @@ export function formatProfileUsageBasis(metric: "tokens" | "turns"): string {
   return metric === "tokens" ? "tracked tokens" : "turns";
 }
 
-// 13 → "1 PM" — the hour label used by "Most active hour" on the profile panel,
-// the shareable card, and the public profile page.
-export function formatHourLabel(hour: number): string {
-  const normalized = ((hour % 24) + 24) % 24;
-  if (normalized === 0) return "12 AM";
-  if (normalized === 12) return "12 PM";
-  return normalized < 12 ? `${normalized} AM` : `${normalized - 12} PM`;
-}
-
 const WHOLE_NUMBER_FORMATTER = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
 // formatShortDate turns a day key into UTC midnight, so format in UTC or viewers
 // west of UTC see the previous day.
@@ -123,7 +123,6 @@ const MONTH_DAY_FORMATTER = new Intl.DateTimeFormat(undefined, {
   day: "numeric",
   timeZone: "UTC",
 });
-
 
 /**
  * Up-to-two initials from a display name — "Dylan" → "DY", "Ada Lovelace" →

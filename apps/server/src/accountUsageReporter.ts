@@ -1,3 +1,8 @@
+import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { accountStateDirectory } from "./accountAuth";
+import { writeFileStringAtomically } from "./atomicWrite";
 /**
  * accountUsageReporter - event-driven sync of per-minute usage buckets to the
  * account service (`POST /api/v1/usage`).
@@ -37,7 +42,7 @@ import {
   resolveEnvironmentId,
   withFreshAccessToken,
 } from "./accountAuth";
-import { aggregateProfileSkillUsageRows, turnModelSelectionCte } from "./profileStats";
+import { aggregateProfileSkillUsageRows, tokenDeltaCtes } from "./profileStats";
 
 /** Activity is coalesced for this long before a flush recomputes and pushes. */
 const DEFAULT_DEBOUNCE_MS = 5_000;
@@ -276,181 +281,17 @@ export function collectUsageBuckets(
   unknown
 > {
   return Effect.gen(function* () {
-    // Tokens per minute — the per-minute variant of profileStats.ts's
-    // queryTokenActivity (the canonical sibling); same counter-scale choice
-    // per (thread, provider, model), same LAG delta, same attribution
-    // (turn-start modelSelection via the shared CTE, thread selection as the
-    // legacy fallback), plus the reasoning dimension the account buckets key on.
+    // Share the canonical provider counters and verified Claude turn totals with
+    // local/Inbox statistics; apply the account window only after deriving deltas.
     const tokenRows = yield* sql<MinuteModelRow>`
-      WITH turn_model AS (
-        ${turnModelSelectionCte(sql)}
-      ),
-      ev AS (
-        SELECT
-          a.thread_id AS thread_id,
-          STRFTIME('%Y-%m-%dT%H:%M:00Z', a.created_at) AS minute,
-          COALESCE(
-            tm.provider,
-            json_extract(a.payload_json, '$.provider'),
-            CASE
-              WHEN th.model_selection_json IS NOT NULL AND json_valid(th.model_selection_json)
-              THEN json_extract(th.model_selection_json, '$.provider')
-            END,
-            'unknown'
-          ) AS provider,
-          COALESCE(
-            tm.model,
-            CASE
-              WHEN th.model_selection_json IS NOT NULL
-                AND json_valid(th.model_selection_json)
-                AND (
-                  json_extract(a.payload_json, '$.provider') IS NULL
-                  OR json_extract(a.payload_json, '$.provider') =
-                    json_extract(th.model_selection_json, '$.provider')
-                )
-              THEN json_extract(th.model_selection_json, '$.model')
-            END,
-            'unknown'
-          ) AS model,
-          COALESCE(
-            tm.reasoning,
-            CASE
-              WHEN tm.model IS NULL
-                AND th.model_selection_json IS NOT NULL
-                AND json_valid(th.model_selection_json)
-              THEN COALESCE(
-                json_extract(th.model_selection_json, '$.options.reasoningEffort'),
-                json_extract(th.model_selection_json, '$.options.effort')
-              )
-            END
-          ) AS reasoning,
-          CAST(json_extract(a.payload_json, '$.totalProcessedTokens') AS INTEGER) AS tp,
-          CAST(json_extract(a.payload_json, '$.usedTokens') AS INTEGER) AS ut,
-          pm.dispatch_origin AS dispatch_origin,
-          a.sequence AS sequence,
-          a.created_at AS created_at,
-          a.activity_id AS activity_id
-        FROM projection_thread_activities a
-        JOIN projection_threads th ON th.thread_id = a.thread_id
-        LEFT JOIN turn_model tm
-          ON tm.thread_id = a.thread_id
-         AND tm.turn_id = a.turn_id
-        LEFT JOIN projection_turns pt
-          ON pt.thread_id = a.thread_id
-         AND pt.turn_id = a.turn_id
-        LEFT JOIN projection_thread_messages pm
-          ON pm.thread_id = pt.thread_id
-         AND pm.message_id = pt.pending_message_id
-        WHERE a.kind = 'context-window.updated'
-          AND COALESCE(
-            json_extract(a.payload_json, '$.totalProcessedTokens'),
-            json_extract(a.payload_json, '$.usedTokens')
-          ) IS NOT NULL
-      ),
-      provider_model_scale AS (
-        SELECT thread_id, provider, model, MAX(tp IS NOT NULL) AS has_cumulative
-        FROM ev
-        GROUP BY thread_id, provider, model
-      ),
-      cumulative_delta AS (
-        SELECT
-          minute,
-          provider,
-          model,
-          reasoning,
-          dispatch_origin,
-          CASE
-            WHEN previous_tot IS NULL OR tot < previous_tot THEN tot
-            ELSE MAX(0, tot - previous_tot)
-          END AS d
-        FROM (
-          SELECT
-            minute,
-            provider,
-            model,
-            reasoning,
-            dispatch_origin,
-            tp AS tot,
-            LAG(tp) OVER (
-              PARTITION BY thread_id
-              ORDER BY
-                CASE WHEN sequence IS NULL THEN 0 ELSE 1 END ASC,
-                sequence ASC,
-                created_at ASC,
-                activity_id ASC
-            ) AS previous_tot
-          FROM ev
-          WHERE tp IS NOT NULL
-        )
-      ),
-      used_only_delta AS (
-        SELECT
-          minute,
-          provider,
-          model,
-          reasoning,
-          dispatch_origin,
-          CASE
-            WHEN previous_tot IS NULL THEN tot
-            WHEN tot < previous_tot
-              AND (provider != previous_provider OR model != previous_model)
-            THEN tot
-            ELSE MAX(0, tot - previous_tot)
-          END AS d
-        FROM (
-          SELECT
-            ev.minute AS minute,
-            ev.provider AS provider,
-            ev.model AS model,
-            ev.reasoning AS reasoning,
-            ev.dispatch_origin AS dispatch_origin,
-            ev.ut AS tot,
-            LAG(ev.ut) OVER (
-              PARTITION BY ev.thread_id
-              ORDER BY
-                CASE WHEN ev.sequence IS NULL THEN 0 ELSE 1 END ASC,
-                ev.sequence ASC,
-                ev.created_at ASC,
-                ev.activity_id ASC
-            ) AS previous_tot,
-            LAG(ev.provider) OVER (
-              PARTITION BY ev.thread_id
-              ORDER BY
-                CASE WHEN ev.sequence IS NULL THEN 0 ELSE 1 END ASC,
-                ev.sequence ASC,
-                ev.created_at ASC,
-                ev.activity_id ASC
-            ) AS previous_provider,
-            LAG(ev.model) OVER (
-              PARTITION BY ev.thread_id
-              ORDER BY
-                CASE WHEN ev.sequence IS NULL THEN 0 ELSE 1 END ASC,
-                ev.sequence ASC,
-                ev.created_at ASC,
-                ev.activity_id ASC
-            ) AS previous_model
-          FROM ev
-          JOIN provider_model_scale pms
-            ON pms.thread_id = ev.thread_id
-           AND pms.provider = ev.provider
-           AND pms.model = ev.model
-          WHERE ev.tp IS NULL
-            AND ev.ut IS NOT NULL
-            AND NOT pms.has_cumulative
-        )
-      ),
-      all_tokens AS (
-        SELECT minute, provider, model, reasoning, d FROM cumulative_delta
-        WHERE dispatch_origin IS NULL OR dispatch_origin = 'user'
-        UNION ALL
-        SELECT minute, provider, model, reasoning, d FROM used_only_delta
-        WHERE dispatch_origin IS NULL OR dispatch_origin = 'user'
-      )
-      SELECT minute, provider, model, reasoning, SUM(d) AS count
-      FROM all_tokens
-      WHERE minute >= ${fromMinute}
+      WITH ${tokenDeltaCtes(sql)}
+      SELECT STRFTIME('%Y-%m-%dT%H:%M:00Z', created_at) AS minute,
+        provider, model, reasoning, SUM(tokens) AS count
+      FROM token_delta_rows
+      WHERE STRFTIME('%Y-%m-%dT%H:%M:00Z', created_at) >= ${fromMinute}
+        AND (dispatch_origin IS NULL OR dispatch_origin = 'user')
       GROUP BY minute, provider, model, reasoning
-      HAVING SUM(d) > 0
+      HAVING SUM(tokens) > 0
     `;
 
     // Turns per minute — per-minute variant of profileStats.ts's
@@ -463,10 +304,14 @@ export function collectUsageBuckets(
           STRFTIME('%Y-%m-%dT%H:%M:00Z', e.occurred_at) AS minute,
           CASE
             WHEN json_type(e.payload_json, '$.modelSelection') = 'object'
-            THEN json_extract(e.payload_json, '$.modelSelection.provider')
+            THEN COALESCE(json_extract(e.payload_json, '$.modelSelection.provider'),
+                CASE WHEN json_extract(e.payload_json, '$.modelSelection.instanceId') = s.provider_instance_id
+                THEN s.provider_name ELSE json_extract(e.payload_json, '$.modelSelection.instanceId') END)
             ELSE CASE
               WHEN t.model_selection_json IS NOT NULL AND json_valid(t.model_selection_json)
-              THEN json_extract(t.model_selection_json, '$.provider')
+              THEN COALESCE(json_extract(t.model_selection_json, '$.provider'),
+                CASE WHEN json_extract(t.model_selection_json, '$.instanceId') = s.provider_instance_id
+                THEN s.provider_name ELSE json_extract(t.model_selection_json, '$.instanceId') END)
             END
           END AS provider,
           CASE
@@ -494,6 +339,7 @@ export function collectUsageBuckets(
         FROM orchestration_events e
         JOIN projection_threads t
           ON t.thread_id = COALESCE(json_extract(e.payload_json, '$.threadId'), e.stream_id)
+        LEFT JOIN projection_thread_sessions s ON s.thread_id = t.thread_id
         LEFT JOIN projection_thread_messages um
           ON um.thread_id = COALESCE(json_extract(e.payload_json, '$.threadId'), e.stream_id)
          AND um.message_id = json_extract(e.payload_json, '$.messageId')
@@ -517,11 +363,15 @@ export function collectUsageBuckets(
           COALESCE(
             MAX(CASE
               WHEN json_type(e.payload_json, '$.modelSelection') = 'object'
-              THEN json_extract(e.payload_json, '$.modelSelection.provider')
+              THEN COALESCE(json_extract(e.payload_json, '$.modelSelection.provider'),
+                CASE WHEN json_extract(e.payload_json, '$.modelSelection.instanceId') = s.provider_instance_id
+                THEN s.provider_name ELSE json_extract(e.payload_json, '$.modelSelection.instanceId') END)
             END),
             CASE
               WHEN t.model_selection_json IS NOT NULL AND json_valid(t.model_selection_json)
-              THEN json_extract(t.model_selection_json, '$.provider')
+              THEN COALESCE(json_extract(t.model_selection_json, '$.provider'),
+                CASE WHEN json_extract(t.model_selection_json, '$.instanceId') = s.provider_instance_id
+                THEN s.provider_name ELSE json_extract(t.model_selection_json, '$.instanceId') END)
             END
           ) AS provider,
           COALESCE(
@@ -552,6 +402,7 @@ export function collectUsageBuckets(
           ) AS reasoning
         FROM projection_thread_messages m
         JOIN projection_threads t ON t.thread_id = m.thread_id
+        LEFT JOIN projection_thread_sessions s ON s.thread_id = t.thread_id
         LEFT JOIN orchestration_events e
           ON e.event_type = 'thread.turn-start-requested'
          AND COALESCE(json_extract(e.payload_json, '$.threadId'), e.stream_id) = m.thread_id
@@ -801,6 +652,7 @@ export function collectUsageBuckets(
 
 export function createAccountUsageReporter(deps: AccountUsageReporterDeps): AccountUsageReporter {
   const { sql, baseDir } = deps;
+  const credentialDir = accountStateDirectory(baseDir, deps.devUrl);
   const debounceMs = deps.debounceMs ?? DEFAULT_DEBOUNCE_MS;
   const failureBackoffMs = deps.failureBackoffMs ?? DEFAULT_FAILURE_BACKOFF_MS;
   const backfillMs = (deps.backfillDays ?? DEFAULT_BACKFILL_DAYS) * 86_400_000;
@@ -812,7 +664,7 @@ export function createAccountUsageReporter(deps: AccountUsageReporterDeps): Acco
     });
 
   const isSignedIn =
-    deps.isSignedIn ?? (async () => (await readAccountCredentials(baseDir)) !== undefined);
+    deps.isSignedIn ?? (async () => (await readAccountCredentials(credentialDir)) !== undefined);
 
   const resolveEnvironment =
     deps.environmentId ?? (() => resolveEnvironmentId(baseDir, deps.devUrl));
@@ -833,23 +685,31 @@ export function createAccountUsageReporter(deps: AccountUsageReporterDeps): Acco
   const resolveAccountIdentity =
     deps.accountIdentity ??
     (async (): Promise<string | null> => {
-      const stored = await readAccountFile(baseDir);
+      const stored = await readAccountFile(credentialDir);
       if (!stored?.organizationId || !stored.userId) return null;
       return `${stored.accountUrl}#${stored.organizationId}#${stored.userId}`;
     });
 
   const push =
     deps.push ??
-    (async (request: PushUsageRequest) => {
+    (async (request: PushUsageRequest, expectedIdentity: string | null) => {
       // Same URL resolution as accountSession.ts: the URL stored at sign-in
       // wins so the reporter always talks to the account the session belongs
       // to, with the configured/default URL as the signed-out fallback.
-      const stored = await readAccountFile(baseDir);
-      const accountUrl = stored?.accountUrl ?? deps.accountUrl ?? resolveAccountUrl();
+      const stored = await readAccountCredentials(credentialDir);
+      if (
+        !stored ||
+        `${stored.accountUrl}#${stored.organizationId}#${stored.userId}` !== expectedIdentity
+      )
+        throw new Error("Usage account changed");
+      const accountUrl = stored.accountUrl ?? deps.accountUrl ?? resolveAccountUrl();
       const client = deps.client ?? createAccountClient({ baseUrl: accountUrl });
-      await withFreshAccessToken({ baseDir, client }, async (accessToken) => {
-        await client.pushUsage(accessToken, request);
-      });
+      await withFreshAccessToken(
+        { baseDir: credentialDir, client, expectedIdentity: stored },
+        async (accessToken) => {
+          await client.pushUsage(accessToken, request);
+        },
+      );
     });
 
   const readSyncState = () =>
@@ -920,9 +780,71 @@ export function createAccountUsageReporter(deps: AccountUsageReporterDeps): Acco
         watermarkIsForCurrentIdentity && state?.watermarkMinute
           ? Date.parse(state.watermarkMinute)
           : Number.NaN;
-      const fromMinute = Number.isFinite(watermarkMs)
+      let fromMinute = Number.isFinite(watermarkMs)
         ? minuteStartIso(watermarkMs - WATERMARK_SAFETY_LAP_MS)
         : minuteStartIso(flushStartedAtMs - backfillMs);
+
+      if (currentIdentity != null) {
+        // Imports have historical occurred_at/createdAt (including their command
+        // receipts), so the watermark's clock cannot detect a late import. Keep
+        // a bounded, identity-scoped scan checkpoint beside account credentials.
+        const checkpointPath = join(
+          credentialDir,
+          "usage-sync",
+          `${createHash("sha256").update(currentIdentity).digest("hex")}.json`,
+        );
+        let eventSequence = 0;
+        try {
+          const saved: unknown = JSON.parse(await readFile(checkpointPath, "utf8"));
+          if (typeof saved !== "number" || !Number.isSafeInteger(saved) || saved < 0)
+            throw new Error("Invalid usage event checkpoint");
+          eventSequence = saved;
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        }
+        const [projection] = await Effect.runPromise(sql<{ sequence: number }>`
+          SELECT last_applied_sequence AS sequence FROM projection_state WHERE projector = 'projection.hot'
+        `);
+        const projectedSequence = projection?.sequence ?? 0;
+        const messages = await Effect.runPromise(sql<{ sequence: number; createdAt: string }>`
+          SELECT sequence, json_extract(payload_json, '$.createdAt') AS createdAt
+          FROM orchestration_events
+          WHERE sequence > ${eventSequence}
+            AND sequence <= ${projectedSequence}
+            AND event_type = 'thread.message-sent'
+            AND json_extract(payload_json, '$.role') = 'user'
+            AND json_extract(payload_json, '$.source') = 'native'
+            AND (json_extract(payload_json, '$.dispatchOrigin') IS NULL
+              OR json_extract(payload_json, '$.dispatchOrigin') = 'user')
+          ORDER BY sequence LIMIT 1000
+        `);
+        const scannedEvents = projectedSequence > eventSequence;
+        for (const message of messages) {
+          const createdAt = Date.parse(message.createdAt);
+          if (Number.isFinite(createdAt)) {
+            const minute = minuteStartIso(createdAt);
+            if (minute < fromMinute) fromMinute = minute;
+          }
+          eventSequence = message.sequence;
+        }
+        if (messages.length < 1000) eventSequence = Math.max(eventSequence, projectedSequence);
+        if (scannedEvents) {
+          // Transfer repair ownership to the existing durable watermark BEFORE
+          // acknowledging events. Its existing paced chunks resume after failure
+          // or restart; a crash between these writes only repeats safe upserts.
+          if (
+            !Number.isFinite(watermarkMs) ||
+            fromMinute < minuteStartIso(watermarkMs - WATERMARK_SAFETY_LAP_MS)
+          )
+            await writeSuccess(fromMinute, currentIdentity);
+          await Effect.runPromise(
+            writeFileStringAtomically({
+              filePath: checkpointPath,
+              contents: JSON.stringify(eventSequence),
+            }),
+          );
+        }
+      }
 
       const { models, skills } = await Effect.runPromise(collectUsageBuckets(sql, fromMinute));
 
@@ -955,11 +877,14 @@ export function createAccountUsageReporter(deps: AccountUsageReporterDeps): Acco
             await new Promise<void>((resolve) => setTimeout(resolve, MULTI_PUSH_PACE_MS));
             if (stopped) return;
           }
-          await push({
-            environmentId,
-            models: modelChunks[index] ?? [],
-            skills: skillChunks[index] ?? [],
-          });
+          await push(
+            {
+              environmentId,
+              models: modelChunks[index] ?? [],
+              skills: skillChunks[index] ?? [],
+            },
+            currentIdentity,
+          );
           // Persist backfill progress after every chunk, not only at the end:
           // a 429 halfway through a large first sync must resume from the
           // failed chunk, not replay the whole history (which, under a

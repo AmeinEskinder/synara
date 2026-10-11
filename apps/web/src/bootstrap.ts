@@ -12,6 +12,9 @@ import { readVerifiedControllerForRecovery } from "./lib/hosts/controllerRecover
 
 import "./storageOriginMigration";
 
+import { migrateLocalComposerImageBlobs } from "./lib/composerImageBlobStore";
+import { bootstrapExecutionContext } from "./lib/hosts/connectionClients";
+import { deactivateHost } from "./lib/hosts/activeHost";
 import { bootstrapSignedOutScreen } from "./authSignedOut";
 import { bootstrapPairingSession } from "./pairingBootstrap";
 

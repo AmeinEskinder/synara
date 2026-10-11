@@ -162,7 +162,7 @@ describe("useAccount", () => {
       handle: "ada-l",
       displayName: "Ada",
       avatarColor: "#22c55e",
-      themeAccent: { light: "#0169cc", dark: "#0169cc" },
+      themeAccent: { light: "#c74614", dark: "#f2612d" },
     });
     expect(queryClient.getQueryData<AccountStatus>(accountQueryKeys.status())).toEqual({
       state: "signed-in",
@@ -413,3 +413,44 @@ describe("useAccount", () => {
     );
   });
 });
+
+// An account refetch can observe another renderer signing in while a mutation
+// from this renderer is still waiting for its response.
+it.each(["updateProfile", "signOut"] as const)(
+  "discards a late %s response after identity B is observed",
+  async (operation) => {
+    const client = new QueryClient();
+    const first = makeMe();
+    client.setQueryData(accountQueryKeys.status(), { state: "signed-in", me: first });
+    let finish!: (value: unknown) => void;
+    accountApiMock[operation].mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const account = renderUseAccount(client);
+    const pending =
+      operation === "signOut"
+        ? account.signOut.mutateAsync()
+        : account.updateProfile.mutateAsync({
+            displayName: "Changed",
+            handle: "changed",
+            avatarColor: "#22c55e",
+          });
+    await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
+    const second = {
+      state: "signed-in",
+      accountAuthority: "https://account.test",
+      me: { ...first, id: "user_B" },
+    };
+    client.setQueryData(accountQueryKeys.status(), second);
+    const directoryKey = ["remoteHosts", "list", "B"];
+    client.setQueryData(directoryKey, ["B host"]);
+    finish(operation === "signOut" ? undefined : first);
+    await pending;
+    expect(client.getQueryData(accountQueryKeys.status())).toEqual(second);
+    expect(client.getQueryData(directoryKey)).toEqual(["B host"]);
+    client.clear();
+  },
+);

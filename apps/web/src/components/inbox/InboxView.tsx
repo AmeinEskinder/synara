@@ -22,7 +22,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
 
 import { useAppSettings } from "~/appSettings";
-import { INBOX_ON } from "~/betaFeatures";
+import { ACCOUNT_INBOX_ON, INBOX_ON } from "~/betaFeatures";
 import { Button } from "~/components/ui/button";
 import { Skeleton } from "~/components/ui/skeleton";
 import { resolveProviderUsageSummary } from "~/hooks/useProviderUsageSummary";
@@ -47,7 +47,7 @@ import { useStore } from "~/store";
 import { createAccountRateLimitThreadsSelector } from "~/storeSelectors";
 import { useTasksSurfaceEnabled } from "~/tasksSurface";
 import type { Project } from "~/types";
-import { formatNumber } from "../profile/profileFormatting";
+import { formatNumber } from "@synara/profile-ui/formatting";
 import { ProjectSidebarIcon } from "../ProjectSidebarIcon";
 import { ProviderIcon } from "../ProviderIcon";
 import { RouteInsetSurface } from "../RouteInsetSurface";
@@ -89,8 +89,8 @@ import {
   type InboxTone,
 } from "./inboxStories";
 import { InboxTaskList } from "./InboxTaskList";
-import { InboxTasks } from "./InboxTasks";
 import { InboxRecapHistory } from "./InboxRecapHistory";
+import { InboxTasks } from "./InboxTasks";
 
 // A turn finishing refreshes the recap, at most this often, so busy automations cannot
 // keep the server's recap query running back to back.
@@ -837,10 +837,12 @@ export default function InboxView() {
                 )}
               </div>
             </div>
-            <InboxRecapHistory
-              recap={recapQuery.data}
-              renderRecap={(saved) => <SavedRecapDigest saved={saved} />}
-            />
+            {ACCOUNT_INBOX_ON ? (
+              <InboxRecapHistory
+                recap={recapQuery.data}
+                renderRecap={(saved) => <SavedRecapDigest saved={saved} />}
+              />
+            ) : null}
           </div>
         </TaskCardSurface>
       </div>

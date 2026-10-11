@@ -237,8 +237,8 @@ function render(
     routeThreadId?: ThreadId | null;
     threadsHydrated?: boolean;
     archiveDeletesOrphanedWorktree?: boolean;
-    sidebarTreeThreads?: readonly SidebarThreadSummary[];
     confirmThreadArchive?: boolean;
+    sidebarTreeThreads?: readonly SidebarThreadSummary[];
   } = {},
 ) {
   reactHarness.beginRender();

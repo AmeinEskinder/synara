@@ -1,3 +1,5 @@
+import { readExecutionContext } from "~/lib/hosts/executionContext";
+import { REMOTE_NATIVE_UNAVAILABLE } from "@synara/shared/remoteCapabilities";
 // FILE: OpenInPicker.tsx
 // Purpose: Render the chat/file header "Open In" controls for the active editor target.
 // Layer: Chat header action
@@ -76,6 +78,16 @@ type OpenInPickerContentProps = OpenInPickerProps & {
 };
 
 export function OpenInPicker(props: OpenInPickerProps) {
+  if (readExecutionContext()?.remote && !props.primaryAction)
+    return (
+      <span className="text-ui-xs text-muted-foreground" title={REMOTE_NATIVE_UNAVAILABLE}>
+        External editor unavailable remotely
+      </span>
+    );
+  return <LocalOpenInPicker {...props} />;
+}
+
+function LocalOpenInPicker(props: OpenInPickerProps) {
   if (props.keybindings !== undefined && props.availableEditors !== undefined) {
     return (
       <OpenInPickerContent
@@ -274,7 +286,7 @@ function OpenInPickerMenuPopup({
   additionalMenuItems: ReactNode;
   menuEditorOrder: ReadonlyArray<EditorId> | undefined;
 }) {
-  const { options, preferredEditor, openFavoriteShortcutLabel, setDefaultEditor, openInEditor } = launchers;
+  const { options, preferredEditor, openFavoriteShortcutLabel, openInEditor } = launchers;
   const displayedOptions = readExecutionContext()?.remote
     ? []
     : menuEditorOrder

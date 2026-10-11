@@ -57,13 +57,13 @@ export * from "./computerAudit";
 export * from "./computerBrowser";
 export * from "./rpc";
 export * from "./claudeCache";
-export * from "./todo";
 
 export * from "./remotePairing";
 
 export * from "./remoteResources";
 
 export * from "./remoteAgentGateway";
+export * from "./todo";
 export * from "./inboxRecaps";
 export * from "./productAnalytics";
 

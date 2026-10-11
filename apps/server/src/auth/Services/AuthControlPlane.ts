@@ -3,6 +3,9 @@ import type {
   AuthClientSession,
   AuthPairingLink,
   AuthSessionId,
+  RemotePairingDevice,
+  RemotePairingStatus,
+  RemoteTrustScope,
 } from "@synara/contracts";
 import { Data, DateTime, Duration, Effect, ServiceMap } from "effect";
 import type { SessionRole } from "./SessionCredentialService";

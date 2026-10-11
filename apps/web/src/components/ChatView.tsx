@@ -2929,8 +2929,7 @@ export default function ChatView({
       pendingComposerFocusRef.current = false;
       return;
     }
-    // Secondary chrome is deferred during thread switches; replay focus once it
-    // mounts. A disabled editor (dispatch connecting, pending approval) cannot
+    // A disabled editor (dispatch connecting, pending approval) cannot
     // take focus either. Never ask the renderer to focus while another app owns
     // the desktop; on macOS that can activate Synara and switch Spaces.
     const editor = composerEditorRef.current;

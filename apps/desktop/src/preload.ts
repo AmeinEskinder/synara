@@ -138,6 +138,8 @@ contextBridge.exposeInMainWorld("desktopBridge", {
   productAnalytics: productAnalyticsBridge,
   ...(betaDiagnosticsBridge ? { betaDiagnostics: betaDiagnosticsBridge } : {}),
   getWsUrl: getDesktopWsUrl,
+  remoteResourceUrl: (hostId, reference) =>
+    ipcRenderer.sendSync(IPC.remoteResourceUrl, hostId, reference),
   // Absolute path for OS-dropped File objects (folders with spaces/parens, etc.).
   getPathForFile: (file: File) => {
     try {

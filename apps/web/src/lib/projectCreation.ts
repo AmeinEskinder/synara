@@ -39,9 +39,9 @@ function buildProjectTitleFromWorkspaceRoot(workspaceRoot: string): string {
 export async function createOrRecoverProjectFromPath(input: {
   api: NativeApi;
   workspaceRoot: string;
+  name?: string;
   /** Extra source folders of a multi-folder project; `workspaceRoot` is the primary one. */
   additionalFolders?: ReadonlyArray<string>;
-  name?: string;
   createIfMissing?: boolean;
   /** Overrides the active-space default; `null` files the project in Void. */
   spaceId?: SpaceId | null;

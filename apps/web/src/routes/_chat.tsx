@@ -674,7 +674,7 @@ function ChatRouteLayout() {
     );
   }
 
-  // Rail layout (Codex-style): the left column holds the window-chrome strip over the fixed
+  // The shell (Codex-style): the left column holds the window-chrome strip over the fixed
   // rail and the off-canvas panel; the route column keeps its own header on the shell band.
   // The panel's wrapper is its fixed container's containing block (paint containment), so
   // the existing <Sidebar> offcanvas slide and resize run unchanged below the strip and are

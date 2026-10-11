@@ -996,6 +996,7 @@ export interface DesktopBridge {
     revealApp: () => Promise<boolean>;
   };
   getWsUrl: () => string | null;
+  remoteResourceUrl?: (hostId: string, reference: RemoteResourceReference) => string | null;
   /**
    * Absolute filesystem path for a File from drag/drop or file inputs.
    * Electron only (`webUtils.getPathForFile`). Returns null when unavailable.
@@ -1445,64 +1446,6 @@ export interface NativeApi {
     onShellEvent: (callback: (event: OrchestrationShellStreamItem) => void) => () => void;
     onThreadEvent: (callback: (event: OrchestrationThreadStreamItem) => void) => () => void;
   };
-  projectAgent: {
-    getOverview: (input: ProjectAgentGetOverviewInput) => Promise<ProjectAgentOverview>;
-    listSummaries: (
-      input?: ProjectAgentListSummariesInput,
-    ) => Promise<ProjectAgentListSummariesResult>;
-    configure: (input: ProjectAgentConfigureInput) => Promise<ProjectAgentOverview>;
-    linkProject: (input: ProjectAgentLinkProjectInput) => Promise<ProjectAgentOverview>;
-    unlinkProject: (input: ProjectAgentUnlinkProjectInput) => Promise<ProjectAgentOverview>;
-    startGoal: (input: ProjectAgentStartGoalInput) => Promise<ProjectGoal>;
-    updateGoal: (input: ProjectAgentUpdateGoalInput) => Promise<ProjectGoal>;
-    pauseGoal: (input: ProjectAgentGoalControlInput) => Promise<ProjectGoal>;
-    resumeGoal: (input: ProjectAgentGoalControlInput) => Promise<ProjectGoal>;
-    stopGoal: (input: ProjectAgentGoalControlInput) => Promise<ProjectGoal>;
-    listTasks: (input: ProjectAgentListTasksInput) => Promise<ProjectAgentListTasksResult>;
-    createTask: (input: ProjectAgentCreateTaskInput) => Promise<ProjectTask>;
-    updateTask: (input: ProjectAgentUpdateTaskInput) => Promise<ProjectTask>;
-    listEvidence: (input: ProjectAgentListEvidenceInput) => Promise<ProjectAgentListEvidenceResult>;
-    listThreadIndex: (
-      input: ProjectAgentListThreadIndexInput,
-    ) => Promise<ProjectAgentListThreadIndexResult>;
-    excludeThread: (input: ProjectAgentExcludeThreadInput) => Promise<ProjectThreadIndexEntry>;
-    backfillSummaries: (input: ProjectAgentBackfillInput) => Promise<ProjectAgentOverview>;
-    listActivity: (input: ProjectAgentListActivityInput) => Promise<ProjectAgentListActivityResult>;
-    listDocuments: (
-      input: ProjectAgentListDocumentsInput,
-    ) => Promise<ProjectAgentListDocumentsResult>;
-    readDocument: (input: ProjectAgentReadDocumentInput) => Promise<ProjectAgentReadDocumentResult>;
-    writeDocument: (input: ProjectAgentWriteDocumentInput) => Promise<ProjectDocumentRevision>;
-    exportDocuments: (
-      input: ProjectAgentExportDocumentsInput,
-    ) => Promise<ProjectAgentExportDocumentsResult>;
-    refreshDigest: (input: ProjectAgentRefreshDigestInput) => Promise<ProjectAgentOverview>;
-    pauseGroup: (input: ProjectAgentGroupControlInput) => Promise<ProjectAgentOverview>;
-    resumeGroup: (input: ProjectAgentGroupControlInput) => Promise<ProjectAgentOverview>;
-    archiveGroup: (input: ProjectAgentGroupControlInput) => Promise<ProjectAgentOverview>;
-    unarchiveGroup: (input: ProjectAgentGroupControlInput) => Promise<ProjectAgentOverview>;
-    restartCoordinator: (input: ProjectAgentGroupControlInput) => Promise<ProjectAgentOverview>;
-    deleteGroup: (input: ProjectAgentDeleteGroupInput) => Promise<ProjectAgentDeleteGroupResult>;
-    resolveWorker: (
-      input: ProjectAgentResolveWorkerInput,
-    ) => Promise<ProjectAgentResolveWorkerResult>;
-    library: {
-      list: (input: ProjectAgentLibraryListInput) => Promise<ProjectAgentLibraryListResult>;
-      mkdir: (input: ProjectAgentLibraryMkdirInput) => Promise<ProjectAgentLibraryMutationResult>;
-      rename: (input: ProjectAgentLibraryRenameInput) => Promise<ProjectAgentLibraryMutationResult>;
-      delete: (input: ProjectAgentLibraryDeleteInput) => Promise<ProjectAgentLibraryMutationResult>;
-      history: (
-        input: ProjectAgentLibraryHistoryInput,
-      ) => Promise<ProjectAgentLibraryHistoryResult>;
-      restore: (
-        input: ProjectAgentLibraryRestoreInput,
-      ) => Promise<ProjectAgentLibraryMutationResult>;
-      status: (input: ProjectAgentLibraryStatusInput) => Promise<ProjectAgentLibraryStatusResult>;
-    };
-    subscribe: (input: { projectId: string }) => Promise<void>;
-    unsubscribe: (input: { projectId: string }) => Promise<void>;
-    onEvent: (callback: (event: ProjectAgentStreamEvent) => void) => () => void;
-  };
   /**
    * The Synara account session for this machine. The server owns the stored
    * credentials and every WorkOS round trip; the app only ever sees the state.
@@ -1568,6 +1511,64 @@ export interface NativeApi {
     signOut: () => Promise<void>;
     /** Opens an SSO authorize page this server issued in the system browser. */
     openVerificationUrl: (input: AccountOpenVerificationUrlInput) => Promise<void>;
+  };
+  projectAgent: {
+    getOverview: (input: ProjectAgentGetOverviewInput) => Promise<ProjectAgentOverview>;
+    listSummaries: (
+      input?: ProjectAgentListSummariesInput,
+    ) => Promise<ProjectAgentListSummariesResult>;
+    configure: (input: ProjectAgentConfigureInput) => Promise<ProjectAgentOverview>;
+    linkProject: (input: ProjectAgentLinkProjectInput) => Promise<ProjectAgentOverview>;
+    unlinkProject: (input: ProjectAgentUnlinkProjectInput) => Promise<ProjectAgentOverview>;
+    startGoal: (input: ProjectAgentStartGoalInput) => Promise<ProjectGoal>;
+    updateGoal: (input: ProjectAgentUpdateGoalInput) => Promise<ProjectGoal>;
+    pauseGoal: (input: ProjectAgentGoalControlInput) => Promise<ProjectGoal>;
+    resumeGoal: (input: ProjectAgentGoalControlInput) => Promise<ProjectGoal>;
+    stopGoal: (input: ProjectAgentGoalControlInput) => Promise<ProjectGoal>;
+    listTasks: (input: ProjectAgentListTasksInput) => Promise<ProjectAgentListTasksResult>;
+    createTask: (input: ProjectAgentCreateTaskInput) => Promise<ProjectTask>;
+    updateTask: (input: ProjectAgentUpdateTaskInput) => Promise<ProjectTask>;
+    listEvidence: (input: ProjectAgentListEvidenceInput) => Promise<ProjectAgentListEvidenceResult>;
+    listThreadIndex: (
+      input: ProjectAgentListThreadIndexInput,
+    ) => Promise<ProjectAgentListThreadIndexResult>;
+    excludeThread: (input: ProjectAgentExcludeThreadInput) => Promise<ProjectThreadIndexEntry>;
+    backfillSummaries: (input: ProjectAgentBackfillInput) => Promise<ProjectAgentOverview>;
+    listActivity: (input: ProjectAgentListActivityInput) => Promise<ProjectAgentListActivityResult>;
+    listDocuments: (
+      input: ProjectAgentListDocumentsInput,
+    ) => Promise<ProjectAgentListDocumentsResult>;
+    readDocument: (input: ProjectAgentReadDocumentInput) => Promise<ProjectAgentReadDocumentResult>;
+    writeDocument: (input: ProjectAgentWriteDocumentInput) => Promise<ProjectDocumentRevision>;
+    exportDocuments: (
+      input: ProjectAgentExportDocumentsInput,
+    ) => Promise<ProjectAgentExportDocumentsResult>;
+    refreshDigest: (input: ProjectAgentRefreshDigestInput) => Promise<ProjectAgentOverview>;
+    pauseGroup: (input: ProjectAgentGroupControlInput) => Promise<ProjectAgentOverview>;
+    resumeGroup: (input: ProjectAgentGroupControlInput) => Promise<ProjectAgentOverview>;
+    archiveGroup: (input: ProjectAgentGroupControlInput) => Promise<ProjectAgentOverview>;
+    unarchiveGroup: (input: ProjectAgentGroupControlInput) => Promise<ProjectAgentOverview>;
+    restartCoordinator: (input: ProjectAgentGroupControlInput) => Promise<ProjectAgentOverview>;
+    deleteGroup: (input: ProjectAgentDeleteGroupInput) => Promise<ProjectAgentDeleteGroupResult>;
+    resolveWorker: (
+      input: ProjectAgentResolveWorkerInput,
+    ) => Promise<ProjectAgentResolveWorkerResult>;
+    library: {
+      list: (input: ProjectAgentLibraryListInput) => Promise<ProjectAgentLibraryListResult>;
+      mkdir: (input: ProjectAgentLibraryMkdirInput) => Promise<ProjectAgentLibraryMutationResult>;
+      rename: (input: ProjectAgentLibraryRenameInput) => Promise<ProjectAgentLibraryMutationResult>;
+      delete: (input: ProjectAgentLibraryDeleteInput) => Promise<ProjectAgentLibraryMutationResult>;
+      history: (
+        input: ProjectAgentLibraryHistoryInput,
+      ) => Promise<ProjectAgentLibraryHistoryResult>;
+      restore: (
+        input: ProjectAgentLibraryRestoreInput,
+      ) => Promise<ProjectAgentLibraryMutationResult>;
+      status: (input: ProjectAgentLibraryStatusInput) => Promise<ProjectAgentLibraryStatusResult>;
+    };
+    subscribe: (input: { projectId: string }) => Promise<void>;
+    unsubscribe: (input: { projectId: string }) => Promise<void>;
+    onEvent: (callback: (event: ProjectAgentStreamEvent) => void) => () => void;
   };
   automation: {
     list: (input?: AutomationListInput) => Promise<AutomationListResult>;

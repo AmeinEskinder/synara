@@ -15,12 +15,12 @@ import {
 import { SiteFooter, SiteNav } from "../../components/chrome";
 import { ProfileSection, Stat } from "../../components/ProfileCard";
 import {
-  ProfileHeatmap,
   DailyAreaChart,
   DailyBarChart,
   HourArc,
   type ModelShare,
   ModelShareRing,
+  ProfileHeatmap,
   WeekCapsules,
 } from "../../components/ProfileCharts";
 import { ShareProfileButton } from "../../components/ShareProfileButton";

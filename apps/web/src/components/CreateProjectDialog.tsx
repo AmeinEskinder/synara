@@ -135,8 +135,8 @@ export function CreateProjectDialog(props: {
   const activeOperationIdRef = useRef<string | null>(null);
   const fieldId = useId();
   const pathInputId = `${fieldId}-path`;
-  const additionalFolderInputId = `${fieldId}-additional-folder`;
   const nameInputId = `${fieldId}-name`;
+  const additionalFolderInputId = `${fieldId}-additional-folder`;
   const repositoryInputId = `${fieldId}-repository`;
   const destinationParentInputId = `${fieldId}-destination-parent`;
   const directoryNameInputId = `${fieldId}-directory-name`;
@@ -271,24 +271,7 @@ export function CreateProjectDialog(props: {
     setFormError(null);
   };
 
-  const handleAddFolder = async () => {
-    if (isPickingFolder || submitting) return;
-    const api = readNativeApi();
-    if (!api) {
-      setFormError("The app server is unavailable.");
-      return;
-    }
-    setIsPickingFolder(true);
-    try {
-      const picked = await api.dialogs.pickFolder();
-      if (picked) addAdditionalFolder(picked);
-    } catch (error) {
-      setFormError(error instanceof Error ? error.message : "Unable to open the folder picker.");
-    }
-    setIsPickingFolder(false);
-  };
-
-  const handleBrowse = async () => {
+  const handleBrowse = async (mode: "primary" | "additional" = "primary") => {
     if (isPickingFolder || submitting) return;
     const api = readNativeApi();
     if (!api) {
@@ -322,7 +305,8 @@ export function CreateProjectDialog(props: {
       )
         throw new Error("The connection changed. Choose the folder again.");
       if (picked) {
-        if (source === "github") applyDestinationParent(picked);
+        if (mode === "additional") addAdditionalFolder(picked);
+        else if (source === "github") applyDestinationParent(picked);
         else applyPickedFolder(picked);
       }
     } catch (error) {
@@ -352,7 +336,11 @@ export function CreateProjectDialog(props: {
     // The confirm button stays enabled (and white) like the reference dialog;
     // an empty submit explains what is missing instead of being unclickable.
     if (source === "local" && trimmedPath.length === 0) {
-      setFormError(remote ? "Choose a folder on the remote computer." : "Choose a source folder or type its path.");
+      setFormError(
+        remote
+          ? "Type a path on the remote computer, or browse its folders."
+          : "Choose a source folder or type its path.",
+      );
       return;
     }
     const folderProblem =
@@ -408,6 +396,7 @@ export function CreateProjectDialog(props: {
         const route = await navigation.createProject({
           name: name.trim(),
           workspaceRoot: trimmedPath,
+          additionalFolders,
           createIfMissing: trimmedPath !== pickedPath,
         });
         if (
@@ -547,7 +536,55 @@ export function CreateProjectDialog(props: {
                   onKeyDown={submitOnEnter}
                 />
               </InputGroup>
-
+              <div className="flex flex-wrap items-center gap-1 text-ui text-muted-foreground">
+                <span>Add a folder on</span>
+                <ComputerPicker
+                  computers={computers}
+                  value={computerId}
+                  disabled={submitting || isPickingFolder}
+                  purpose="Project computer"
+                  onChange={(id) => {
+                    if (id === computerId) return;
+                    dialogGeneration.current += 1;
+                    setComputerId(id);
+                    setPath("");
+                    setAdditionalFolders([]);
+                    setAdditionalFolderInput("");
+                    setPickedPath(null);
+                    setFormError(null);
+                    if (!nameEdited) setName("");
+                  }}
+                  onManage={
+                    readExecutionContext()?.controller.capabilities.remoteConnections === true
+                      ? () => {
+                          handleOpenChange(false);
+                          navigate("/settings?section=connections");
+                        }
+                      : undefined
+                  }
+                />
+              </div>
+              <InputGroup className={PROJECT_DIALOG_FIELD_CONTROL_CLASS_NAME}>
+                <InputGroupInput
+                  id={pathInputId}
+                  value={path}
+                  aria-label="Project folder path"
+                  placeholder="Or enter a folder path"
+                  disabled={submitting || isPickingFolder}
+                  aria-invalid={formError ? true : undefined}
+                  {...(formError ? { "aria-describedby": errorId } : {})}
+                  spellCheck={false}
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  onChange={(event) => {
+                    setPath(event.target.value);
+                    setFormError(null);
+                    if (!nameEdited)
+                      setName(event.target.value.split(/[/\\]/).findLast(Boolean) ?? "");
+                  }}
+                  onKeyDown={submitOnEnter}
+                />
+              </InputGroup>
               {showFolderList ? (
                 <div className="space-y-2">
                   <span
@@ -563,7 +600,7 @@ export function CreateProjectDialog(props: {
                     onMakePrimary={makeFolderPrimary}
                     onRemove={removeFolder}
                     addRow={
-                      isElectron ? (
+                      !remote && isElectron ? (
                         <button
                           type="button"
                           disabled={isPickingFolder || submitting}
@@ -571,7 +608,7 @@ export function CreateProjectDialog(props: {
                             "flex min-h-12 w-full cursor-pointer items-center gap-2.5 px-3.5 text-start text-ui text-[var(--color-text-foreground)] transition-colors outline-none hover:bg-foreground/4 focus-visible:bg-foreground/6 disabled:opacity-50",
                             isDropTarget && "bg-foreground/6",
                           )}
-                          onClick={() => void handleAddFolder()}
+                          onClick={() => void handleBrowse("additional")}
                         >
                           <FolderAddIcon className="size-4.5" aria-hidden="true" />
                           {isPickingFolder ? "Opening the folder picker…" : "Add folder"}
@@ -624,7 +661,7 @@ export function CreateProjectDialog(props: {
                     </p>
                   ) : null}
                 </div>
-              ) : isElectron ? (
+              ) : (
                 <div className="space-y-2">
                   <span
                     id={sourceFolderLabelId}
@@ -632,130 +669,47 @@ export function CreateProjectDialog(props: {
                   >
                     Source folder
                   </span>
-                  <button
-                    type="button"
-                    aria-labelledby={sourceFolderLabelId}
-                    disabled={isPickingFolder || submitting}
+                  <div
                     className={cn(
-                      "flex min-h-12 w-full cursor-pointer items-center gap-2.5 rounded-xl border border-foreground/12 px-3.5 text-start text-ui text-[var(--color-text-foreground)] transition-colors outline-none hover:bg-foreground/4 focus-visible:border-foreground/30 disabled:opacity-50",
-                      isDropTarget &&
-                        "border-[color:var(--color-border-focus)] bg-foreground/6 text-[var(--color-text-foreground)]",
+                      "flex flex-col gap-2",
+                      isDropTarget && "border-[color:var(--color-border-focus)] bg-foreground/6",
                     )}
-                    onClick={() => void handleBrowse()}
                   >
-                    <FolderAddIcon className="size-4.5" aria-hidden="true" />
-                    {isPickingFolder ? (
-                      "Opening the folder picker…"
-                    ) : pickedFolderName ? (
-                      <span className="flex min-w-0 flex-col">
-                        <span className="truncate">{pickedFolderName}</span>
-                        <span className="truncate text-ui-xs text-muted-foreground/70">
-                          {pickedPath}
-                        </span>
-                      </span>
-                    ) : (
-                      "Drop a folder here, or browse"
-                    )}
-                  </button>
-              <div className="space-y-2">
-                <span
-                  id={sourceFolderLabelId}
-                  className={cn("block", dialogFieldLabelClassName, "text-ui text-foreground")}
-                >
-                  Source folder
-                </span>
-                <div
-                  className={cn(
-                    "flex min-h-40 flex-col items-center justify-center gap-4 rounded-xl border border-foreground/12 p-5",
-                    isDropTarget && "border-[color:var(--color-border-focus)] bg-foreground/6",
-                  )}
-                >
-                  <div className="flex flex-wrap items-center justify-center gap-1 text-ui text-muted-foreground">
-                    <span>Add a folder on</span>
-                    <ComputerPicker
-                      computers={computers}
-                      value={computerId}
-                      disabled={submitting || isPickingFolder}
-                      purpose="Project computer"
-                      onChange={(id) => {
-                        if (id === computerId) return;
-                        dialogGeneration.current += 1;
-                        setComputerId(id);
-                        setPath("");
-                        setPickedPath(null);
-                        setFormError(null);
-                        if (!nameEdited) setName("");
-                      }}
-                      onManage={
-                        readExecutionContext()?.controller.capabilities.remoteConnections === true
-                          ? () => {
-                              handleOpenChange(false);
-                              navigate("/settings?section=connections");
-                            }
-                          : undefined
-                      }
-                    />
-                  </div>
-                  {pickedFolderName ? (
-                    <div className="flex min-w-0 max-w-full items-center gap-3">
-                      <FolderClosed className="size-5 shrink-0 text-muted-foreground" />
-                      <div className="min-w-0 text-ui">
-                        <p className="truncate">{pickedFolderName}</p>
-                        <p
-                          className="truncate text-ui-xs text-muted-foreground"
-                          title={pickedPath ?? undefined}
-                        >
-                          {pickedPath}
-                        </p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={submitting || isPickingFolder}
-                        onClick={() => void handleBrowse()}
-                      >
-                        Change
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      variant="secondary"
-                      shape="capsule"
+                    <button
+                      type="button"
+                      aria-labelledby={sourceFolderLabelId}
                       disabled={!selectedComputer?.available || isPickingFolder || submitting}
+                      className={cn(
+                        "flex min-h-12 w-full cursor-pointer items-center gap-2.5 rounded-xl border border-foreground/12 px-3.5 text-start text-ui text-[var(--color-text-foreground)] transition-colors outline-none hover:bg-foreground/4 focus-visible:border-foreground/30 disabled:opacity-50",
+                        isDropTarget && "border-[color:var(--color-border-focus)] bg-foreground/6",
+                      )}
                       onClick={() => void handleBrowse()}
                     >
-                      <CentralIcon name="folder-add-left" className="size-4" aria-hidden="true" />
-                      {isPickingFolder ? "Opening…" : "Add folder"}
-                    </Button>
-                  )}
-                  {!selectedComputer?.available ? (
-                    <p role="status" className="text-ui-sm text-muted-foreground">
-                      This computer is unavailable. Reconnect or choose another computer.
-                    </p>
-                  ) : null}
+                      <FolderAddIcon className="size-4.5" aria-hidden="true" />
+                      {isPickingFolder ? (
+                        "Opening the folder picker…"
+                      ) : pickedFolderName ? (
+                        <span className="flex min-w-0 flex-col">
+                          <span className="truncate">{pickedFolderName}</span>
+                          <span
+                            className="truncate text-ui-xs text-muted-foreground/70"
+                            title={pickedPath ?? undefined}
+                          >
+                            {pickedPath}
+                          </span>
+                        </span>
+                      ) : (
+                        "Add folder"
+                      )}
+                    </button>
+                    {!selectedComputer?.available ? (
+                      <p role="status" className="text-ui-sm text-muted-foreground">
+                        This computer is unavailable. Reconnect or choose another computer.
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
-                <InputGroup className={PROJECT_DIALOG_FIELD_CONTROL_CLASS_NAME}>
-                  <InputGroupInput
-                    id={pathInputId}
-                    value={path}
-                    aria-label="Project folder path"
-                    placeholder="Or enter a folder path"
-                    disabled={submitting || isPickingFolder}
-                    aria-invalid={formError ? true : undefined}
-                    {...(formError ? { "aria-describedby": errorId } : {})}
-                    spellCheck={false}
-                    autoCorrect="off"
-                    autoCapitalize="off"
-                    onChange={(event) => {
-                      setPath(event.target.value);
-                      setFormError(null);
-                      if (!nameEdited)
-                        setName(event.target.value.split(/[/\\]/).findLast(Boolean) ?? "");
-                    }}
-                    onKeyDown={submitOnEnter}
-                  />
-                </InputGroup>
-              </div>
+              )}
             </>
           ) : (
             <CreateGitHubProjectFields
@@ -769,7 +723,7 @@ export function CreateProjectDialog(props: {
               finalClonePath={finalClonePath}
               formError={formError}
               provisionProgress={provisionProgress}
-              isElectron={isElectron}
+              isElectron={isElectron || Boolean(remote)}
               isPickingFolder={isPickingFolder}
               submitting={submitting}
               onRepositoryChange={(nextInput) => {

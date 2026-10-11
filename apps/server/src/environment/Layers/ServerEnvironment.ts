@@ -83,6 +83,12 @@ export const makeServerEnvironment = Effect.fn(function* () {
   const remoteUnavailableReason = remoteConnectionsUnavailableReason(serverConfig.stateDir);
   const flavor = desktopFlavorFromBundleId(process.env.SYNARA_DESKTOP_BUNDLE_ID);
   const descriptor: ExecutionEnvironmentDescriptor = {
+    channel:
+      flavor === "production"
+        ? "stable"
+        : flavor === "beta" || flavor === "canary"
+          ? flavor
+          : "dev",
     environmentId,
     label: resolveServerEnvironmentLabel({ cwdBaseName: path.basename(serverConfig.cwd) }),
     platform: {

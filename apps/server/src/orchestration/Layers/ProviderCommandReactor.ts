@@ -1709,6 +1709,7 @@ const make = Effect.gen(function* () {
   const settleInterruptedProviderTurn = Effect.fnUntraced(function* (input: {
     readonly threadId: ThreadId;
     readonly createdAt: string;
+    readonly expectedSession?: Pick<OrchestrationSession, "status" | "updatedAt">;
   }) {
     const thread = yield* resolveThread(input.threadId);
     const session = thread?.session;
@@ -1720,6 +1721,7 @@ const make = Effect.gen(function* () {
     }
     yield* setThreadSession({
       threadId: input.threadId,
+      expectedSession: input.expectedSession ?? session,
       session: {
         ...session,
         threadId: input.threadId,
@@ -5987,17 +5989,18 @@ const make = Effect.gen(function* () {
       }),
     });
     if (result._tag === "ok") {
-      // ProviderService retires a parent runtime after interrupting it, and a
-      // turn the provider had already ended (its terminal event still queued
-      // behind the stream) has nothing left to interrupt. Once no provider
-      // turn is live, a retired generation's exit is dropped, so waiting for
-      // a terminal event leaves Stop looking dead. Settle now; a terminal
-      // event still in flight applies on top of this state.
-      if (!(yield* hasLiveProviderTurn(input.threadId))) {
-        yield* settleInterruptedProviderTurn({
-          threadId: input.threadId,
-          createdAt: input.createdAt,
-        });
+      // An accepted Stop can retire the runtime before its final event arrives.
+      // Settle only that session, never a replacement started during the interrupt.
+      const current = yield* resolveThread(input.threadId);
+      const currentTurnId = current?.latestTurn?.turnId;
+      if (
+        current?.session &&
+        (currentTurnId === thread.latestTurn?.turnId || currentTurnId === turnId) &&
+        (current.session.activeTurnId !== null ||
+          current.session.updatedAt === thread.session?.updatedAt) &&
+        !(yield* hasLiveProviderTurn(input.threadId))
+      ) {
+        yield* settleInterruptedProviderTurn({ ...input, expectedSession: current.session });
       }
       return;
     }

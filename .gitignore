@@ -41,6 +41,7 @@ __screenshots__/
 /browser-sidebar-comment-preload.js.map
 /preload.js.map
 /bootstrap.js.map
+.vercel/
 
 # Generated ASAR smoke fixture (bundled from scripts/betterwright-smoke.ts)
 .smoke/
@@ -52,4 +53,3 @@ __screenshots__/
 
 # Local implementation plans.
 /plans/
-.vercel/

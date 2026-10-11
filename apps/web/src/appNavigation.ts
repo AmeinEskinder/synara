@@ -151,3 +151,9 @@ export function useAppNavigationState(): AppNavigationState {
 
   return navigationState;
 }
+
+declare module "@tanstack/react-router" {
+  interface HistoryState {
+    synaraExecution?: string;
+  }
+}

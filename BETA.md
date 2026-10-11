@@ -284,8 +284,9 @@ To put a feature behind the list:
 
 Promote a feature to Stable by deleting its entry; every gate resolves itself.
 
-The list currently contains `groups` (Hubs), `remoteConnections`, and `accountProfileSync`, gated off in Stable.
-Tasks, Inbox, and Auto-fix CI are available in both apps.
+The list currently contains `groups` (Hubs), `remoteConnections`,
+`accountProfileSync`, and `accountInbox` (account-saved Inbox history), all gated off in
+Stable. Tasks, Inbox, and Auto-fix CI are available in both apps.
 Oh My Pi, the rail sidebar layout, and message trail
 sound are available in both Stable and Beta.
 
@@ -309,6 +310,19 @@ chat attention, running and finished work, review requests, and the activity rec
 The to-do list, quick-add, delegation card, and **All tasks** link appear only where
 Tasks is available, including Stable and Beta.
 
+`accountInbox` is the account-saved Inbox history. In Beta, a signed-in computer
+automatically saves account/workspace-owned daily snapshots, including project names,
+and catches up its local history; **Save privately** requests an immediate update. Saved
+history can be read from the account API while its source computers are offline and
+survives source removal. Deleting a recap prevents automatic re-creation; an explicit
+Save can restore it. Stable refuses the saved-recap RPCs and does not upload. This
+history is separate from public profile publication and aggregate usage sync.
+
+Account profiles additionally require the server opt-in `SYNARA_ACCOUNT_PROFILE_SYNC=1`;
+it activates historical aggregate usage sync for the signed-in account. The UI reads
+the server capability, and publication remains a separate explicit choice.
+See the [profiles trial guide](apps/profiles/README.md).
+
 `pull-request-auto-fix` enables the opt-in **Auto-fix CI** action in a pull
 request's menu. The server watches checks for an enabled PR and can ask its
 linked agent chat to address failures in both Stable and Beta. It keeps the chat
@@ -321,14 +335,6 @@ the microphone, or both. The desktop IPC handler refuses other platforms,
 and the web hides the selector on hosts without a supported desktop bridge.
 Only loudness levels are sent to the trail, and the reader stops when the
 visible trail no longer subscribes. First use can request macOS audio access.
-
-Account profiles additionally require the server opt-in
-`SYNARA_ACCOUNT_PROFILE_SYNC=1`; it activates historical aggregate usage sync
-for the signed-in account. The UI reads the server capability, and publication
-remains a separate explicit choice. See the [profiles trial guide](apps/profiles/README.md).
-
-Saved Inbox history is private and account-owned, separate from public profile publication.
-
 
 ## Diagnostics
 

@@ -92,6 +92,8 @@ export interface ShareCardStats {
   readonly topProvider: {
     readonly provider: ProviderKind | null;
     readonly percent: number | null;
+    readonly metric?: "tokens" | "turns";
+    readonly unavailableProviders?: ReadonlyArray<ProviderKind>;
   };
   readonly heatmapCells: ReadonlyArray<ProfileHeatmapCell>;
 }
@@ -107,7 +109,7 @@ export function selectDeviceShareCardStats(
     peakDayTokens: tokenStats?.peakDayTokens ?? null,
     currentStreakDays: stats.activity.currentStreakDays,
     longestStreakDays: stats.activity.longestStreakDays,
-    topProvider: { provider: topProvider.provider, percent: topProvider.percent },
+    topProvider,
     heatmapCells: selectProfileHeatmap(stats, tokenStats).cells,
   };
 }

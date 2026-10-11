@@ -179,7 +179,7 @@ function OnboardingDialogContent({ me, onFinished }: Omit<OnboardingDialogProps,
             <span
               id={handleHelpId}
               role="alert"
-              className="text-[length:var(--app-font-size-ui-sm,11px)] leading-snug text-destructive"
+              className="text-ui-sm leading-snug text-destructive"
             >
               {formatError}
             </span>
@@ -201,11 +201,7 @@ function OnboardingDialogContent({ me, onFinished }: Omit<OnboardingDialogProps,
 
         {/* Announces a save failure (handle conflict, network) on arrival. */}
         {error ? (
-          <p
-            id={saveErrorId}
-            role="alert"
-            className="text-[length:var(--app-font-size-ui-sm,11px)] leading-snug text-destructive"
-          >
+          <p id={saveErrorId} role="alert" className="text-ui-sm leading-snug text-destructive">
             {error}
           </p>
         ) : null}

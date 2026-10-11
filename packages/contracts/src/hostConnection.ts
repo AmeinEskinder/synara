@@ -32,7 +32,31 @@ export type HostConnectionTransport = typeof HostConnectionTransport.Type;
  * handshake is the ordinary Synara WebSocket protocol, spoken to the remote
  * host as if it were local.
  */
+export const HostConnectionState = Schema.Literals([
+  "connecting",
+  "connected",
+  "idle",
+  "reconnecting",
+  "needs-sign-in",
+  "revoked",
+  "incompatible",
+  "stopped",
+]);
+export type HostConnectionState = typeof HostConnectionState.Type;
+
+export const RemoteExecutionScope = Schema.Struct({
+  environmentId: TrimmedNonEmptyString,
+  accountAuthority: TrimmedNonEmptyString,
+  userId: TrimmedNonEmptyString,
+  organizationId: TrimmedNonEmptyString,
+  channel: Schema.Literals(["stable", "beta", "canary", "dev"]),
+});
+export type RemoteExecutionScope = typeof RemoteExecutionScope.Type;
+
 export const HostConnection = Schema.Struct({
+  executionScope: Schema.optional(RemoteExecutionScope),
+  state: Schema.optional(HostConnectionState),
+  environmentId: Schema.optional(TrimmedNonEmptyString),
   hostId: TrimmedNonEmptyString,
   hostName: TrimmedNonEmptyString,
   transport: HostConnectionTransport,

@@ -690,9 +690,9 @@ managedAttachmentsLegacyLayer("managed attachment migration after private migrat
         [134, "ProjectionThreadsForkSourceMessage"],
         [135, "AccountUsageSync"],
         [136, "AccountUsageSyncIdentity"],
-          [137, "RemoteDeviceTrust"],
-          [138, "RemoteConnectionPreferences"],
-          [139, "RemoteAccessControls"],
+        [137, "RemoteDeviceTrust"],
+        [138, "RemoteConnectionPreferences"],
+        [139, "RemoteAccessControls"],
       ]);
 
       const tracker = yield* trackerRows(sql);
@@ -779,6 +779,11 @@ managedAttachmentsLegacyLayer("managed attachment migration after private migrat
           { migration_id: 132, name: "ExternalMcpTurnCapacityRecovery" },
           { migration_id: 133, name: "ProjectionTurnsWorkspaceInitialization" },
           { migration_id: 134, name: "ProjectionThreadsForkSourceMessage" },
+          { migration_id: 135, name: "AccountUsageSync" },
+          { migration_id: 136, name: "AccountUsageSyncIdentity" },
+          { migration_id: 137, name: "RemoteDeviceTrust" },
+          { migration_id: 138, name: "RemoteConnectionPreferences" },
+          { migration_id: 139, name: "RemoteAccessControls" },
         ],
       );
       const groupConfigColumns = yield* sql<{ readonly name: string }>`
@@ -1081,9 +1086,9 @@ spacesMigrationCollisionLayer("Spaces migration after the private migration 70 c
         [134, "ProjectionThreadsForkSourceMessage"],
         [135, "AccountUsageSync"],
         [136, "AccountUsageSyncIdentity"],
-          [137, "RemoteDeviceTrust"],
-          [138, "RemoteConnectionPreferences"],
-          [139, "RemoteAccessControls"],
+        [137, "RemoteDeviceTrust"],
+        [138, "RemoteConnectionPreferences"],
+        [139, "RemoteAccessControls"],
       ]);
 
       const tracker = yield* trackerRows(sql);
@@ -1285,9 +1290,9 @@ spacesMigrationCollisionLayer("Spaces migration after the private migration 70 c
         [134, "ProjectionThreadsForkSourceMessage"],
         [135, "AccountUsageSync"],
         [136, "AccountUsageSyncIdentity"],
-          [137, "RemoteDeviceTrust"],
-          [138, "RemoteConnectionPreferences"],
-          [139, "RemoteAccessControls"],
+        [137, "RemoteDeviceTrust"],
+        [138, "RemoteConnectionPreferences"],
+        [139, "RemoteAccessControls"],
       ]);
 
       const tracker = yield* trackerRows(sql);

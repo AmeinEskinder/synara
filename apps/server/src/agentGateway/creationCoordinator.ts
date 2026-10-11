@@ -374,11 +374,11 @@ export const makeCreateThreadsHandler = Effect.fn(function* (
             ? `hub-work:${context.workItemId}`
             : null;
       const caller =
-        context.kind !== "external-client"
-          ? (context.kind === "provider-session" && context.remoteCaller
-              ? context.remoteCaller
-              : yield* requireThreadShell(context.callerThreadId))
-          : null;
+        context.kind === "provider-session" && context.remoteCaller
+          ? context.remoteCaller
+          : context.kind !== "external-client"
+            ? yield* requireThreadShell(context.callerThreadId)
+            : null;
       const operationId = `gateway:create:${stableGatewayDigest({
         principalKind: context.kind,
         principalId:
@@ -507,7 +507,12 @@ export const makeCreateThreadsHandler = Effect.fn(function* (
           context.assertAuthority,
         );
       }
-      if (authorizeManagedGoalCreation && caller && "id" in caller && context.kind === "provider-session") {
+      if (
+        authorizeManagedGoalCreation &&
+        caller &&
+        "id" in caller &&
+        context.kind === "provider-session"
+      ) {
         yield* authorizeManagedGoalCreation({
           callerThreadId: caller.id,
           requestedCount: input.threads.length,
@@ -527,7 +532,8 @@ export const makeCreateThreadsHandler = Effect.fn(function* (
       const prepared = yield* Effect.forEach(input.threads, (spec, index) =>
         Effect.gen(function* () {
           if (
-            (context.kind === "external-client" || (context.kind === "provider-session" && context.remoteCaller)) &&
+            (context.kind === "external-client" ||
+              (context.kind === "provider-session" && context.remoteCaller)) &&
             spec.projectId === undefined
           ) {
             return yield* Effect.fail(
@@ -628,7 +634,7 @@ export const makeCreateThreadsHandler = Effect.fn(function* (
             // Always resolve same-project requests from the caller's selected checkout so
             // an explicit baseRef:"HEAD" cannot silently jump back to the primary checkout.
             const sourceCwd =
-              caller && "projectId" in caller && caller.projectId === projectId
+              caller?.projectId === projectId
                 ? (caller.worktreePath ?? project.workspaceRoot)
                 : project.workspaceRoot;
             const pullRequest = parsePullRequestSelector(requestedRef);
@@ -1179,7 +1185,8 @@ export const makeCreateThreadsHandler = Effect.fn(function* (
                       worktreePath,
                       creationSource:
                         context.kind === "external-client" ? "external_mcp" : "synara_mcp",
-                      ...(context.kind !== "external-client" && !(context.kind === "provider-session" && context.remoteCaller)
+                      ...(context.kind !== "external-client" &&
+                      !(context.kind === "provider-session" && context.remoteCaller)
                         ? {
                             sourceThreadId: ThreadId.makeUnsafe(context.callerThreadId),
                             ...((

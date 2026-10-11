@@ -555,7 +555,7 @@ function AccountAvatarEditor({
       />
 
       {draftSource !== "placeholder" && (
-        <p className="text-center text-xs text-muted-foreground">
+        <p className="text-center text-ui-xs text-muted-foreground">
           Colors apply to the initials avatar.
         </p>
       )}
@@ -614,7 +614,7 @@ function LocalAvatarEditor({
       />
 
       {draftImage && (
-        <p className="text-center text-xs text-muted-foreground">
+        <p className="text-center text-ui-xs text-muted-foreground">
           Colors apply when no photo is set.
         </p>
       )}
@@ -690,7 +690,7 @@ function Field({
   return (
     <div className="flex flex-col gap-1 px-3.5 py-3">
       <div className="flex items-center justify-between gap-4">
-        <span className="shrink-0 text-ui text-muted-foreground">{label}</span>
+        <span className="shrink-0 text-ui-sm text-muted-foreground">{label}</span>
         <div className="w-56 shrink-0">{children}</div>
       </div>
       {hint && <p className="text-ui-xs leading-snug text-muted-foreground/80">{hint}</p>}

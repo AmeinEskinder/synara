@@ -178,7 +178,7 @@ function SidebarSubagentLabel({
 
   return renderSubagentLabel({
     thread,
-    threads: relatedThreads ?? (parentThread ? [parentThread] : undefined),
+    threads: relatedThreads ?? threads,
     roleClassName,
   });
 }

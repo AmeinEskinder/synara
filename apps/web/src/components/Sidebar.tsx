@@ -135,7 +135,7 @@ import { getDefaultModel } from "@synara/shared/model";
 import { pluralize } from "@synara/shared/text";
 import { resolveThreadWorkspaceCwd } from "@synara/shared/threadEnvironment";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
+import { useLocation, useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import {
   type SidebarProjectSortOrder,
   type SidebarThreadSortOrder,
@@ -591,7 +591,6 @@ const SIDEBAR_LIST_ANIMATION_OPTIONS = {
   easing: "ease-out",
 } as const;
 const EMPTY_THREAD_JUMP_LABELS = new Map<string, string>();
-const EMPTY_SHORTCUT_PARTS: readonly string[] = [];
 const ADD_PROJECT_SNAPSHOT_CATCH_UP_MAX_ATTEMPTS = 6;
 const ADD_PROJECT_SNAPSHOT_CATCH_UP_DELAY_MS = 50;
 const GITHUB_CANCEL_RECOVERY_MAX_ATTEMPTS = 40;
@@ -1739,7 +1738,8 @@ export default function Sidebar() {
 
   const routeActiveSidebarThreadId = routeThreadId;
   const activeSidebarThreadId = optimisticActiveThreadId ?? routeActiveSidebarThreadId;
-  const visualActiveSidebarThreadId = pathname === "/remote" ? null : (optimisticActiveThreadId ?? routeThreadId);
+  const visualActiveSidebarThreadId =
+    pathname === "/remote" ? null : (optimisticActiveThreadId ?? routeThreadId);
   const hideAutomationRunThreads = !appSettings.showAutomationRunThreads;
   const selectSidebarTreeThreads = useMemo(
     () => createSidebarTreeThreadsSelector({ hideAutomationRunThreads }),
@@ -2060,6 +2060,7 @@ export default function Sidebar() {
   // Use the list's validated containers and member index: a hub worker's projectId
   // points at its execution repo, which must not move its chat out of Hubs.
   const isOnGroups =
+    remoteGroupActive ||
     isOnGroupsRoute ||
     isGroupThreadRoute({
       threadId: routeThreadId,
@@ -2732,8 +2733,8 @@ export default function Sidebar() {
         const creationResult = await createOrRecoverProjectFromPath({
           api,
           workspaceRoot: cwd,
-          ...(additionalFolders.length > 0 ? { additionalFolders } : {}),
           ...(options.name ? { name: options.name } : {}),
+          ...(additionalFolders.length > 0 ? { additionalFolders } : {}),
           ...(options.createIfMissing === undefined
             ? {}
             : { createIfMissing: options.createIfMissing }),
@@ -4485,9 +4486,8 @@ export default function Sidebar() {
     [renameProjectLocally, setProjectAppearanceLocally],
   );
 
-  const workspaceSessions = useWorkspaceSessions();
   const remotePinnedThreads = useMemo<WorkspaceThreadEntry[]>(() => {
-    if (!isOnStudio && activeSpaceId !== null) return [];
+    if (!isOnGroups && activeSpaceId !== null) return [];
     return workspaceSessions.flatMap((session) => {
       const sectionByProjectId = new Map(
         session.summary?.projects.map((project) => [project.id, project.section] as const),
@@ -4497,7 +4497,7 @@ export default function Sidebar() {
         if (
           thread.archivedAt ||
           !thread.isPinned ||
-          (isOnStudio ? section !== "studio" : section === undefined || section === "studio")
+          (isOnGroups ? section !== "studio" : section === undefined || section === "studio")
         )
           return [];
         return [
@@ -4509,7 +4509,7 @@ export default function Sidebar() {
         ];
       });
     });
-  }, [activeSpaceId, isOnStudio, workspaceSessions]);
+  }, [activeSpaceId, isOnGroups, workspaceSessions]);
   const localEnvironmentId = readExecutionContext()?.controller.environmentId ?? "local";
   const [workspaceProjectOrder, setWorkspaceProjectOrder] = useLocalStorage(
     executionKey("sidebar-project-order:v1"),
@@ -4526,6 +4526,10 @@ export default function Sidebar() {
   >(() => new Map());
   const remoteProjects = useMemo(
     () => remoteSidebarProjects(workspaceSessions),
+    [workspaceSessions],
+  );
+  const remoteGroupProjects = useMemo(
+    () => remoteSidebarProjects(workspaceSessions, "studio"),
     [workspaceSessions],
   );
   const sortedProjects = useMemo(
@@ -4574,6 +4578,24 @@ export default function Sidebar() {
     () => visibleChatThreadRows.map((row) => row.thread.id),
     [visibleChatThreadRows],
   );
+  const activeWorkspaceParams = new URLSearchParams(activeWorkspaceSearch);
+  const selectedByEnvironment = useMemo(() => {
+    const selected = new Map<string, ThreadId>();
+    const params = new URLSearchParams(activeWorkspaceSearch);
+    const environmentId = params.get("environment");
+    const remotePath = params.get("path")?.split("?")[0];
+    if (
+      pathname === "/remote" &&
+      environmentId &&
+      remotePath?.startsWith("/") &&
+      remotePath.length > 1
+    ) {
+      selected.set(environmentId, ThreadId.makeUnsafe(remotePath.slice(1)));
+    } else if (activeSidebarThreadId) {
+      selected.set(localEnvironmentId, activeSidebarThreadId);
+    }
+    return selected;
+  }, [activeWorkspaceSearch, pathname, activeSidebarThreadId, localEnvironmentId]);
   const mergedChatRows = useMemo(
     () =>
       mergeSidebarChats({
@@ -4587,24 +4609,6 @@ export default function Sidebar() {
     [
       localEnvironmentId,
       visibleChatThreadRows,
-      workspaceSessions,
-      selectedByEnvironment,
-      appSettings.sidebarThreadSortOrder,
-    ],
-  );
-  const mergedStudioRows = useMemo(
-    () =>
-      mergeSidebarChats({
-        localEnvironmentId,
-        threads: studioChatThreadRows.map((row) => row.thread),
-        sessions: workspaceSessions,
-        selectedByEnvironment,
-        section: "studio",
-        sortOrder: appSettings.sidebarThreadSortOrder,
-      }),
-    [
-      localEnvironmentId,
-      studioChatThreadRows,
       workspaceSessions,
       selectedByEnvironment,
       appSettings.sidebarThreadSortOrder,
@@ -4671,12 +4675,12 @@ export default function Sidebar() {
   );
   const activityThreads = useMemo(
     () => [
-      ...visibleNonStudioSidebarThreads,
+      ...activityNonGroupSidebarThreads,
       ...workspaceActivity.threads.filter((thread) =>
-        isSidebarThreadVisible(thread, { hideAutomationRunThreads }),
+        isSidebarThreadVisible(thread, { hideAutomationRunThreads, includeSnoozed: true }),
       ),
     ],
-    [visibleNonStudioSidebarThreads, workspaceActivity, hideAutomationRunThreads],
+    [activityNonGroupSidebarThreads, workspaceActivity, hideAutomationRunThreads],
   );
   const activityProjectById = useMemo(
     () => new Map([...projectById, ...workspaceActivity.projectById]),
@@ -4947,7 +4951,6 @@ export default function Sidebar() {
     groupProjects,
     resolveThreadStatusForSidebar,
   ]);
-  const surfaceProjects = isOnGroups ? groupProjects : standardProjects;
   const surfaceProjectSidebarDataById = isOnGroups
     ? groupProjectSidebarDataById
     : standardProjectSidebarDataById;
@@ -5128,17 +5131,13 @@ export default function Sidebar() {
     [activateThreadFromSidebarIntent, rangeSelectTo, toggleThreadSelection],
   );
 
-  const showRailAutomationsPanel = isRailLayout && isOnAutomations;
+  const showRailAutomationsPanel = isOnAutomations;
   const showRailSpacesPanel =
-    isRailLayout &&
-    railPanelView === "spaces" &&
-    !isOnStudio &&
-    !isOnSettings &&
-    !activityViewEnabled;
+    railPanelView === "spaces" && !isOnGroups && !isOnSettings && !activityViewEnabled;
   const workspaceProjectThreadData = useMemo(
     () =>
       new Map(
-        workspaceProjects.flatMap((entry) =>
+        [...workspaceProjects, ...remoteGroupProjects].flatMap((entry) =>
           entry.session
             ? [
                 [
@@ -5158,6 +5157,7 @@ export default function Sidebar() {
       ),
     [
       workspaceProjects,
+      remoteGroupProjects,
       appSettings.sidebarThreadSortOrder,
       selectedByEnvironment,
       workspaceProjectExtraPages,
@@ -5181,9 +5181,9 @@ export default function Sidebar() {
       );
     };
     if (isOnSettings || showRailAutomationsPanel) return rows;
-    if (activityViewEnabled && !isOnStudio) {
+    if (activityViewEnabled && !isOnGroups) {
       const localActivityThreadIds = new Set(
-        visibleNonStudioSidebarThreads.map((thread) => thread.id),
+        activityNonGroupSidebarThreads.map((thread) => thread.id),
       );
       for (const id of activityVisibleThreadIds) {
         const remote = workspaceActivity.remoteById.get(id);
@@ -5199,8 +5199,21 @@ export default function Sidebar() {
     }
     for (const thread of pinnedThreads) add(thread.id, null);
     for (const entry of remotePinnedThreads) add(entry.thread.id, entry.session);
-    if (isOnStudio) {
-      for (const entry of mergedStudioRows) add(entry.thread.id, entry.session);
+    if (isOnGroups) {
+      for (const entry of remoteGroupProjects) {
+        if (collapsedWorkspaceProjects.includes(entry.key)) continue;
+        for (const child of workspaceProjectThreadData.get(entry.key)?.visibleEntries ?? [])
+          add(child.row.thread.id, entry.session);
+      }
+      for (const project of groupProjects) {
+        const data = groupProjectSidebarDataById.get(project.id);
+        if (!data) continue;
+        if (!project.expanded) {
+          if (data.activeEntryId) add(data.activeEntryId, null);
+        } else {
+          for (const entry of data.visibleEntries) add(entry.rowId, null);
+        }
+      }
       return rows;
     }
     for (const entry of workspaceProjects) {
@@ -5218,6 +5231,7 @@ export default function Sidebar() {
         }
       }
     }
+    for (const threadId of classicSnoozedVisibleThreadIds) add(threadId, null);
     if (chatsSectionVisible && chatSectionExpanded) {
       for (const entry of renderedChatEntries)
         add(entry.row.thread.id, entry.row.workspaceEntry.session);
@@ -5225,18 +5239,21 @@ export default function Sidebar() {
     return rows;
   }, [
     localEnvironmentId,
+    classicSnoozedVisibleThreadIds,
     isOnSettings,
     showRailAutomationsPanel,
     activityViewEnabled,
-    isOnStudio,
+    isOnGroups,
     activityVisibleThreadIds,
-    visibleNonStudioSidebarThreads,
+    activityNonGroupSidebarThreads,
     workspaceActivity,
     showRailSpacesPanel,
     railSpacesProjectSidebarData,
     pinnedThreads,
     remotePinnedThreads,
-    mergedStudioRows,
+    groupProjectSidebarDataById,
+    groupProjects,
+    remoteGroupProjects,
     workspaceProjects,
     collapsedWorkspaceProjects,
     workspaceProjectThreadData,
@@ -5347,13 +5364,21 @@ export default function Sidebar() {
       ),
     [visibleWorkspaceThreads, visibleThreadJumpLabelByKey],
   );
-  const visibleThreadJumpLabelPartsByThreadId = useMemo(() => {
-    const partsByThreadId = new Map<ThreadId, readonly string[]>();
-    for (const [threadId, label] of visibleThreadJumpLabelByThreadId) {
-      partsByThreadId.set(threadId, splitShortcutLabel(label));
-    }
-    return partsByThreadId;
-  }, [visibleThreadJumpLabelByThreadId]);
+  const activityThreadJumpLabelByThreadId = useMemo(
+    () =>
+      new Map(
+        activityThreads.flatMap((thread) => {
+          const remote = workspaceActivity.remoteById.get(thread.id);
+          const key = workspaceThreadKey(
+            remote?.session?.host.executionScope.environmentId ?? localEnvironmentId,
+            remote?.thread.id ?? thread.id,
+          );
+          const label = visibleThreadJumpLabelByKey.get(key);
+          return label ? [[thread.id, label] as const] : [];
+        }),
+      ),
+    [activityThreads, localEnvironmentId, visibleThreadJumpLabelByKey, workspaceActivity],
+  );
 
   useEffect(() => {
     const threadIdsToPrewarm = getSidebarThreadIdsToPrewarm({
@@ -7363,10 +7388,6 @@ export default function Sidebar() {
   // The rail owns the route destinations, so the panel keeps only "New thread": always
   // there, since the rail's Customize has no New thread row to bring it back.
   const panelSidebarNavIds: readonly SidebarNavItemId[] = ["newThread"];
-  // Automations owns its panel (its list), like Settings and Groups do.
-  const showRailAutomationsPanel = isOnAutomations;
-  const showRailSpacesPanel =
-    railPanelView === "spaces" && !isOnGroups && !isOnSettings && !activityViewEnabled;
   // Switching Home/Spaces or the Spaces level replays the surface enter animation.
   const sidebarSurfaceKey = showRailSpacesPanel
     ? `spaces:${railSpacesProject?.id ?? ""}`
@@ -7614,6 +7635,11 @@ export default function Sidebar() {
                   {isOnGroups ? (
                     <SidebarGroupsSurface
                       groupProjects={groupProjects}
+                      remoteProjects={remoteGroupProjects.map((entry) => (
+                        <SidebarMenuItem key={entry.key}>
+                          {renderWorkspaceProject(entry, null)}
+                        </SidebarMenuItem>
+                      ))}
                       projectSidebarDataById={groupProjectSidebarDataById}
                       threadsHydrated={threadsHydrated}
                       visualActiveThreadId={visualActiveSidebarThreadId}
@@ -7633,10 +7659,11 @@ export default function Sidebar() {
                   ) : activityViewEnabled ? (
                     <SidebarGroup className="px-1.5 py-1.5">
                       <SidebarActivityView
-                        threads={activityNonGroupSidebarThreads}
-                        projectById={projectById}
-                        activeThreadId={visualActiveSidebarThreadId}
-                        pinnedThreadIdSet={pinnedThreadIdSet}
+                        threads={activityThreads}
+                        projectById={activityProjectById}
+                        externalRows={externalActivityRows}
+                        activeThreadId={activityActiveThreadId}
+                        pinnedThreadIdSet={activityPinnedThreadIdSet}
                         settledOverrideByThreadId={settledOverrideByThreadId}
                         threadsHydrated={threadsHydrated}
                         scopeSelection={activityScope}
@@ -7656,8 +7683,8 @@ export default function Sidebar() {
                         }}
                         onProjectContextMenu={handleProjectContextMenu}
                         prByThreadId={prByThreadId}
-                        threadJumpLabelByThreadId={visibleThreadJumpLabelByThreadId}
-                        onVisibleThreadIdsChange={handleActivityVisibleThreadIdsChange}
+                        threadJumpLabelByThreadId={activityThreadJumpLabelByThreadId}
+                        onVisibleThreadIdsChange={handleWorkspaceActivityVisibleThreadIdsChange}
                         renderThreadHoverCard={(thread, anchorId) =>
                           renderThreadHoverCardPopup(
                             thread,
@@ -7696,7 +7723,7 @@ export default function Sidebar() {
                       {renderListSectionHeader(
                         "Projects",
                         <>
-                          {standardProjects.length > 0 ? (
+                          {workspaceProjects.length > 0 ? (
                             <SidebarIconButton
                               icon={allProjectsExpanded ? CollapseAllIcon : ExpandAllIcon}
                               label={
@@ -7747,24 +7774,30 @@ export default function Sidebar() {
                           onDragEnd={handleProjectDragEnd}
                           onDragCancel={handleProjectDragCancel}
                         >
-                          <SidebarMenu className="gap-3">
+                          <SidebarMenu data-testid="workspace-project-list" className="gap-3">
                             <SortableContext
-                              items={standardProjects.map((project) => project.id)}
+                              items={workspaceProjects.map((entry) => entry.key)}
                               strategy={verticalListSortingStrategy}
                             >
-                              {standardProjects.map((project) => (
-                                <SortableProjectItem key={project.id} projectId={project.id}>
-                                  {(dragHandleProps) => renderProjectItem(project, dragHandleProps)}
+                              {workspaceProjects.map((entry) => (
+                                <SortableProjectItem key={entry.key} projectId={entry.key}>
+                                  {(dragHandleProps) =>
+                                    renderWorkspaceProject(entry, dragHandleProps)
+                                  }
                                 </SortableProjectItem>
                               ))}
                             </SortableContext>
                           </SidebarMenu>
                         </DndContext>
                       ) : (
-                        <SidebarMenu ref={attachProjectListAutoAnimateRef} className="gap-3">
-                          {standardProjects.map((project) => (
-                            <SidebarMenuItem key={project.id} className="rounded-md">
-                              {renderProjectItem(project, null)}
+                        <SidebarMenu
+                          data-testid="workspace-project-list"
+                          ref={attachProjectListAutoAnimateRef}
+                          className="gap-3"
+                        >
+                          {workspaceProjects.map((entry) => (
+                            <SidebarMenuItem key={entry.key} className="rounded-md">
+                              {renderWorkspaceProject(entry, null)}
                             </SidebarMenuItem>
                           ))}
                         </SidebarMenu>
@@ -7875,28 +7908,32 @@ export default function Sidebar() {
                     </SidebarSectionToolbar>
                   </div>
 
-              <div className={cn(disclosureShellClassName(chatSectionExpanded), "pt-1")}>
-                <div className={DISCLOSURE_INNER_CLASS}>
-                  <SidebarMenu
-                    className={cn("gap-1", disclosureContentClassName(chatSectionExpanded))}
-                  >
-                    {mergedChatRows.length > 0 ? (
-                      renderedChatEntries.map((entry) =>
-                        entry.row.workspaceEntry.session ? (
-                          <SidebarMenuItem key={entry.rowId}>
-                            <WorkspaceThreadRow
-                              entry={entry.row.workspaceEntry}
-                              threadJumpLabel={visibleThreadJumpLabelByKey.get(entry.rowId) ?? null}
-                              topLevel
-                              depth={entry.row.depth}
-                            />
-                          </SidebarMenuItem>
-                        ) : (
-                          renderThreadRow(
-                            entry.row.thread,
-                            visibleChatThreadIds,
-                            entry.row.depth,
-                            true,
+                  <div className={cn(disclosureShellClassName(chatSectionExpanded), "pt-1")}>
+                    <div className={DISCLOSURE_INNER_CLASS}>
+                      <SidebarMenu
+                        className={cn("gap-1", disclosureContentClassName(chatSectionExpanded))}
+                      >
+                        {mergedChatRows.length > 0 ? (
+                          renderedChatEntries.map((entry) =>
+                            entry.row.workspaceEntry.session ? (
+                              <SidebarMenuItem key={entry.rowId}>
+                                <WorkspaceThreadRow
+                                  entry={entry.row.workspaceEntry}
+                                  threadJumpLabel={
+                                    visibleThreadJumpLabelByKey.get(entry.rowId) ?? null
+                                  }
+                                  topLevel
+                                  depth={entry.row.depth}
+                                />
+                              </SidebarMenuItem>
+                            ) : (
+                              renderThreadRow(
+                                entry.row.thread,
+                                visibleChatThreadIds,
+                                entry.row.depth,
+                                true,
+                              )
+                            ),
                           )
                         ) : (
                           <div className="px-2 py-2 text-ui text-muted-foreground/48">
@@ -7949,7 +7986,6 @@ export default function Sidebar() {
                 </div>
               </SidebarGroup>
             ) : null}
-            {!isOnSettings && <WorkspaceProjects />}
           </SidebarContent>
 
           <SidebarFooter
@@ -7959,7 +7995,6 @@ export default function Sidebar() {
             <SidebarMenu>
               <SidebarMenuItem>
                 <div className="flex flex-col gap-1">
-                  {!isOnSettings && <AccountFooterControl />}
                   {DebugFeatureFlagsMenu && showDebugFeatureFlagsMenu && !isOnSettings ? (
                     <Suspense fallback={null}>
                       <DebugFeatureFlagsMenu />
@@ -8592,7 +8627,7 @@ function SidebarSearchPaletteController(props: {
   onOpenUsageSettings: () => void;
   onOpenProject: (projectId: string, host?: SidebarSearchHost, session?: WorkspaceSession) => void;
   providerInstances: readonly ProviderInstanceOption[];
-  onImportThread: (provider: ThreadImportTarget, externalId: string) => Promise<void>;
+  onImportThread: (target: ThreadImportTarget, externalId: string) => Promise<void>;
   onOpenThread: (threadId: string, host?: SidebarSearchHost, session?: WorkspaceSession) => void;
 }) {
   const sessions = useWorkspaceSessions();

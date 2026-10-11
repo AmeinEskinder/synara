@@ -112,6 +112,7 @@ export const GetAuthPairingLinkByCredentialInput = Schema.Struct({
 export type GetAuthPairingLinkByCredentialInput = typeof GetAuthPairingLinkByCredentialInput.Type;
 
 export interface AuthPairingLinkRepositoryShape {
+  readonly remote: RemotePairingRepositoryShape;
   readonly create: (
     input: CreateAuthPairingLinkInput,
   ) => Effect.Effect<void, AuthPairingLinkRepositoryError>;

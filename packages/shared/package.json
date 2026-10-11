@@ -8,14 +8,13 @@
       "types": "./src/turnStopActivity.ts",
       "import": "./src/turnStopActivity.ts"
     },
-    "./diagnosticIssue": {
-      "types": "./src/diagnosticIssue.ts",
-      "import": "./src/diagnosticIssue.ts"
-
-    },
     "./inboxDay": {
       "types": "./src/inboxDay.ts",
       "import": "./src/inboxDay.ts"
+    },
+    "./diagnosticIssue": {
+      "types": "./src/diagnosticIssue.ts",
+      "import": "./src/diagnosticIssue.ts"
     },
     "./betaFeatures": {
       "types": "./src/betaFeatures.ts",
@@ -61,13 +60,13 @@
       "types": "./src/git.ts",
       "import": "./src/git.ts"
     },
-    "./kanban": {
-      "types": "./src/kanban.ts",
-      "import": "./src/kanban.ts"
-    },
     "./account": {
       "types": "./src/account.ts",
       "import": "./src/account.ts"
+    },
+    "./kanban": {
+      "types": "./src/kanban.ts",
+      "import": "./src/kanban.ts"
     },
     "./githubAvatar": {
       "types": "./src/githubAvatar.ts",
@@ -417,6 +416,18 @@
       "types": "./src/deviceHelperCache.ts",
       "import": "./src/deviceHelperCache.ts"
     },
+    "./deviceKey": {
+      "types": "./src/deviceKey.ts",
+      "import": "./src/deviceKey.ts"
+    },
+    "./transportRace": {
+      "types": "./src/transportRace.ts",
+      "import": "./src/transportRace.ts"
+    },
+    "./hostSecrets": {
+      "types": "./src/hostSecrets.ts",
+      "import": "./src/hostSecrets.ts"
+    },
     "./computerKeyNames": {
       "types": "./src/computerKeyNames.ts",
       "import": "./src/computerKeyNames.ts"
@@ -449,6 +460,18 @@
       "types": "./src/asyncUserInput.ts",
       "import": "./src/asyncUserInput.ts"
     },
+    "./remoteResources": {
+      "types": "./src/remoteResources.ts",
+      "import": "./src/remoteResources.ts"
+    },
+    "./remoteCapabilities": {
+      "types": "./src/remoteCapabilities.ts",
+      "import": "./src/remoteCapabilities.ts"
+    },
+    "./cloudflared": {
+      "types": "./src/cloudflared.ts",
+      "import": "./src/cloudflared.ts"
+    },
     "./groupThreadState": {
       "types": "./src/groupThreadState.ts",
       "import": "./src/groupThreadState.ts"
@@ -460,26 +483,6 @@
     "./keybindingRules": {
       "types": "./src/keybindingRules.ts",
       "import": "./src/keybindingRules.ts"
-    },
-    "./deviceKey": {
-      "types": "./src/deviceKey.ts",
-      "import": "./src/deviceKey.ts"
-    },
-    "./transportRace": {
-      "types": "./src/transportRace.ts",
-      "import": "./src/transportRace.ts"
-    },
-    "./hostSecrets": {
-      "types": "./src/hostSecrets.ts",
-      "import": "./src/hostSecrets.ts"
-    },
-    "./remoteCapabilities": {
-      "types": "./src/remoteCapabilities.ts",
-      "import": "./src/remoteCapabilities.ts"
-    },
-    "./cloudflared": {
-      "types": "./src/cloudflared.ts",
-      "import": "./src/cloudflared.ts"
     }
   },
   "scripts": {

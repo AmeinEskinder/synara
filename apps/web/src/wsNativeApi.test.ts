@@ -25,6 +25,12 @@ import {
 } from "@synara/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const transportInstances: Array<{
+  url: string | undefined;
+  options: { onGenerationChanged?: () => void };
+  requests: unknown[][];
+  subscriptions: string[];
+}> = [];
 let reportShellFailure: ((failure: { code: string | null; error: Error }) => void) | undefined;
 const requestMock = vi.fn<(...args: Array<unknown>) => Promise<unknown>>();
 const disposeMock = vi.fn();
@@ -62,9 +68,21 @@ const subscribeMock = vi.fn<
 
 vi.mock("./wsTransport", () => {
   return {
+    rawSocketUrl: () => "ws://127.0.0.1:58001/ws",
     WsTransport: class MockWsTransport {
-      request = requestMock;
-      subscribe = subscribeMock;
+      readonly calls: (typeof transportInstances)[number];
+      constructor(url?: string, options: { onGenerationChanged?: () => void } = {}) {
+        this.calls = { url, options, requests: [], subscriptions: [] };
+        transportInstances.push(this.calls);
+      }
+      request = (...args: unknown[]) => {
+        this.calls.requests.push(args);
+        return requestMock(...args);
+      };
+      subscribe = (...args: Parameters<typeof subscribeMock>) => {
+        this.calls.subscriptions.push(args[0]);
+        return subscribeMock(...args);
+      };
       unsubscribeProjectAgentEvents = unsubscribeProjectAgentEventsMock;
       onStateChange() {
         return () => undefined;
@@ -149,6 +167,7 @@ const defaultProviders: ReadonlyArray<ServerProviderStatus> = [
 beforeEach(() => {
   vi.resetModules();
   requestMock.mockReset();
+  transportInstances.length = 0;
   disposeMock.mockReset();
   unsubscribeProjectAgentEventsMock.mockClear();
   showContextMenuFallbackMock.mockReset();
@@ -167,6 +186,78 @@ afterEach(() => {
 });
 
 describe("wsNativeApi", () => {
+  it("keeps account requests and controller restarts independent from remote execution", async () => {
+    const scope = {
+      environmentId: "mini",
+      accountAuthority: "https://accounts.test",
+      userId: "owner",
+      organizationId: "personal",
+      channel: "beta",
+    };
+    const selected = {
+      hostId: "mini-host",
+      hostName: "Mini",
+      wsPath: "/ws/remote/mini-host",
+      executionScope: scope,
+    };
+    Object.assign(getWindowForTest(), {
+      frameElement: {
+        synaraWorkspace: { host: selected, controllerWsUrl: "ws://127.0.0.1:58001" },
+      },
+    });
+    let environments = 0;
+    requestMock.mockImplementation(async (method) => {
+      if (method === WS_METHODS.hostsConnect) return selected;
+      if (method === WS_METHODS.serverGetEnvironment)
+        return {
+          environmentId: environments++ === 0 ? "controller" : "mini",
+          label: "Computer",
+          platform: { os: "darwin", arch: "arm64" },
+          serverVersion: "1",
+          capabilities: { repositoryIdentity: true },
+        };
+      return {};
+    });
+    const { bootstrapExecutionContext } = await import("./lib/hosts/connectionClients");
+    await bootstrapExecutionContext();
+    const { createWsNativeApi } = await import("./wsNativeApi");
+    const api = createWsNativeApi();
+    transportInstances.forEach((instance) => {
+      instance.requests.length = 0;
+    });
+    await api.account.status();
+    await api.server.getEnvironment();
+    expect(transportInstances).toHaveLength(2);
+    expect(transportInstances[0]!.requests.map((call) => call[0])).toEqual([
+      WS_METHODS.accountStatus,
+    ]);
+    expect(transportInstances[1]!.url).toBe("ws://127.0.0.1:58001/ws/remote/mini-host/ws");
+    expect(transportInstances[1]!.requests.map((call) => call[0])).toEqual([
+      WS_METHODS.serverGetEnvironment,
+    ]);
+    expect(transportInstances[0]!.subscriptions).toEqual([]);
+    expect(transportInstances[1]!.subscriptions).toContain(WS_CHANNELS.serverWelcome);
+    expect(transportInstances[1]!.subscriptions).not.toContain(DEVICE_WS_CHANNELS.event);
+    expect(transportInstances[1]!.subscriptions).not.toContain(COMPUTER_WS_CHANNELS.event);
+    const cursors = await import("./threadDetailResumeCursors");
+    const thread = ThreadId.makeUnsafe("same-thread");
+    cursors.setThreadDetailResumeCursor(thread, 42);
+    transportInstances[0]!.options.onGenerationChanged?.();
+    expect(cursors.getThreadDetailResumeCursor(thread)).toBe(42);
+    transportInstances[1]!.options.onGenerationChanged?.();
+    expect(cursors.getThreadDetailResumeCursor(thread)).toBeUndefined();
+    Reflect.deleteProperty(getWindowForTest(), "frameElement");
+  });
+
+  it("keeps device and computer events subscribed for local execution", async () => {
+    const { createWsNativeApi } = await import("./wsNativeApi");
+    createWsNativeApi();
+
+    expect(transportInstances).toHaveLength(1);
+    expect(transportInstances[0]!.subscriptions).toContain(DEVICE_WS_CHANNELS.event);
+    expect(transportInstances[0]!.subscriptions).toContain(COMPUTER_WS_CHANNELS.event);
+  });
+
   it("forwards exhausted shell failures and removes unsubscribed listeners", async () => {
     const { createWsNativeApi, onShellStreamFailure } = await import("./wsNativeApi");
     createWsNativeApi();
@@ -182,15 +273,6 @@ describe("wsNativeApi", () => {
     unsubscribe();
     reportShellFailure!(failure);
     expect(listener).toHaveBeenCalledOnce();
-  });
-
-  it("keeps device and computer events subscribed for local execution", async () => {
-    const { createWsNativeApi } = await import("./wsNativeApi");
-    createWsNativeApi();
-
-    expect(transportInstances).toHaveLength(1);
-    expect(transportInstances[0]!.subscriptions).toContain(DEVICE_WS_CHANNELS.event);
-    expect(transportInstances[0]!.subscriptions).toContain(COMPUTER_WS_CHANNELS.event);
   });
 
   it("gives a slow provider refresh a bounded deadline beyond the generic RPC timeout", async () => {
@@ -617,6 +699,55 @@ describe("wsNativeApi", () => {
       },
       { signal: controller.signal },
     );
+  });
+
+  it("forwards local preview grant creation to the websocket project method", async () => {
+    requestMock.mockResolvedValue({
+      grant: "grant-token",
+      expiresAt: "2026-01-01T00:00:00.000Z",
+    });
+    const { createWsNativeApi } = await import("./wsNativeApi");
+
+    const api = createWsNativeApi();
+    await api.projects.createLocalFilePreviewGrant({
+      path: "/Users/tester/Downloads/shot.png",
+    });
+
+    expect(requestMock).toHaveBeenCalledWith(WS_METHODS.projectsCreateLocalFilePreviewGrant, {
+      path: "/Users/tester/Downloads/shot.png",
+    });
+  });
+
+  it("forwards project script discovery to the websocket project method", async () => {
+    requestMock.mockResolvedValue({ targets: [] });
+    const { createWsNativeApi } = await import("./wsNativeApi");
+
+    const api = createWsNativeApi();
+    await api.projects.discoverScripts({
+      cwd: "/tmp/project",
+      depth: 2,
+    });
+
+    expect(requestMock).toHaveBeenCalledWith(WS_METHODS.projectsDiscoverScripts, {
+      cwd: "/tmp/project",
+      depth: 2,
+    });
+  });
+
+  it("forwards server environment requests to the websocket server method", async () => {
+    requestMock.mockResolvedValue({
+      environmentId: "environment-1",
+      label: "Test Host",
+      platform: { os: "darwin", arch: "arm64" },
+      serverVersion: "0.0.38",
+      capabilities: { repositoryIdentity: true },
+    });
+    const { createWsNativeApi } = await import("./wsNativeApi");
+
+    const api = createWsNativeApi();
+    await api.server.getEnvironment();
+
+    expect(requestMock).toHaveBeenCalledWith(WS_METHODS.serverGetEnvironment);
   });
 
   it("exposes and forwards the complete hosts namespace", async () => {

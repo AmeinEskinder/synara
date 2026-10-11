@@ -5,11 +5,14 @@
 // inertness, and failure backoff.
 // Layer: Server account tests
 
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import type { PushUsageRequest } from "@synara/contracts";
 import { Effect, Layer } from "effect";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   chunkingForTesting,
@@ -20,6 +23,11 @@ import {
   type AccountUsageReporterDeps,
 } from "./accountUsageReporter";
 import { SqlitePersistenceMemory } from "./persistence/Layers/Sqlite";
+
+const repairHomes: string[] = [];
+afterEach(async () => {
+  for (const home of repairHomes.splice(0)) await rm(home, { recursive: true, force: true });
+});
 
 const testLayer = SqlitePersistenceMemory.pipe(Layer.provide(NodeServices.layer));
 
@@ -175,7 +183,7 @@ const seedTokenActivity = (
 const seedUsageFixture = Effect.fnUntraced(function* (sql: SqlClient.SqlClient) {
   yield* seedThread(sql, "thread-a", '{"provider":"codex","model":"gpt-5-codex"}');
 
-  // Turn 1: claudeAgent/fable at effort max — attribution must follow the
+  // Turn 1: codex/gpt-5.6 at effort max — attribution must follow the
   // turn's selection, not the thread's current (codex) selection.
   yield* seedUserMessage(sql, {
     messageId: "msg-1",
@@ -197,7 +205,7 @@ const seedUsageFixture = Effect.fnUntraced(function* (sql: SqlClient.SqlClient) 
     streamVersion: 1,
     occurredAt: "2026-08-11T09:05:10.000Z",
     payloadJson:
-      '{"threadId":"thread-a","messageId":"msg-1","modelSelection":{"provider":"claudeAgent","model":"claude-fable-5","options":{"effort":"max"}}}',
+      '{"threadId":"thread-a","messageId":"msg-1","modelSelection":{"provider":"codex","model":"gpt-5.6","options":{"effort":"max"}}}',
   });
   // Cumulative counter: 1000 in minute 09:05, grows to 1600 in minute 09:06.
   yield* seedTokenActivity(sql, {
@@ -327,6 +335,74 @@ describe("isAccountUsageRelevantEventType", () => {
 });
 
 describe("collectUsageBuckets", () => {
+  it("keeps account counters per provider and counts verified Claude completions", async () => {
+    await runReporterTest(
+      Effect.gen(function* () {
+        const sql = yield* SqlClient.SqlClient;
+        yield* seedThread(sql, "multi", '{"instanceId":"codex","model":"gpt-5.6"}');
+        const entries = [
+          ["codex", "gpt-5.6", 1000],
+          ["opencode", "qwen", 100],
+          ["codex", "gpt-5.6", 1100],
+          ["claudeAgent", "claude-sonnet-5", 9000],
+        ] as const;
+        for (const [index, [instanceId, model, totalProcessedTokens]] of entries.entries()) {
+          const turnId = `turn-${index}`;
+          const messageId = `message-${index}`;
+          const at = `2026-09-30T10:0${index}:00.000Z`;
+          yield* seedUserMessage(sql, { threadId: "multi", turnId, messageId, createdAt: at });
+          yield* seedTurn(sql, {
+            threadId: "multi",
+            turnId,
+            pendingMessageId: messageId,
+            requestedAt: at,
+          });
+          yield* seedTurnStartEvent(sql, {
+            threadId: "multi",
+            eventId: `event-${index}`,
+            streamVersion: index + 1,
+            occurredAt: at,
+            payloadJson: JSON.stringify({
+              threadId: "multi",
+              messageId,
+              modelSelection: { instanceId, model },
+            }),
+          });
+          yield* seedTokenActivity(sql, {
+            threadId: "multi",
+            turnId,
+            activityId: `usage-${index}`,
+            sequence: index + 1,
+            createdAt: at,
+            payloadJson: JSON.stringify({ provider: instanceId, totalProcessedTokens }),
+          });
+        }
+        yield* seedTokenActivity(sql, {
+          threadId: "multi",
+          turnId: "turn-3",
+          activityId: "completed",
+          sequence: 5,
+          createdAt: "2026-09-30T10:03:20.000Z",
+          payloadJson: '{"provider":"claudeAgent","tokenAccountingVersion":1,"mainLoopTokens":70}',
+        });
+        yield* sql`UPDATE projection_thread_activities SET kind = 'turn.completed' WHERE activity_id = 'completed'`;
+        const { models } = yield* collectUsageBuckets(sql, "2026-09-30T10:01:00Z");
+        expect(
+          models.map(({ provider, tokens, turns, prompts }) => ({
+            provider,
+            tokens,
+            turns,
+            prompts,
+          })),
+        ).toEqual([
+          { provider: "opencode", tokens: 100, turns: 1, prompts: 1 },
+          { provider: "codex", tokens: 100, turns: 1, prompts: 1 },
+          { provider: "claudeAgent", tokens: 70, turns: 1, prompts: 1 },
+        ]);
+      }),
+    );
+  });
+
   it("derives per-minute token deltas, turns, prompts, and skills with model+reasoning attribution", async () => {
     await runReporterTest(
       Effect.gen(function* () {
@@ -338,21 +414,12 @@ describe("collectUsageBuckets", () => {
         expect(models).toEqual([
           {
             minute: "2026-08-11T09:05:00Z",
-            provider: "claudeAgent",
-            model: "claude-fable-5",
+            provider: "codex",
+            model: "gpt-5.6",
             reasoning: "max",
             tokens: 1000,
             turns: 1,
             prompts: 1,
-          },
-          {
-            minute: "2026-08-11T09:06:00Z",
-            provider: "claudeAgent",
-            model: "claude-fable-5",
-            reasoning: "max",
-            tokens: 600,
-            turns: 0,
-            prompts: 0,
           },
           {
             minute: "2026-08-11T09:06:00Z",
@@ -362,6 +429,15 @@ describe("collectUsageBuckets", () => {
             tokens: 250,
             turns: 1,
             prompts: 1,
+          },
+          {
+            minute: "2026-08-11T09:06:00Z",
+            provider: "codex",
+            model: "gpt-5.6",
+            reasoning: "max",
+            tokens: 600,
+            turns: 0,
+            prompts: 0,
           },
         ]);
         expect(skills).toEqual([
@@ -945,6 +1021,88 @@ describe("createAccountUsageReporter", () => {
         expect(pushes.length).toBe(0); // harness default push was overridden
 
         reporter.stop();
+      }),
+    );
+  });
+  it("replaces historical usage for a late import and resumes its durable rewind after a failed push", async () => {
+    const home = await mkdtemp(join(tmpdir(), "synara-usage-import-"));
+    repairHomes.push(home);
+    await runReporterTest(
+      Effect.gen(function* () {
+        const sql = yield* SqlClient.SqlClient;
+        const nowMs = Date.parse("2026-10-10T12:00:00Z");
+        const historical = "2026-08-01T08:00:00.000Z";
+        const identity = "https://accounts.example.com#org_1#user_1";
+        yield* seedThread(sql, "late-import", '{"provider":"codex","model":"gpt-5-codex"}');
+        const initial = makeReporterHarness(sql, {
+          baseDir: home,
+          now: () => nowMs,
+          accountIdentity: async () => identity,
+        });
+        yield* Effect.promise(() => initial.reporter.flushNow());
+        initial.reporter.stop();
+        expect(initial.pushes).toHaveLength(0);
+        yield* seedUserMessage(sql, {
+          messageId: "late-message",
+          threadId: "late-import",
+          turnId: null,
+          createdAt: historical,
+        });
+        const payload = JSON.stringify({
+          threadId: "late-import",
+          messageId: "late-message",
+          role: "user",
+          source: "native",
+          createdAt: historical,
+        });
+        yield* sql`INSERT INTO orchestration_events
+        (event_id, aggregate_kind, stream_id, stream_version, event_type, occurred_at,
+          command_id, actor_kind, payload_json, metadata_json)
+        VALUES ('late-event', 'thread', 'late-import', 1, 'thread.message-sent', ${historical},
+          'project-import:late-import:history:0:0', 'client', ${payload}, '{}')`;
+        yield* sql`INSERT INTO projection_state (projector, last_applied_sequence, updated_at)
+        VALUES ('projection.hot', 1, ${historical})`;
+        const failed = makeReporterHarness(sql, {
+          baseDir: home,
+          now: () => nowMs,
+          accountIdentity: async () => identity,
+          push: async () => {
+            throw new Error("offline");
+          },
+        });
+        yield* Effect.promise(() => failed.reporter.flushNow());
+        failed.reporter.stop();
+        expect((yield* readSyncState(sql))?.watermarkMinute).toBe("2026-08-01T08:00:00Z");
+        const restarted = makeReporterHarness(sql, {
+          baseDir: home,
+          now: () => nowMs,
+          accountIdentity: async () => identity,
+        });
+        yield* Effect.promise(() => restarted.reporter.flushNow());
+        expect(restarted.pushes).toHaveLength(1);
+        expect(restarted.pushes[0]?.request.models).toEqual([
+          {
+            minute: "2026-08-01T08:00:00Z",
+            provider: "codex",
+            model: "gpt-5-codex",
+            reasoning: null,
+            prompts: 1,
+            tokens: 0,
+            turns: 0,
+          },
+        ]);
+        yield* Effect.promise(() => restarted.reporter.flushNow());
+        restarted.reporter.stop();
+        expect(restarted.pushes).toHaveLength(1);
+        // Another account cannot inherit either the old watermark or event acknowledgement.
+        const other = makeReporterHarness(sql, {
+          baseDir: home,
+          now: () => nowMs,
+          accountIdentity: async () => "https://accounts.example.com#org_1#user_2",
+        });
+        yield* Effect.promise(() => other.reporter.flushNow());
+        other.reporter.stop();
+        expect(other.pushes[0]?.request.models[0]?.prompts).toBe(1);
       }),
     );
   });

@@ -11,7 +11,13 @@ import {
   ImportProjectInput,
   ListProjectImportsInput,
 } from "./projectImport";
-import { boundedTrimmedNonEmptyString, NonNegativeInt, ProjectId, ThreadId, TrimmedNonEmptyString } from "./baseSchemas";
+import {
+  boundedTrimmedNonEmptyString,
+  NonNegativeInt,
+  ProjectId,
+  ThreadId,
+  TrimmedNonEmptyString,
+} from "./baseSchemas";
 
 import {
   ACCOUNT_NAME_MAX_LENGTH,
@@ -432,6 +438,7 @@ export const WS_METHODS = {
   hostsOfferSyncKey: "hosts.offerSyncKey",
   hostsReceiveSyncKey: "hosts.receiveSyncKey",
   hostsConfirmSyncKey: "hosts.confirmSyncKey",
+  hostsRemoteAccess: "hosts.remoteAccess",
   hostsConnect: "hosts.connect",
   hostsDisconnect: "hosts.disconnect",
   hostsListConnections: "hosts.listConnections",
@@ -745,6 +752,7 @@ const WebSocketRequestBody = Schema.Union([
   tagRequestBody(WS_METHODS.hostsOfferSyncKey, SyncKeyPairingRequest),
   tagRequestBody(WS_METHODS.hostsReceiveSyncKey, Schema.Struct({})),
   tagRequestBody(WS_METHODS.hostsConfirmSyncKey, ConfirmSyncKeyPairingRequest),
+  tagRequestBody(WS_METHODS.hostsRemoteAccess, RemoteAccessInput),
   tagRequestBody(WS_METHODS.hostsConnect, HostsConnectInput),
   tagRequestBody(WS_METHODS.hostsDisconnect, HostsDisconnectInput),
   tagRequestBody(WS_METHODS.hostsListConnections, Schema.Struct({})),

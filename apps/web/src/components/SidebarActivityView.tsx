@@ -203,6 +203,8 @@ export function ActivityThreadRow({
   const rowContent = (
     <>
       <button
+        ref={rowRef}
+        aria-current={isActive ? "page" : undefined}
         type="button"
         onClick={onOpen}
         title={external ? `${thread.title} — ${external.hostName}` : undefined}
@@ -218,27 +220,18 @@ export function ActivityThreadRow({
           SIDEBAR_ROW_FOCUS_CLASS_NAME,
           isActive ? SIDEBAR_ROW_ACTIVE_CLASS_NAME : SIDEBAR_ROW_HOVER_CLASS_NAME,
           isSettled && "opacity-55 transition-opacity hover:opacity-85",
+          // Snoozed rows carry a tint on top of the clock line so they read apart at a glance.
+          thread.snoozedUntil != null && !isActive && "bg-info/6",
+          status?.label === "Reminder" && !isActive && SIDEBAR_ROW_SNOOZE_REMINDER_CLASS_NAME,
         )}
       >
-        <button
-          ref={rowRef}
-          type="button"
-          onClick={onOpen}
-          aria-current={isActive ? "page" : undefined}
-          // Same native drag as the classic thread rows: drop on a chat pane to
-          // split, or on a composer to @mention the chat.
-          draggable
-          onDragStart={(event) => beginThreadDrag(event, thread.id)}
-          onDragEnd={endThreadDrag}
-          data-testid={`activity-thread-${thread.id}`}
+        <span
           className={cn(
-            "flex w-full min-w-0 cursor-pointer flex-col gap-1 rounded-lg px-2.5 py-2 text-left select-none",
-            SIDEBAR_ROW_FOCUS_CLASS_NAME,
-            isActive ? SIDEBAR_ROW_ACTIVE_CLASS_NAME : SIDEBAR_ROW_HOVER_CLASS_NAME,
-            isSettled && "opacity-55 transition-opacity hover:opacity-85",
-            // Snoozed rows carry a tint on top of the clock line so they read apart at a glance.
-            thread.snoozedUntil != null && !isActive && "bg-info/6",
-            status?.label === "Reminder" && !isActive && SIDEBAR_ROW_SNOOZE_REMINDER_CLASS_NAME,
+            "flex min-w-0 items-center gap-1.5 overflow-hidden transition-[padding] duration-150 ease-out",
+            !threadJumpLabel && "pr-5",
+            // Yield the title row to the hover action cluster (pin + archive + done).
+            (!external || external.entry) &&
+              "group-hover/activity-row:pr-[4.25rem] group-focus-within/activity-row:pr-[4.25rem]",
           )}
         >
           <ProviderIcon
@@ -250,103 +243,82 @@ export function ActivityThreadRow({
           />
           <span
             className={cn(
-              "flex min-w-0 items-center gap-1.5 overflow-hidden transition-[padding] duration-150 ease-out",
-              !threadJumpLabel && "pr-5",
-              // Yield the title row to the hover action cluster (pin + archive + done).
-              "group-hover/activity-row:pr-[4.25rem] group-focus-within/activity-row:pr-[4.25rem]",
+              "min-w-0 flex-1 truncate text-ui leading-5 font-normal",
+              isActive ? "text-foreground" : SIDEBAR_ROW_LABEL_TEXT_CLASS_NAME,
             )}
           >
-            <ProviderIcon
-              provider={provider}
-              className="size-3 shrink-0"
-              fallback={
-                <span className="size-3 shrink-0 rounded-full border border-dashed border-muted-foreground/40" />
-              }
-            />
-            <span
-              className={cn(
-                "min-w-0 flex-1 truncate text-ui leading-5 font-normal",
-                isActive ? "text-foreground" : SIDEBAR_ROW_LABEL_TEXT_CLASS_NAME,
-              )}
-            >
-              {thread.title}
-            </span>
-            {thread.snoozedUntil != null ? (
-              <ClockIcon
-                className={sidebarGlyphClass("meta", "shrink-0 text-info")}
-                aria-label="Scheduled"
-              />
-            ) : null}
-            {hasPendingDraft ? <SidebarDraftGlyph /> : null}
-            {threadJumpLabel ? (
-              <ShortcutKbd
-                shortcutLabel={threadJumpLabel}
-                title={threadJumpLabel}
-                groupClassName={sidebarHoverRevealHideClassName("activity-row")}
-              />
-            ) : null}
+            {thread.title}
           </span>
-          <span className="flex min-w-0 items-center gap-1.5">
-            {project?.cwd ? (
-              <ProjectSidebarIcon
-                cwd={project.cwd}
-                expanded={false}
-                appearance={project.appearance}
-                glyphClassName={sidebarGlyphClass("meta", "text-muted-foreground/70")}
-                presentation="favicon"
-              />
-            ) : (
-              <FolderIcon
-                className={sidebarGlyphClass("meta", "text-muted-foreground/70")}
-                aria-hidden
-              />
-            )}
-            <span className="min-w-0 truncate text-ui-sm text-muted-foreground/80">
-              {resolveThreadProjectLabel(project)}
-            </span>
-            <span className="ml-auto flex min-w-0 shrink-0 items-center gap-2">
-              {isWorktree ? (
-                <span className="inline-flex size-5 shrink-0 items-center justify-center">
-                  <WorktreeIcon
-                    className={sidebarGlyphClass("meta", "text-muted-foreground/70")}
-                    aria-label="Worktree"
-                  />
-                </span>
-              ) : null}
-              {pr ? (
-                <PrStateChip
-                  pr={pr}
-                  className="min-h-5 min-w-5 justify-center [&_svg]:size-3"
-                  onOpen={(event) => onOpenPullRequest(event, pr)}
-                />
-              ) : null}
-              {branch ? (
-                <span className="flex min-w-0 items-center gap-1 text-ui-sm text-muted-foreground/70">
-                  <GitBranchIcon className={sidebarGlyphClass("meta")} aria-hidden />
-                  <span className="max-w-36 truncate">{branch}</span>
-                </span>
-              ) : null}
-            </span>
-          </span>
+          {external ? (
+            <GlobeIcon className="size-3 shrink-0 text-sky-600 dark:text-sky-400" aria-hidden />
+          ) : null}
           {thread.snoozedUntil != null ? (
-            <span className="flex min-w-0 items-center gap-1 text-ui-sm text-muted-foreground/80">
-              <span className="truncate">
-                <SnoozeCountdown snoozedUntil={thread.snoozedUntil} />
-              </span>
+            <ClockIcon
+              className={sidebarGlyphClass("meta", "shrink-0 text-info")}
+              aria-label="Scheduled"
+            />
+          ) : null}
+          {hasPendingDraft ? <SidebarDraftGlyph /> : null}
+          {threadJumpLabel ? (
+            <ShortcutKbd
+              shortcutLabel={threadJumpLabel}
+              title={threadJumpLabel}
+              groupClassName={sidebarHoverRevealHideClassName("activity-row")}
+            />
+          ) : null}
+        </span>
+        <span className="flex min-w-0 items-center gap-1.5">
+          {project?.cwd && !external ? (
+            <ProjectSidebarIcon
+              cwd={project.cwd}
+              expanded={false}
+              appearance={project.appearance}
+              glyphClassName={sidebarGlyphClass("meta", "text-muted-foreground/70")}
+              presentation="favicon"
+            />
+          ) : (
+            <FolderIcon
+              className={sidebarGlyphClass("meta", "text-muted-foreground/70")}
+              aria-hidden
+            />
+          )}
+          <span className="min-w-0 truncate text-ui-sm text-muted-foreground/80">
+            {resolveThreadProjectLabel(project)}
+          </span>
+          {isWorktree ? (
+            <WorktreeIcon
+              className={sidebarGlyphClass("meta", "text-muted-foreground/70")}
+              aria-label="Worktree"
+            />
+          ) : null}
+          {external ? (
+            <span className="min-w-0 truncate text-ui-sm text-muted-foreground/70">
+              · {external.hostName}
             </span>
           ) : null}
-        </button>
-        {trailingStatus ? (
-          <span
-            data-slot="activity-completion-status"
-            className={cn(
-              "pointer-events-none absolute top-1 right-1 inline-flex size-5 items-center justify-center",
-              sidebarHoverRevealHideClassName("activity-row"),
-            )}
-          >
-            <SidebarStatusTrailingGlyph status={trailingStatus} />
+          <span className="ml-auto flex min-w-0 shrink-0 items-center gap-1.5">
+            {pr && !external ? (
+              <PrStateChip
+                pr={pr}
+                className="[&_svg]:size-2.5"
+                onOpen={(event) => onOpenPullRequest(event, pr)}
+              />
+            ) : null}
+            {branch ? (
+              <span className="flex min-w-0 items-center gap-1 text-ui-sm text-muted-foreground/70">
+                <GitBranchIcon className={sidebarGlyphClass("meta")} aria-hidden />
+                <span className="max-w-36 truncate">{branch}</span>
+              </span>
+            ) : null}
           </span>
         </span>
+        {thread.snoozedUntil != null ? (
+          <span className="flex min-w-0 items-center gap-1 text-ui-sm text-muted-foreground/80">
+            <span className="truncate">
+              <SnoozeCountdown snoozedUntil={thread.snoozedUntil} />
+            </span>
+          </span>
+        ) : null}
       </button>
       {trailingStatus ? (
         <span
@@ -928,6 +900,7 @@ export function SidebarActivityView({
 
   const markAllRead = () => {
     for (const thread of unreadThreads) {
+      if (externalRows?.has(thread.id)) continue;
       onMarkThreadRead(thread.id, resolveActivityThreadReadAt(thread));
     }
   };
@@ -936,46 +909,52 @@ export function SidebarActivityView({
     thread: SidebarThreadSummary,
     isSettled: boolean,
     registerActiveRow = true,
-  ) => (
-    <ActivityThreadRow
-      key={thread.id}
-      thread={thread}
-      project={projectById.get(thread.projectId)}
-      isActive={activeThreadId === thread.id}
-      isSettled={isSettled}
-      isPinned={pinnedThreadIdSet.has(thread.id)}
-      hasPendingDraft={draftThreadIdSet.has(thread.id)}
-      pr={
-        // An explicit null from the resolver means the persisted PR was ruled out (e.g. the
-        // checkout moved on); falling back to raw lastKnownPr would resurrect that stale
-        // badge. Rows not yet covered (revealed by paging a paint before the parent's map
-        // catches up) get the same resolution without live status instead.
-        prByThreadId.has(thread.id)
-          ? (prByThreadId.get(thread.id) ?? null)
-          : resolveThreadPullRequestFallback({
-              branch: thread.branch,
-              hasDedicatedWorktree: thread.worktreePath !== null,
-              lastKnownPr: thread.lastKnownPr ?? null,
-            })
-      }
-      status={resolveThreadStatus(thread)}
-      threadJumpLabel={threadJumpLabelByThreadId.get(thread.id) ?? null}
-      onOpen={() => onOpenThread(thread.id)}
-      onOpenPullRequest={(event, pr) => onOpenThreadPullRequest(event, thread, pr)}
-      onSetSettled={(settled) => {
-        if (settled) onMarkThreadRead(thread.id, resolveActivityThreadReadAt(thread));
-        onSetThreadSettled(thread.id, settled);
-      }}
-      onReturnSnoozed={() => onReturnSnoozedThread(thread.id)}
-      onTogglePinned={() => onToggleThreadPinned(thread.id)}
-      onArchive={() => onArchiveThread(thread.id)}
-      onRename={onRenameThread}
-      onRenamePointerUp={onThreadRenamePointerUp}
-      onContextMenu={onThreadContextMenu}
-      renderHoverCard={(anchorId) => renderThreadHoverCard(thread, anchorId)}
-      {...(registerActiveRow && activeThreadId === thread.id ? { rowRef: activeRowRef } : {})}
-    />
-  );
+  ) => {
+    const external = externalRows?.get(thread.id);
+    return (
+      <ActivityThreadRow
+        key={thread.id}
+        thread={thread}
+        project={projectById.get(thread.projectId)}
+        external={external}
+        {...(registerActiveRow && activeThreadId === thread.id ? { rowRef: activeRowRef } : {})}
+        isActive={activeThreadId === thread.id}
+        isSettled={isSettled}
+        isPinned={pinnedThreadIdSet.has(thread.id)}
+        hasPendingDraft={!external && draftThreadIdSet.has(thread.id)}
+        threadJumpLabel={threadJumpLabelByThreadId.get(thread.id) ?? null}
+        pr={
+          external
+            ? null
+            : // An explicit null from the resolver means the persisted PR was ruled out (e.g. the
+              // checkout moved on); falling back to raw lastKnownPr would resurrect that stale
+              // badge. Rows not yet covered (revealed by paging a paint before the parent's map
+              // catches up) get the same resolution without live status instead.
+              prByThreadId.has(thread.id)
+              ? (prByThreadId.get(thread.id) ?? null)
+              : resolveThreadPullRequestFallback({
+                  branch: thread.branch,
+                  hasDedicatedWorktree: thread.worktreePath !== null,
+                  lastKnownPr: thread.lastKnownPr ?? null,
+                })
+        }
+        status={external ? external.status : resolveThreadStatus(thread)}
+        onOpen={external?.onOpen ?? (() => onOpenThread(thread.id))}
+        onOpenPullRequest={(event, pr) => onOpenThreadPullRequest(event, thread, pr)}
+        onSetSettled={(settled) => {
+          if (settled) onMarkThreadRead(thread.id, resolveActivityThreadReadAt(thread));
+          onSetThreadSettled(thread.id, settled);
+        }}
+        onReturnSnoozed={() => onReturnSnoozedThread(thread.id)}
+        onTogglePinned={() => onToggleThreadPinned(thread.id)}
+        onArchive={() => onArchiveThread(thread.id)}
+        onRename={onRenameThread}
+        onRenamePointerUp={onThreadRenamePointerUp}
+        onContextMenu={onThreadContextMenu}
+        renderHoverCard={(anchorId) => renderThreadHoverCard(thread, anchorId)}
+      />
+    );
+  };
   const renderActiveRow = (thread: SidebarThreadSummary) =>
     renderRow(thread, isThreadSettledForActivity(thread, settledOverrideByThreadId));
 

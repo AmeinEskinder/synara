@@ -1,5 +1,67 @@
 # Remote connections — punto di ripartenza
 
+## Integrazione main e parità mobile — 11 ottobre 2026
+
+Branch aggiornato tramite rebase a `ec8c940e` di main. Il backup completo precedente
+è `codex/backup-remote-apns-before-main-20261011` (`5172390`), inclusi gli aggiornamenti
+APNs. Il confronto a tre vie usa il tree completo del backup: conserva anche le
+risoluzioni presenti nei vecchi merge, che il semplice replay lineare non ricrea.
+
+- Hub: le richieste remote mantengono il principal verificato; non diventano thread
+  locali e non aggirano la proprietà dei worker o la revoca delle connessioni.
+- Stop: mantenuto il completamento immediato quando il runtime è terminato, con
+  confronto della sessione per non interrompere un turno sostitutivo.
+- SQLite: main 1–134 invariato; migrazioni private spostate a 135–139. Riconosciuta
+  anche la precedente lineage privata 132–136. Upgrade verificati su database
+  temporanei con dati sentinella per account, pairing, fiducia e revoche.
+- iOS e iPadOS: i contatori di orchestrazione non vengono usati come sequenze del
+  provider; i fork conservano `dispatchOrigin`; la durata dei turni può essere
+  ricostruita dai checkpoint quando le attività storiche non sono più disponibili.
+  La cronologia completa resta compatibile: il client non richiede finestre parziali.
+- Nessuna migrazione dei database delle app, deploy API o modifica a Supabase
+  eseguita per questo aggiornamento. Nessuna modifica alle scelte dei modelli.
+
+## Integrazione main e parità mobile — 8 ottobre 2026
+
+Integrato `origin/main` fino a `587dd3c` nella PR #1412 tramite merge, senza
+riscrivere i commit condivisi o modificare il worktree con cambi locali alla
+pagina profilo. Risolti 20 file in conflitto conservando le connessioni per
+computer, i frame remoti, il pairing e la lineage delle migrazioni 131–136.
+La patch Effect combina la gestione errori NodeSink di main con il cleanup
+NodeRuntime già presente nel branch; lockfile aggiornato dalla reinstallazione.
+
+- Tema Synara aggiornato con superfici e accenti Light/Dark di main. Il frame
+  remoto continua a usare la presentazione del controller e non mostra onboarding.
+- Create project unisce selezione computer/nome e cartelle aggiuntive di main:
+  trasmette `additionalFolders` anche al proprietario remoto, mantiene il campo
+  principale stabile e ignora i risultati browse di un computer precedente.
+- Ricerca messaggi persistiti locale integrata; un risultato locale non può
+  comparire su una chat remota con lo stesso ID. La ricerca remota conserva
+  titolo/progetto/computer: non interroga ancora lo storico messaggi remoto.
+- Busy status e finalizzazione RPC convivono con analytics e controllo generazione.
+  Mantenute anche correzioni provider, streaming/recovery, keep-awake e priorità
+  processi di main; nessuna modifica alle scelte provider dell'operatore.
+- iPhone PR #1 allinea i token tema (senza azzerare preferenze), conserva i nuovi
+  campi progetto e usa keepalive 5 s / silenzio 180 s con attività server monotona.
+  Overflow stream: otto retry con backoff prima del recupero supervisor esistente.
+  iPad PR #2 integra la base iPhone aggiornata conservando sidebar/split adattivo.
+  UI mobile multi-folder e retry manuale per-stream desktop non sono dichiarati.
+
+Verifica con Node 24.21.0: 16.884 test workspace passati, 254 saltati, più 54 test
+browser su creazione progetto, ricerca e sidebar. I task dei pacchetti sono stati
+completati in due passaggi: una vecchia aspettativa del colore profilo è stata
+corretta per il nuovo tema e web/server sono stati rieseguiti interamente.
+fmt:check, lint (950 warning, zero errori), typecheck, migrations:check e
+windows-runtime:check passati. I 203 test API con database non configurato restano
+saltati; il check Windows non qualifica un pacchetto Windows installato.
+
+Per ciascun branch mobile: 249 test SwiftPM, 82 fixture contro i contratti desktop,
+build Debug app/widget per simulatore riusciti. Avvio con fixture isolate osservato
+su iPhone 18 Pro e iPad Pro 11 (tema e layout compatto/split); rilanciati poi senza
+argomenti di test. Nessun XCTest, telefono fisico, nuovo login/pairing/provider live,
+deploy cloud, merge delle PR o release firmata. CI GitHub mobile bloccata dal limite
+billing/spesa dell'account: non è dichiarata verde sulla base dei controlli locali.
+
 ## Presentazione locale e remota — 7 ottobre 2026
 
 La connessione conserva l'esecuzione nel frame del computer proprietario, ma
@@ -458,7 +520,7 @@ Questo recap viene pubblicato con un commit di sola documentazione dopo quei che
 
 Il worktree desktop è `.codex/worktrees/a816/synara`; quello iOS è `Developer/SynaraIOS-remote-connections` sul Mac Mini. Il [recap iOS](https://github.com/Emanuele-web04/SynaraIOS/blob/codex/ios-remote-connections/Docs/REMOTE-CONNECTIONS-HANDOFF.md) documenta il lato telefono. Non usare la repo beta-diagnostics per riprendere questa attività.
 
-## Attenzione: lavoro desktop ancora locale
+## Storico del 30 settembre: lavoro desktop allora locale
 
 Alla lettura iniziale di questa sessione Git riportava **119 percorsi modificati**, tutti non staged: 36 D, 83 M. Diff complessivo: **1.941 righe aggiunte, 6.392 rimosse**. È un delta successivo al checkpoint pubblicato, non un riepilogo dell'intera feature.
 
@@ -500,7 +562,7 @@ Le risposte delle prove sono messaggi sintetici senza uso di tool o modifica dei
 
 ## Cosa manca davvero
 
-Non è stato identificato un blocco fondamentale assente nel percorso normale pairing → connessione → chat. Restano qualificazione e possibili correzioni dei casi limite, oltre alla pubblicazione ordinata del delta desktop locale:
+Non è stato identificato un blocco fondamentale assente nel percorso normale pairing → connessione → chat. Restano qualificazione e possibili correzioni dei casi limite, oltre alla qualificazione del desktop aggiornato:
 
 1. Due task realmente in streaming, uno su ciascun Mac; Stop, richiesta di approvazione e input devono restare sull'host corretto anche cambiando chat e durante reconnect.
 2. Revoca durante una sessione reale e nuovo tentativo di accesso; i test di sicurezza isolati esistono, ma non sostituiscono questa prova finale.
@@ -512,8 +574,8 @@ Non è stato identificato un blocco fondamentale assente nel percorso normale pa
 
 ## Sequenza per ripartire
 
-1. Leggere questo file e il recap iOS, poi aggiornare HEAD, stato Git e stato remoto. Preservare i 119 percorsi locali finché non sono stati revisionati.
-2. Chiudere il delta desktop: separare rimozione relay, runtime/MCP e presentazione dove opportuno. UI aggiuntiva in pausa; nessun altro ridisegno richiesto.
+1. Leggere questo file e il recap iOS, poi aggiornare HEAD, stato Git e stato remoto. Il delta storico di 119 percorsi è già conservato nel checkpoint `ee36a79` e incluso nell’integrazione del 1 ottobre.
+2. Verificare eventuali nuovi delta desktop rispetto al commit d’integrazione. UI aggiuntiva in pausa; nessun altro ridisegno richiesto.
 3. Seguire AGENTS: Node/Bun da `.mise.toml`; `bun run fmt:check`, `bun run lint`, `bun run typecheck`, test Vitest pertinenti tramite `bun run test`. Le modifiche attuali attraversano più package/lifecycle: serve anche la suite più ampia. Eseguire `bun run windows-runtime:check` se si toccano confini process/platform e `bun run migrations:check` se si cambiano migrazioni. Non usare database di produzione per i test.
 4. Committare e pushare solo dopo aver registrato risultati e limiti del delta esatto. Al momento del controllo iniziale questa branch non aveva una PR: crearla quando il contenuto da revisionare è pronto, senza confonderla con la PR iOS #1.
 5. Riallineare i due runtime isolati a commit noti, conservando le rispettive home e pairing. Verificare porte IPv4/IPv6 prima di avviarli; dry-run del dev runner prima del launch. Le ultime home di prova erano `/private/tmp/synara-remote-mini` (porta 4775) e `/private/tmp/synara-remote-macbook-20260929` (4776 sul MacBook); sono riferimenti storici, non una garanzia che i processi siano ancora in esecuzione.

@@ -6,7 +6,7 @@ import {
   type ListSavedInboxRecapsResponse,
   type SavedInboxRecapIdInput,
 } from "@synara/contracts";
-import { INBOX_BETA_FEATURE } from "@synara/shared/betaFeatures";
+import { ACCOUNT_INBOX_BETA_FEATURE } from "@synara/shared/betaFeatures";
 import { isServerBetaFeatureEnabled } from "./betaFeatureGate";
 import {
   remoteConnectionsUnavailableReason,
@@ -67,6 +67,8 @@ import {
 } from "@synara/shared/account";
 
 import {
+  accountApiIssuer,
+  accountStateDirectory,
   ensureLocalAccountHostLinked,
   readAccountCredentials,
   readAccountFile,
@@ -99,9 +101,9 @@ import { HostSecretsCoordinator } from "./hostSecrets/coordinator";
 import { hostSecretsSyncKeyPath } from "./hostSecrets/syncKeyStore";
 
 function requireInboxRecaps(): void {
-  if (!isServerBetaFeatureEnabled(INBOX_BETA_FEATURE)) {
+  if (!isServerBetaFeatureEnabled(ACCOUNT_INBOX_BETA_FEATURE)) {
     throw new WsRpcError({
-      message: "The Inbox is available in Synara Beta.",
+      message: "Saved Inbox history is available in Synara Beta.",
       code: "FEATURE_UNAVAILABLE",
       retryable: false,
     });
@@ -235,6 +237,9 @@ export interface HostsAccountSession {
   deleteHost(input: { readonly hostId: string }): Promise<void>;
   listDevices(): Promise<{ readonly devices: readonly AccountDevice[] }>;
   revokeDevice(input: { readonly deviceId: string }): Promise<void>;
+  revokeDeviceAccountSessions(input: {
+    readonly deviceId: string;
+  }): Promise<{ confirmed: number; pending: number }>;
   approveDeviceLink(input: { readonly userCode: string }): Promise<void>;
   requestGrant(input: { readonly hostId: string }): Promise<{ readonly grant: string }>;
   enrollment(): Promise<HostsEnrollmentResult>;
@@ -272,6 +277,7 @@ export function createAccountSession(
   options: AccountSessionOptions,
 ): AccountSession & HostsAccountSession {
   const { baseDir } = options;
+  const credentialDir = accountStateDirectory(baseDir, options.devUrl);
   const configuredUrl = options.accountUrl ?? resolveAccountUrl();
   let deviceRegistrationAttempt:
     | {
@@ -329,7 +335,7 @@ export function createAccountSession(
    * not leave a user holding credentials they cannot use or revoke.
    */
   async function accountUrlForStoredSession(): Promise<string> {
-    const stored = await readAccountFile(baseDir);
+    const stored = await readAccountFile(credentialDir);
     return stored?.accountUrl ?? configuredUrl;
   }
 
@@ -345,14 +351,13 @@ export function createAccountSession(
   async function withSession<A>(fn: (accessToken: string, client: AccountClient) => Promise<A>) {
     const accountUrl = await accountUrlForStoredSession();
     const client = clientFor(accountUrl);
-    return withFreshAccessToken({ baseDir, client }, (accessToken) => fn(accessToken, client));
+    return withFreshAccessToken({ baseDir: credentialDir, client }, (accessToken) =>
+      fn(accessToken, client),
+    );
   }
 
-  async function ensureShellDevice(
-    knownUserId?: string,
-    force = false,
-  ): Promise<RegisteredAccountDeviceIdentity> {
-    const stored = await readAccountCredentials(baseDir);
+  async function ensureShellDevice(knownUserId?: string): Promise<RegisteredAccountDeviceIdentity> {
+    const stored = await readAccountCredentials(credentialDir);
     if (!stored) throw new SessionExpiredError();
     const userId =
       knownUserId ??
@@ -360,7 +365,6 @@ export function createAccountSession(
       (await withSession((accessToken, client) => client.me(accessToken))).id;
     const sessionKey = `${stored.accountUrl}\0${stored.organizationId}\0${userId}`;
     if (
-      !force &&
       stored.deviceId &&
       stored.deviceJkt &&
       deviceRegistrationAttempt?.sessionKey === sessionKey
@@ -394,7 +398,7 @@ export function createAccountSession(
 
   async function currentHostSecretsCoordinator(): Promise<HostSecretsCoordinator> {
     const registration = await ensureShellDevice();
-    const stored = await readAccountCredentials(baseDir);
+    const stored = await readAccountCredentials(credentialDir);
     if (!stored?.userId) throw new SessionExpiredError();
     const sessionKey = `${stored.accountUrl}\0${stored.userId}\0${registration.deviceId}`;
     if (hostSecretsCoordinator?.sessionKey === sessionKey) return hostSecretsCoordinator.value;
@@ -428,13 +432,14 @@ export function createAccountSession(
 
   /** Enrollment is additive to sign-in: local use survives an account outage. */
   async function ensureDesktopEnrollment(knownUserId: string): Promise<void> {
+    if (remoteConnectionsUnavailableReason()) return;
     try {
       await ensureShellDevice(knownUserId);
     } catch {
       // A later status read retries; the durable user session remains valid.
     }
     try {
-      const stored = await readAccountCredentials(baseDir);
+      const stored = await readAccountCredentials(credentialDir);
       if (!stored) return;
       await ensureLocalAccountHostLinked({
         accountUrl: stored.accountUrl,
@@ -451,7 +456,10 @@ export function createAccountSession(
   }
 
   async function signedInStatus(me: AccountMe): Promise<AccountStatus> {
-    return { state: "signed-in", me };
+    const current = await readAccountCredentials(credentialDir);
+    if (!current || current.userId !== me.id || current.organizationId !== me.organization.id)
+      return SIGNED_OUT;
+    return { state: "signed-in", me, accountAuthority: accountApiIssuer(current.accountUrl) };
   }
 
   /**
@@ -499,13 +507,13 @@ export function createAccountSession(
     // the machine simply re-registers under the new account via `synara
     // auth`. Read and write under the credential lock so nothing
     // interleaves.
-    await withLockedAccountFile(baseDir, async () => {
-      const previous = await readAccountFile(baseDir);
+    await withLockedAccountFile(credentialDir, async () => {
+      const previous = await readAccountFile(credentialDir);
       const sameAccountAndWorkspace =
         previous?.accountUrl === accountUrl &&
         (previous?.organizationId === scoped.organizationId ||
           (previous?.organizationId === undefined && previous?.hostId !== undefined));
-      await writeAccountCredentials(baseDir, {
+      await writeAccountCredentials(credentialDir, {
         accountUrl,
         workosClientId: instance.clientId,
         workosApiUrl: instance.workosApiUrl,
@@ -550,11 +558,28 @@ export function createAccountSession(
   async function readStatus(): Promise<AccountStatus> {
     // Cheap and common: no credential file means signed out without a single
     // network call, which is the state every cold start begins in.
-    const credentials = await readAccountCredentials(baseDir);
+    const credentials = await readAccountCredentials(credentialDir);
     if (!credentials) return SIGNED_OUT;
 
     try {
-      const me = await withSession((token, client) => client.me(token));
+      const me = await withSession(async (token, client) => {
+        const verified = await client.me(token);
+        // Upgrade old credential files only against the exact token that
+        // produced /me. A late answer cannot overwrite a replacement account.
+        await withLockedAccountFile(credentialDir, async () => {
+          const current = await readAccountCredentials(credentialDir);
+          if (
+            !current ||
+            current.accessToken !== token ||
+            current.organizationId !== verified.organization.id ||
+            (current.userId && current.userId !== verified.id)
+          )
+            throw new SessionExpiredError();
+          if (!current.userId)
+            await writeAccountCredentials(credentialDir, { ...current, userId: verified.id });
+        });
+        return verified;
+      });
       await ensureDesktopEnrollment(me.id);
       return await signedInStatus(me);
     } catch (error) {
@@ -777,6 +802,7 @@ export function createAccountSession(
     },
 
     async updateProfile(input) {
+      requireAccountProfileSync();
       const { workspaceName, ...profile } = input;
       return withSession(async (token, client) => {
         const written = await client.updateProfile(token, profile);
@@ -788,6 +814,7 @@ export function createAccountSession(
     },
 
     async uploadAvatar(input) {
+      requireAccountProfileSync();
       // Base64 → bytes here, not in the shared client: the wire format is a
       // WS-protocol concern, and the client's contract is plain bytes.
       const bytes = Uint8Array.from(Buffer.from(input.bytes, "base64"));
@@ -795,10 +822,12 @@ export function createAccountSession(
     },
 
     async deleteAvatar() {
+      requireAccountProfileSync();
       return withSession((token, client) => client.deleteAvatar(token));
     },
 
     async usageSummary(input) {
+      requireAccountProfileSync();
       return withSession((token, client) => client.getUsageSummary(token, input.utcOffsetMinutes));
     },
 
@@ -810,13 +839,13 @@ export function createAccountSession(
       const { hostId, ...update } = input;
       const host = await withSession((token, client) => client.updateHost(token, hostId, update));
       if (input.discoverable !== undefined) {
-        await withLockedAccountFile(baseDir, async () => {
-          const stored = await readAccountFile(baseDir);
+        await withLockedAccountFile(credentialDir, async () => {
+          const stored = await readAccountFile(credentialDir);
           if (!stored) return;
           // Local persistence is intentionally keyed per host. A future slice
           // may move this answer to the account service so a second owner
           // device does not re-ask; until then it must survive local restarts.
-          await writeAccountCredentials(baseDir, {
+          await writeAccountCredentials(credentialDir, {
             ...stored,
             discoverabilityAcknowledgedByHostId: {
               ...stored.discoverabilityAcknowledgedByHostId,
@@ -836,13 +865,19 @@ export function createAccountSession(
       return withSession((token, client) => client.listDevices(token));
     },
 
+    revokeDeviceAccountSessions(input) {
+      return withSession((token, client) =>
+        client.revokeDeviceAccountSessions(token, input.deviceId),
+      );
+    },
+
     async revokeDevice(input) {
-      await (await currentHostSecretsCoordinator()).revokeDevice(input.deviceId);
-      await withLockedAccountFile(baseDir, async () => {
-        const stored = await readAccountFile(baseDir);
+      await withSession((token, client) => client.revokeDevice(token, input.deviceId));
+      await withLockedAccountFile(credentialDir, async () => {
+        const stored = await readAccountFile(credentialDir);
         if (!stored || stored.deviceId !== input.deviceId) return;
         const { deviceId: _deviceId, deviceJkt: _deviceJkt, ...remaining } = stored;
-        await writeAccountCredentials(baseDir, remaining);
+        await writeAccountCredentials(credentialDir, remaining);
         deviceRegistrationAttempt = undefined;
       });
     },
@@ -852,35 +887,22 @@ export function createAccountSession(
     },
 
     async requestGrant(input) {
-      let registration = await ensureShellDevice();
-      const request = async () => {
-        const accountUrl = await accountUrlForStoredSession();
-        const client = clientFor(accountUrl);
-        return withFreshAccessToken(
-          {
-            baseDir,
-            client,
-            shouldRefreshAccessToken: (error) =>
-              !(error instanceof AccountApiError && error.code === "device_not_registered"),
-          },
-          (token) => client.requestGrant(token, input.hostId, registration.jkt),
-        );
-      };
-      try {
-        return await request();
-      } catch (error) {
-        if (!(error instanceof AccountApiError) || error.code !== "device_not_registered") {
-          throw error;
-        }
-        // The API's active-row partial index makes this a fresh row when the
-        // former one was revoked, and an idempotent update otherwise.
-        registration = await ensureShellDevice(undefined, true);
-        return request();
-      }
+      const registration = await ensureShellDevice();
+      const accountUrl = await accountUrlForStoredSession();
+      const client = clientFor(accountUrl);
+      return withFreshAccessToken(
+        {
+          baseDir: credentialDir,
+          client,
+          shouldRefreshAccessToken: (error) =>
+            !(error instanceof AccountApiError && error.code === "device_not_registered"),
+        },
+        (token) => client.requestGrant(token, input.hostId, registration.jkt),
+      );
     },
 
     async enrollment() {
-      const stored = await readAccountFile(baseDir);
+      const stored = await readAccountFile(credentialDir);
       const { hosts, organizationMemberCount } = await withSession(async (token, client) => {
         const [listed, memberCount] = await Promise.all([
           client.listHosts(token),
@@ -902,24 +924,31 @@ export function createAccountSession(
     },
 
     unlinkLocalHost() {
-      return unlinkLocalAccountHost({ baseDir, client: clientFor(configuredUrl) });
+      return unlinkLocalAccountHost({
+        baseDir,
+        devUrl: options.devUrl,
+        client: clientFor(configuredUrl),
+      });
     },
 
     async beginSyncKeyPairing() {
+      requireHostSecretsSync();
       return (await currentHostSecretsCoordinator()).beginPairing();
     },
 
     async offerSyncKey(input) {
+      requireHostSecretsSync();
       return (await currentHostSecretsCoordinator()).offerSyncKey(input);
     },
 
     async receiveSyncKey() {
+      requireHostSecretsSync();
       return (await currentHostSecretsCoordinator()).receiveSyncKey();
     },
 
     async dialIdentity() {
       const registration = await ensureShellDevice();
-      const stored = await readAccountCredentials(baseDir);
+      const stored = await readAccountCredentials(credentialDir);
       if (!stored?.userId) throw new SessionExpiredError();
       const { secretsDir } = await Effect.runPromise(
         deriveServerPaths(baseDir, options.devUrl).pipe(Effect.provide(EffectPath.layer)),
@@ -938,11 +967,17 @@ export function createAccountSession(
     },
 
     async confirmSyncKey(input) {
+      requireHostSecretsSync();
       await (await currentHostSecretsCoordinator()).confirmSyncKey(input);
     },
 
     async signOut() {
-      await runAuthLogout({ baseDir, client: clientFor(configuredUrl), stdout: () => {} });
+      await runAuthLogout({
+        baseDir,
+        devUrl: options.devUrl,
+        client: clientFor(configuredUrl),
+        stdout: () => {},
+      });
       deviceRegistrationAttempt = undefined;
       hostSecretsCoordinator = undefined;
     },

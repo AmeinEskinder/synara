@@ -301,16 +301,28 @@ function DeviceStatsBody({
         ]}
       />
 
+      {stats.providerModels.some((entry) => entry.provider === "claudeAgent") ||
+      tokenStats?.providers.includes("claudeAgent") ? (
+        <p className="text-ui leading-snug text-muted-foreground">
+          Claude token totals use verifiable records. Older history and unfinished turns may be
+          incomplete.
+        </p>
+      ) : null}
       <HeatmapSection pending={tokensPending} cells={heatmap.cells} unit={heatmap.unit} />
 
       <div className="grid gap-x-12 gap-y-7 md:grid-cols-2">
         <InsightsSection
+          coverage={
+            <ProfileUsageCoverage unavailableProviders={topProvider.unavailableProviders} />
+          }
           rows={[
             {
               label: "Most used provider",
               value: topProvider.provider
                 ? `${providerLabel(topProvider.provider)}${
-                    topProvider.percent !== null ? ` · ${topProvider.percent}%` : ""
+                    topProvider.percent !== null
+                      ? ` · ${topProvider.percent}% of ${formatProfileUsageBasis(topProvider.metric)}`
+                      : ""
                   }`
                 : "—",
             },
@@ -345,8 +357,11 @@ function DeviceStatsBody({
         />
       </div>
 
-      <ModelUsageSection entries={modelUsage.entries} />
-      <ProfileUsageCoverage unavailableProviders={modelUsage.unavailableProviders} />
+      <ModelUsageSection
+        entries={modelUsage.entries}
+        basis={formatProfileUsageBasis(modelUsage.metric)}
+        unavailableProviders={modelUsage.unavailableProviders}
+      />
     </>
   );
 }
@@ -367,7 +382,7 @@ function AccountStatsBody({
       // flip back to This device.
       return (
         <div className="flex flex-col items-center gap-3 py-16 text-center">
-          <p className="text-sm text-muted-foreground">Couldn’t load your account stats.</p>
+          <p className="text-ui-sm text-muted-foreground">Couldn’t load your account stats.</p>
           <Button variant="outline" size="sm" onClick={() => void usageQuery.refetch()}>
             Try again
           </Button>
@@ -460,7 +475,7 @@ function HeatmapSection({
 }) {
   return (
     <section className="flex min-w-0 flex-col gap-3">
-      <h3 className="text-sm font-medium">Activity</h3>
+      <h3 className="text-ui-sm font-medium">Activity</h3>
       {pending ? (
         <Skeleton className="h-28 w-full rounded-lg" />
       ) : (
@@ -486,15 +501,22 @@ function HeatmapSection({
   );
 }
 
-function InsightsSection({ rows }: { rows: readonly { label: string; value: string }[] }) {
+function InsightsSection({
+  rows,
+  coverage,
+}: {
+  rows: readonly { label: string; value: string }[];
+  coverage?: import("react").ReactNode;
+}) {
   return (
     <section className="flex flex-col gap-3">
-      <h3 className="text-sm font-medium">Activity insights</h3>
+      <h3 className="text-ui-sm font-medium">Activity insights</h3>
       <dl className="flex flex-col gap-2.5">
         {rows.map((row) => (
           <InsightRow key={row.label} label={row.label} value={row.value} />
         ))}
       </dl>
+      {coverage}
     </section>
   );
 }
@@ -511,7 +533,7 @@ function SkillsSection({
 }) {
   return (
     <section className="flex flex-col gap-3">
-      <h3 className="text-sm font-medium">Most used plugins</h3>
+      <h3 className="text-ui-sm font-medium">Most used plugins</h3>
       {skills.length > 0 ? (
         <ul className="flex flex-col gap-2.5">
           {skills.slice(0, 6).map((skill) => (
@@ -523,16 +545,16 @@ function SkillsSection({
                     className="size-3"
                   />
                 </span>
-                <span className="truncate text-sm">{skill.displayName}</span>
+                <span className="truncate text-ui-sm">{skill.displayName}</span>
               </span>
-              <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
+              <span className="shrink-0 text-ui-sm tabular-nums text-muted-foreground">
                 {formatNumber(skill.runCount)} runs
               </span>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="text-sm text-muted-foreground">No skills or agents used yet.</p>
+        <p className="text-ui-sm text-muted-foreground">No skills or agents used yet.</p>
       )}
     </section>
   );
@@ -540,17 +562,29 @@ function SkillsSection({
 
 function ModelUsageSection({
   entries,
+  basis,
+  unavailableProviders = [],
 }: {
-  entries: readonly { provider: ProviderKind | "unknown"; model: string; percent: number }[];
+  entries: readonly {
+    provider: ProviderKind | "unknown";
+    instanceId?: string;
+    model: string;
+    percent: number;
+  }[];
+  basis?: string;
+  unavailableProviders?: readonly ProviderKind[];
 }) {
   return (
     <section className="flex flex-col gap-3">
-      <h3 className="text-sm font-medium">Model usage</h3>
+      <h3 className="text-ui-sm font-medium">Model usage</h3>
+      {basis ? (
+        <p className="text-ui leading-snug text-muted-foreground">Share of {basis}.</p>
+      ) : null}
       {entries.length > 0 ? (
         <ul className="grid grid-cols-1 gap-x-12 gap-y-3 sm:grid-cols-2">
           {entries.slice(0, 6).map((entry) => (
             <ModelUsageRow
-              key={`${entry.provider}:${entry.model}`}
+              key={`${entry.instanceId ?? entry.provider}:${entry.model}`}
               icon={
                 entry.provider !== "unknown" ? (
                   <ProviderIcon provider={entry.provider} className="size-3.5 shrink-0" />
@@ -564,8 +598,9 @@ function ModelUsageSection({
           ))}
         </ul>
       ) : (
-        <p className="text-sm text-muted-foreground">No model activity yet.</p>
+        <p className="text-ui-sm text-muted-foreground">No model activity yet.</p>
       )}
+      <ProfileUsageCoverage unavailableProviders={unavailableProviders} />
     </section>
   );
 }
@@ -583,7 +618,6 @@ function formatMostWorkedProjectLabel(project: ProfileStats["mostWorkedProject"]
   const promptLabel = project.promptCount === 1 ? "prompt" : "prompts";
   return `${project.title} · ${formatNumber(project.promptCount)} ${promptLabel}`;
 }
-
 
 function ProfileSkeleton() {
   return (

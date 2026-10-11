@@ -23,8 +23,8 @@ import {
   prepareProcess,
   type ProcessLaunchInput,
   type ProcessLaunchPlan,
-} from "./platformProcess";
-import { resolveWindowsComSpec } from "./platformEnvironment";
+} from "./platformProcess.ts";
+import { resolveWindowsComSpec } from "./platformEnvironment.ts";
 
 import { trackProcessSpawn } from "./processSpawnOutcome.ts";
 export { didProcessFailToSpawn } from "./processSpawnOutcome.ts";

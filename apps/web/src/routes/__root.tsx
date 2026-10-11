@@ -1,8 +1,8 @@
 import { hydrateCachedThreadDetail, startThreadDetailCachePersistence } from "../threadDetailCache";
-import { ServerBusyIndicator } from "../components/ServerBusyIndicator";
 import { readWorkspaceFrame } from "../lib/hosts/workspaceFrame";
 import { subscribeWorkspaceKeybindings } from "../lib/hosts/workspaceKeybindings";
 import { onControllerStateChange } from "../lib/hosts/connectionClients";
+import { ServerBusyIndicator } from "../components/ServerBusyIndicator";
 import { EditorDirtyRouteGuard } from "../components/EditorDirtyRouteGuard";
 import {
   ORCHESTRATION_STREAM_OVERFLOW_CODE,
@@ -377,17 +377,19 @@ function RootRouteView() {
           {!readWorkspaceFrame() && <GlobalWhatsNewSurface />}
           <TaskCompletionNotifications />
           <QueuedComposerDrainCoordinator />
-          {!readWorkspaceFrame() && <>
-          {/* Beta welcome must resolve the first-run gate even while Safari is queued. */}
-          <BetaWelcomeDialog />
-          <SafariAccessOnboarding startup>
-            <AppSnapWelcomeDialog>
-              <FeatureTourDialog />
-            </AppSnapWelcomeDialog>
-          </SafariAccessOnboarding>
-          <GlobalOnboardingDialog />
-          <ProjectImportAnnouncementDialog />
-          </>}
+          {!readWorkspaceFrame() && (
+            <>
+              {/* Beta welcome resolves the first-run gate while Safari is queued. */}
+              <BetaWelcomeDialog />
+              <SafariAccessOnboarding startup>
+                <AppSnapWelcomeDialog>
+                  <FeatureTourDialog />
+                </AppSnapWelcomeDialog>
+              </SafariAccessOnboarding>
+              <GlobalOnboardingDialog />
+              <ProjectImportAnnouncementDialog />
+            </>
+          )}
           <GlobalProjectImportDialog />
           <AppSnapCoordinator />
           <DesktopProjectBootstrap />
@@ -2742,15 +2744,15 @@ function EventRouter() {
         });
       }
     });
+    const unsubControllerState = onControllerStateChange((state) => {
+      if (state === "open") void invalidateAccountStatus(queryClient).catch(() => undefined);
+    });
     const unsubWsTransportState = addWsTransportStateListener(
       (state) => {
         if (state !== "open") return;
         // Reopening the socket is a projection boundary. React Query otherwise
         // keeps the previous infinite-stale config and can strand "Checking".
         void refreshServerConfigAfterTransportOpen(queryClient).catch(() => undefined);
-        // A completeSso cut off by the dropped socket still persisted
-        // credentials server-side; re-reading status recovers that result.
-        void invalidateAccountStatus(queryClient).catch(() => undefined);
       },
       { replayCurrent: true },
     );
@@ -2906,6 +2908,7 @@ function EventRouter() {
       unsubWorkspaceKeybindings?.();
       unsubProviderStatusesUpdated();
       unsubWsTransportState();
+      unsubControllerState();
       unsubServerSettingsUpdated();
     };
   }, [

@@ -1,5 +1,3 @@
-import { readEventLoopStatus } from "./eventLoopMonitor";
-import { makeGitActionRunner } from "./git/gitActionRunner";
 import { AgentGateway } from "./agentGateway/Services/AgentGateway";
 import { RemoteAgentResult } from "@synara/contracts";
 import { parseComputerInvocation } from "@synara/shared/computerInvocation";
@@ -15,6 +13,8 @@ import { RemoteDeviceTrustRepository } from "./persistence/Services/RemoteDevice
 import { makeRemoteAccessManagement } from "./remotePairing/management";
 import { RemoteHostTrustRepository } from "./persistence/Services/RemoteHostTrust";
 import { readAccountCredentials, accountApiIssuer } from "./accountAuth";
+import { readEventLoopStatus } from "./eventLoopMonitor";
+import { makeGitActionRunner } from "./git/gitActionRunner";
 import { AgentGatewaySessionRegistry } from "./agentGateway/Services/AgentGatewaySessionRegistry";
 import { execFile } from "node:child_process";
 
@@ -303,10 +303,16 @@ const wsRequestAdmissionMiddlewareLayer = Layer.effect(
       // Handler fibers descend from the RPC server fiber (forked at layer build),
       // not from the connection's HTTP upgrade fiber, so connection-scoped
       // services must be re-provided here from the connection-session registry.
-      const scoped = provideWsConnectionSession(
-        effect,
-        connectionSessions.lookup(Headers.get(options.headers, WS_CONNECTION_SESSION_HEADER)),
+      const session = connectionSessions.lookup(
+        Headers.get(options.headers, WS_CONNECTION_SESSION_HEADER),
       );
+      if (
+        session?.attachmentPrincipal.ownerId.startsWith("remote-device:") &&
+        remoteMethodUnavailable(options.rpc._tag)
+      ) {
+        return Effect.fail(new WsRpcError({ message: REMOTE_NATIVE_UNAVAILABLE }));
+      }
+      const scoped = provideWsConnectionSession(effect, session);
       return RpcSchema.isStreamSchema(options.rpc.successSchema)
         ? scoped
         : admission.guard(options.clientId, options.rpc._tag, scoped);
@@ -556,6 +562,7 @@ const makeWsRpcHandlersLayer = () =>
       const workspaceEntries = yield* WorkspaceEntries;
       const workspaceFileSystem = yield* WorkspaceFileSystem;
       const threadDiagnostics = yield* ThreadDiagnosticsQuery;
+      const remoteSessions = yield* RemoteSessionRegistryService;
       const eventStore = yield* OrchestrationEventStore;
       const providerRuntimeEvents = yield* ProviderRuntimeEventRepository;
       const readOwnerThreadDiagnostics = makeOwnerThreadDiagnosticReader({
@@ -571,11 +578,17 @@ const makeWsRpcHandlersLayer = () =>
             ),
           ),
       });
-      const remoteSessions = yield* RemoteSessionRegistryService;
       // Optional so route-level tests and non-macOS builds can mount the RPC
       // group without a device engine; the handlers below then refuse cleanly
       // with the same unsupported-platform answer the backend would give.
       const deviceService = Option.getOrUndefined(yield* Effect.serviceOption(DeviceService));
+      // One per server, not per connection: it owns the credential file, and
+      // the pending sign-in attempts it tracks have to outlive the WebSocket
+      // that started them so a reconnecting client can still complete one.
+      const accountSession = createAccountSession({
+        baseDir: config.baseDir,
+        ...(config.devUrl ? { devUrl: config.devUrl } : {}),
+      });
       const computerService = Option.getOrUndefined(yield* Effect.serviceOption(ComputerService));
       const connectionSessions = yield* WsConnectionSessions;
       const computerInterests = new ComputerEventInterests(connectionSessions.onClose);
@@ -602,10 +615,6 @@ const makeWsRpcHandlersLayer = () =>
           Effect.catchCause((cause) => Effect.fail(toWsRpcError(cause, "Git action failed"))),
         ),
       );
-      // One per server, not per connection: it owns the credential file, and
-      // the pending sign-in attempts it tracks have to outlive the WebSocket
-      // that started them so a reconnecting client can still complete one.
-      const accountSession = createAccountSession({ baseDir: config.baseDir });
       const githubProjectProvisioner = yield* makeGitHubProjectProvisioner({
         homeDir: config.homeDir,
         fileSystem,
@@ -1211,16 +1220,6 @@ const makeWsRpcHandlersLayer = () =>
       const rpcEffect = <A, E, R>(effect: Effect.Effect<A, E, R>, fallbackMessage: string) =>
         effect.pipe(Effect.mapError((cause) => toWsRpcError(cause, fallbackMessage)));
 
-      const tasksEnabled = isServerBetaFeatureEnabled("tasks");
-      const tasksUnavailableError = () =>
-        new WsRpcError({
-          message: "Tasks is unavailable on this server.",
-          code: TASKS_UNAVAILABLE_ERROR_CODE,
-          retryable: false,
-        });
-      const whenTasksEnabled = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-        tasksEnabled ? effect : Effect.fail(tasksUnavailableError());
-
       /**
        * The account RPCs are owner-only, entirely — reads included; see
        * wsAccountRpc.ts, which owns the guard, the error mappings, and the
@@ -1304,14 +1303,28 @@ const makeWsRpcHandlersLayer = () =>
         yield* Effect.addFinalizer(() => Effect.sync(stopConnections));
       }
       const hostsRpcHandlers = makeHostsRpcHandlers({
+        remoteAccess: makeRemoteAccessManagement({
+          config,
+          environment: serverEnvironment,
+          control: authControlPlane,
+          devices: deviceTrust,
+          hosts: hostTrust,
+          account: accountSession,
+          connections: hostConnectionRegistry,
+        }),
         accountSession,
         remoteSessions,
-        hostConnections: makeHostConnectionsPort({
-          accountSession,
-          registry: hostConnectionRegistry,
-          relayUrl: config.relayUrl?.toString(),
-        }),
+        hostConnections,
       });
+      const tasksEnabled = isServerBetaFeatureEnabled("tasks");
+      const tasksUnavailableError = () =>
+        new WsRpcError({
+          message: "Tasks is unavailable on this server.",
+          code: TASKS_UNAVAILABLE_ERROR_CODE,
+          retryable: false,
+        });
+      const whenTasksEnabled = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+        tasksEnabled ? effect : Effect.fail(tasksUnavailableError());
 
       const toProjectProvisionRpcError = (cause: unknown) =>
         cause instanceof GitHubProjectProvisioningError
@@ -1424,6 +1437,19 @@ const makeWsRpcHandlersLayer = () =>
       });
 
       return AdmittedWsFeatureRpcGroup.of({
+        [WS_METHODS.agentGatewayCall]: (call) =>
+          rpcEffect(
+            Effect.gen(function* () {
+              const principal = yield* CurrentManagedAttachmentPrincipal;
+              if (!agentGateway?.handleRemoteTool)
+                return yield* Effect.fail(
+                  new WsRpcError({ message: "Remote agent tools require an updated server." }),
+                );
+              const result = yield* agentGateway.handleRemoteTool(call, principal.ownerId);
+              return yield* Schema.decodeUnknownEffect(RemoteAgentResult)(result);
+            }),
+            "Remote agent tool failed",
+          ),
         [ORCHESTRATION_WS_METHODS.settleTurnDispatch]: ({ command }) =>
           rpcEffect(
             Effect.gen(function* () {
@@ -1445,22 +1471,23 @@ const makeWsRpcHandlersLayer = () =>
             }),
             "Failed to resolve the original message delivery.",
           ),
-        [WS_METHODS.agentGatewayCall]: (call) =>
-          rpcEffect(
-            Effect.gen(function* () {
-              const principal = yield* CurrentManagedAttachmentPrincipal;
-              if (!agentGateway?.handleRemoteTool)
-                return yield* Effect.fail(
-                  new WsRpcError({ message: "Remote agent tools require an updated server." }),
-                );
-              const result = yield* agentGateway.handleRemoteTool(call, principal.ownerId);
-              return yield* Schema.decodeUnknownEffect(RemoteAgentResult)(result);
-            }),
-            "Remote agent tool failed",
-          ),
         [ORCHESTRATION_WS_METHODS.dispatchCommand]: (command) =>
           rpcEffect(
             Effect.gen(function* () {
+              const principal = yield* CurrentManagedAttachmentPrincipal;
+              if (
+                principal.ownerId.startsWith("remote-device:") &&
+                (("enableComputerControl" in command && command.enableComputerControl) ||
+                  ("computerControlMode" in command &&
+                    command.computerControlMode &&
+                    command.computerControlMode !== "off") ||
+                  (command.type === "thread.turn.start" &&
+                    parseComputerInvocation(command.message.text)) ||
+                  (command.type === "thread.message.edit-and-resend" &&
+                    parseComputerInvocation(command.text)))
+              ) {
+                return yield* Effect.fail(new WsRpcError({ message: REMOTE_NATIVE_UNAVAILABLE }));
+              }
               // Groups is Beta-only: Stable refuses to create or re-kind a group.
               if (!isServerGroupsEnabled() && isGroupProjectCommand(command)) {
                 return yield* Effect.fail(new WsRpcError({ message: GROUPS_BETA_ONLY_MESSAGE }));
@@ -3358,6 +3385,17 @@ export function authenticateRpcWebSocketUpgrade(input: {
   readonly request: AuthRequest;
   readonly serverAuth: Pick<ServerAuthShape, "authenticateWebSocketUpgrade">;
 }): Effect.Effect<AuthenticatedSession | null, AuthError> {
+  // An explicit client ticket must retain its client role even on an otherwise
+  // accountless loopback server. Never promote an authenticated remote bridge.
+  if (
+    input.request.url?.searchParams.has("wsToken") ||
+    input.request.headers.authorization ||
+    Object.entries(input.request.cookies).some(
+      ([name, value]) => /^synara_session(?:_\d+)?$/.test(name) && Boolean(value),
+    )
+  ) {
+    return input.serverAuth.authenticateWebSocketUpgrade(input.request);
+  }
   if (
     !requiresWebSocketAuthentication(input.config) ||
     (isLoopbackHost(input.config.host) &&
@@ -3622,8 +3660,6 @@ export const websocketRpcRouteLayer = Layer.mergeAll(
   // The registry must be provided here so the upgrade route and the RPC
   // middleware (built from the same source effect) share one instance.
   makeWebsocketRpcRouteLayer(makeRpcWebSocketHttpEffect).pipe(
-    // Handler resources, including the remote supervisor, live until server shutdown.
-    Layer.provide(makeWsRpcLayer().pipe(Layer.provideMerge(RpcSerialization.layerJson))),
     Layer.provide(WsConnectionSessionsLive),
   ),
 );

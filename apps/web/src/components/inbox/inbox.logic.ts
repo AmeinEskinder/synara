@@ -1,4 +1,4 @@
-import type { InboxDayRange, InboxSlotId } from "@synara/shared/inboxDay";
+import type { InboxDayRange, InboxSlotId, InboxTimeRange } from "@synara/shared/inboxDay";
 export { resolveInboxDay, recapInputForRange } from "@synara/shared/inboxDay";
 export type {
   InboxDay,
