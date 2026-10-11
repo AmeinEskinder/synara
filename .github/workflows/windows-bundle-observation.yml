@@ -1,0 +1,71 @@
+name: Observe exact PR 1235 Windows bundle
+on:
+  push:
+    branches: [cleanup/20261011/pr1235-windows-observation]
+    paths:
+      - .github/scripts/observe-windows-bundle.mjs
+      - .github/workflows/windows-bundle-observation.yml
+permissions:
+  contents: read
+concurrency:
+  group: windows-bundle-observation-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  observe:
+    runs-on: windows-2022
+    timeout-minutes: 40
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+      SYNARA_DESKTOP_SIGNED: "false"
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 620c7d39e8b7b71572999d4742d9453c44a73587
+          persist-credentials: false
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          path: .packaging-observer
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.20.0
+      - name: Prepare exact-source observer and isolated short build path
+        run: node .packaging-observer/.github/scripts/observe-windows-bundle.mjs prepare
+      - name: Install unchanged frozen release build dependencies
+        run: bun install --frozen-lockfile --ignore-scripts --filter '!@synara/marketing'
+      - name: Keep measurement attribution and byte-accounting tests
+        run: node --test .github/scripts/measure-bundle-size.test.mjs
+      - name: Observe unchanged unsigned Windows build with retained deadline evidence
+        id: build
+        run: node .packaging-observer/.github/scripts/observe-windows-bundle.mjs build
+      - name: Measure actual installed files and archives
+        id: measurement
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        shell: bash
+        run: |
+          node .github/scripts/measure-bundle-size.mjs --source "$GITHUB_WORKSPACE" --output "$AUDIT_EVIDENCE" --stage-parent "$AUDIT_TEMP_ROOT" --platform win --flavor production --arch x64 --version 0.8.4 > "$AUDIT_EVIDENCE/measurement.log"
+      - name: Keep canonical packaged imports and isolated startup assertions
+        id: startup
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/verify-packaged-desktop-startup.ts --assets-dir "$RUNNER_TEMP/size-artifacts" --platform win --arch x64 --version 0.8.4 2>&1 | tee "$AUDIT_EVIDENCE/startup.log"
+      - name: Retain exact outcomes and artifact hashes
+        if: always()
+        env:
+          MEASUREMENT_OUTCOME: ${{ steps.measurement.outcome }}
+          STARTUP_OUTCOME: ${{ steps.startup.outcome }}
+        run: node .packaging-observer/.github/scripts/observe-windows-bundle.mjs finish
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: pr1235-windows-observation-${{ github.sha }}
+          path: ${{ runner.temp }}/windows-bundle-observation
+          retention-days: 14
+          if-no-files-found: error
