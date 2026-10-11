@@ -27,7 +27,6 @@ jobs:
       ICON_SOURCE_SHA: ec8c940e07582454a475250ade40147e3c89d59f
       ICON_AUTHOR_SHA: 01ca9a62f8bb222dda23d8c68181acdbf5ddd1fb
       ICON_DRIVER_SHA: ${{ github.sha }}
-      ICON_EVIDENCE: ${{ runner.temp }}/mac-icon-evidence
       ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
     steps:
       - uses: actions/checkout@v6
@@ -53,7 +52,11 @@ jobs:
         with:
           node-version-file: source/package.json
       - name: Retain immutable source and original icon evidence
-        run: node ../driver/.github/scripts/mac-icon-qualification.mjs prepare
+        run: |
+          set -euo pipefail
+          export ICON_EVIDENCE="$RUNNER_TEMP/mac-icon-evidence"
+          printf 'ICON_EVIDENCE=%s\n' "$ICON_EVIDENCE" >> "$GITHUB_ENV"
+          node ../driver/.github/scripts/mac-icon-qualification.mjs prepare
       - name: Install exact source dependencies
         run: |
           set -euo pipefail
@@ -81,6 +84,6 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: mac-icon-452-${{ matrix.os }}-${{ env.ICON_SOURCE_SHA }}
-          path: ${{ env.ICON_EVIDENCE }}
+          path: ${{ runner.temp }}/mac-icon-evidence
           retention-days: 14
           if-no-files-found: error
