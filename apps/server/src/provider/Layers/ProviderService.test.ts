@@ -8729,6 +8729,122 @@ providerDisabledAfterInitialCheck.layer("ProviderServiceLive enablement race", (
   );
 });
 
+for (const outcome of [
+  "confirmed",
+  "failed",
+  "replacement",
+  "retained owner",
+  "other adapter failed",
+] as const) {
+  it.effect(`ProviderServiceLive records only owned confirmed shutdown teardown: ${outcome}`, () =>
+    Effect.gen(function* () {
+      const shutdown = makeProviderServiceLayer();
+      const confirmed = outcome === "confirmed" || outcome === "other adapter failed";
+      const scope = yield* Scope.make("sequential");
+      const services = yield* Layer.buildWithScope(shutdown.rawLayer, scope);
+      const provider = yield* Effect.service(ProviderService).pipe(Effect.provide(services));
+      const directory = yield* Effect.service(ProviderSessionDirectory).pipe(
+        Effect.provide(services),
+      );
+      const threadId = asThreadId(`shutdown-receipt-${outcome}`);
+      const turnId = TurnId.makeUnsafe(`shutdown-turn-${outcome}`);
+      yield* provider.startSession(threadId, {
+        provider: "codex",
+        threadId,
+        runtimeMode: "full-access",
+      });
+      const binding = Option.getOrThrow(yield* directory.getBinding(threadId));
+      const requestedAt = new Date().toISOString();
+      const listSessions = shutdown.codex.listSessions.getMockImplementation()!;
+      shutdown.codex.listSessions.mockImplementation(() =>
+        listSessions().pipe(
+          Effect.map((sessions) =>
+            sessions.map((session) => ({
+              ...session,
+              status: "running" as const,
+              activeTurnId: turnId,
+            })),
+          ),
+        ),
+      );
+      yield* directory.upsert({ ...binding, runtimePayload: { activeTurnId: turnId } });
+      const stopAll = shutdown.codex.stopAll.getMockImplementation()!;
+      if (outcome === "failed") {
+        shutdown.codex.stopAll.mockImplementation(() =>
+          Effect.fail(
+            new ProviderAdapterProcessError({
+              provider: "codex",
+              threadId,
+              detail: "Process teardown did not prove exit.",
+            }),
+          ),
+        );
+      } else if (outcome === "retained owner") {
+        shutdown.codex.stopAll.mockImplementation(() => Effect.void);
+      } else if (outcome === "other adapter failed") {
+        shutdown.claude.stopAll.mockImplementation(() =>
+          Effect.fail(
+            new ProviderAdapterProcessError({
+              provider: "claudeAgent",
+              threadId,
+              detail: "Independent teardown failed.",
+            }),
+          ),
+        );
+      } else if (outcome === "replacement") {
+        shutdown.codex.stopAll.mockImplementation(() =>
+          stopAll().pipe(
+            Effect.andThen(
+              directory
+                .upsert({
+                  ...binding,
+                  lifecycleGeneration: "replacement-generation",
+                })
+                .pipe(Effect.orDie),
+            ),
+          ),
+        );
+      }
+
+      assert.ok(provider.hasConfirmedShutdown);
+      assert.equal(yield* provider.hasConfirmedShutdown({ threadId, turnId, requestedAt }), false);
+      yield* provider.closeRuntimeEvents;
+      assert.equal(shutdown.codex.stopAll.mock.calls.length, 1);
+      assert.equal(
+        yield* provider.hasConfirmedShutdown({ threadId, turnId, requestedAt }),
+        confirmed,
+      );
+      const persisted = Option.getOrThrow(yield* directory.getBinding(threadId));
+      const payload = persisted.runtimePayload as Record<string, unknown>;
+      assert.equal(payload.shutdownTeardownReceipt !== undefined, confirmed);
+      if (confirmed) {
+        assert.equal(
+          yield* provider.hasConfirmedShutdown({
+            threadId,
+            turnId: TurnId.makeUnsafe("another-turn"),
+            requestedAt,
+          }),
+          false,
+        );
+        assert.equal(
+          yield* provider.hasConfirmedShutdown({
+            threadId,
+            turnId,
+            requestedAt: "2000-01-01T00:00:00.000Z",
+          }),
+          false,
+        );
+        yield* directory.upsert({ ...persisted, lifecycleGeneration: "new-generation" });
+        assert.equal(
+          yield* provider.hasConfirmedShutdown({ threadId, turnId, requestedAt }),
+          false,
+        );
+      }
+      yield* Scope.close(scope, Exit.void);
+    }),
+  );
+}
+
 const boundedFanout = makeProviderServiceLayer({ runtimeEventBufferCapacity: 1 });
 it.effect("ProviderServiceLive starts independent provider teardown concurrently", () =>
   Effect.gen(function* () {

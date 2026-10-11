@@ -4999,8 +4999,16 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
         const activeSessionWrites = yield* Effect.forEach(
           activeSessionByThreadId.values(),
           ({ adapter, session }) =>
-            Deferred.make<void>().pipe(Effect.map((started) => ({ adapter, session, started }))),
+            Deferred.make<void>().pipe(
+              Effect.map((started) => ({
+                adapter,
+                session,
+                started,
+                lifecycleGeneration: lifecycle.currentGeneration(session.threadId),
+              })),
+            ),
         );
+        const confirmedAdapters = new Set<ProviderAdapterShape<ProviderAdapterError>>();
         const persistActiveSessions = settleConcurrentTeardowns(
           activeSessionWrites,
           ({ adapter, session, started }) =>
@@ -5041,7 +5049,15 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
           activeSessionWrites,
           ({ started }) => Deferred.await(started),
           { concurrency: "unbounded", discard: true },
-        ).pipe(Effect.andThen(settleConcurrentTeardowns(adapters, (adapter) => adapter.stopAll())));
+        ).pipe(
+          Effect.andThen(
+            settleConcurrentTeardowns(adapters, (adapter) =>
+              adapter
+                .stopAll()
+                .pipe(Effect.tap(() => Effect.sync(() => confirmedAdapters.add(adapter)))),
+            ),
+          ),
+        );
 
         // Each active-session write signals after it is queued on its per-thread
         // lock. Provider teardown can therefore begin without waiting for an
@@ -5050,7 +5066,100 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
         const shutdownWork: ReadonlyArray<
           Effect.Effect<void, ProviderAdapterError | ProviderSessionDirectoryWriteError, never>
         > = [persistActiveSessions, persistInactiveSessions, stopAdapters, flushRuntimeText()];
-        yield* settleConcurrentTeardowns(shutdownWork, (teardown) => teardown);
+        const shutdownExit = yield* Effect.exit(
+          settleConcurrentTeardowns(shutdownWork, (teardown) => teardown),
+        );
+        const receiptExit = yield* Effect.exit(
+          settleConcurrentTeardowns(
+            activeSessionWrites,
+            ({ adapter, session, lifecycleGeneration }) =>
+              !confirmedAdapters.has(adapter) ||
+              lifecycleGeneration === undefined ||
+              session.activeTurnId === undefined
+                ? Effect.void
+                : withBindingWriteLock(
+                    session.threadId,
+                    Effect.gen(function* () {
+                      const binding = Option.getOrUndefined(
+                        yield* directory.getBinding(session.threadId),
+                      );
+                      if (
+                        !binding ||
+                        binding.provider !== session.provider ||
+                        binding.lifecycleGeneration !== lifecycleGeneration ||
+                        lifecycle.currentGeneration(session.threadId) !== lifecycleGeneration ||
+                        (session.providerInstanceId !== undefined &&
+                          binding.providerInstanceId !== session.providerInstanceId) ||
+                        (yield* adapter.hasSession(session.threadId))
+                      ) {
+                        return;
+                      }
+                      const activeTurnId = runtimeActiveTurnId(binding.runtimePayload);
+                      if (activeTurnId !== undefined && activeTurnId !== session.activeTurnId) {
+                        return;
+                      }
+                      yield* directory.upsert({
+                        ...binding,
+                        status: "stopped",
+                        runtimePayload: {
+                          activeTurnId: null,
+                          shutdownTeardownReceipt: {
+                            version: 1,
+                            provider: binding.provider,
+                            providerInstanceId: binding.providerInstanceId,
+                            lifecycleGeneration,
+                            turnId: session.activeTurnId,
+                            sessionCreatedAt: session.createdAt,
+                            confirmedAt: new Date().toISOString(),
+                          },
+                        },
+                      });
+                    }),
+                  ),
+          ),
+        );
+        if (Exit.isFailure(shutdownExit)) {
+          return yield* Effect.failCause(
+            Exit.isFailure(receiptExit)
+              ? Cause.combine(shutdownExit.cause, receiptExit.cause)
+              : shutdownExit.cause,
+          );
+        }
+        if (Exit.isFailure(receiptExit)) return yield* Effect.failCause(receiptExit.cause);
+      });
+
+    const hasConfirmedShutdown: NonNullable<ProviderServiceShape["hasConfirmedShutdown"]> = (
+      input,
+    ) =>
+      Effect.gen(function* () {
+        const binding = Option.getOrUndefined(yield* directory.getBinding(input.threadId));
+        if (!binding || binding.status !== "stopped") return false;
+        const receipt = runtimePayloadRecord(
+          runtimePayloadRecord(binding.runtimePayload).shutdownTeardownReceipt,
+        );
+        if (
+          receipt.version !== 1 ||
+          receipt.provider !== binding.provider ||
+          receipt.providerInstanceId !== binding.providerInstanceId ||
+          typeof receipt.lifecycleGeneration !== "string" ||
+          receipt.lifecycleGeneration !== binding.lifecycleGeneration ||
+          receipt.turnId !== input.turnId ||
+          typeof receipt.sessionCreatedAt !== "string" ||
+          typeof receipt.confirmedAt !== "string" ||
+          runtimeActiveTurnId(binding.runtimePayload) !== undefined
+        ) {
+          return false;
+        }
+        const requestedAt = Date.parse(input.requestedAt);
+        if (
+          !Number.isFinite(requestedAt) ||
+          !(Date.parse(receipt.sessionCreatedAt) <= requestedAt) ||
+          !(requestedAt <= Date.parse(receipt.confirmedAt))
+        ) {
+          return false;
+        }
+        const adapter = adapters.find((candidate) => candidate.provider === binding.provider);
+        return adapter !== undefined && !(yield* adapter.hasSession(input.threadId));
       });
 
     const awaitRuntimeEventFanoutDrained: Effect.Effect<void> = Effect.suspend(() =>
@@ -5132,6 +5241,7 @@ const makeProviderService = (options?: ProviderServiceLiveOptions) =>
       rollbackConversation,
       compactThread,
       closeRuntimeEvents,
+      hasConfirmedShutdown,
       getRuntimeEventPumpHealth: () => Effect.sync(runtimeEventPumpHealth.snapshot),
       // Each access creates a fresh PubSub subscription so that multiple
       // consumers (ProviderRuntimeIngestion, CheckpointReactor, etc.) each

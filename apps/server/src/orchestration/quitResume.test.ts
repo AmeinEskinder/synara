@@ -1,6 +1,6 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { ProjectId, ThreadId, TurnId, type OrchestrationCommand } from "@synara/contracts";
-import { Duration, Effect, FileSystem, Layer } from "effect";
+import { Deferred, Duration, Effect, Fiber, FileSystem, Layer } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { ServerConfig } from "../config";
@@ -441,6 +441,43 @@ describe("quit resume record file", () => {
     expect(dispatched[1]).not.toHaveProperty("turnId");
     expect(result.abandoned).toEqual({ kind: "absent" });
   });
+
+  it.each([true, false])(
+    "waits for interrupt admission before quit acknowledgement: resume=%s",
+    async (resumeAfterRestart) => {
+      await run(
+        Effect.gen(function* () {
+          const config = yield* ServerConfig;
+          const entered = Deferred.makeUnsafe<void>();
+          const release = Deferred.makeUnsafe<void>();
+          const acknowledged = Deferred.makeUnsafe<void>();
+          const preparing = yield* prepareQuitResume({
+            request: {
+              threadIds: [threadId("a")],
+              continuationPrompt: PROMPT,
+              resumeAfterRestart,
+            },
+            recordPath: config.quitResumeStatePath,
+            getReadModel: () => Effect.succeed({ threads: [makeRunningThread("a")] }),
+            dispatch: () =>
+              Deferred.succeed(entered, undefined).pipe(Effect.andThen(Deferred.await(release))),
+          }).pipe(
+            Effect.tap(() => Deferred.succeed(acknowledged, undefined)),
+            Effect.forkChild,
+          );
+          yield* Deferred.await(entered);
+          expect(yield* Deferred.isDone(acknowledged)).toBe(false);
+          const record = yield* readQuitResumeRecord(config.quitResumeStatePath);
+          expect(record.kind).toBe(resumeAfterRestart ? "record" : "absent");
+          yield* Deferred.succeed(release, undefined);
+          const prepared = yield* Fiber.join(preparing);
+          expect(yield* Deferred.isDone(acknowledged)).toBe(true);
+          expect(prepared.recordedThreadIds).toEqual(resumeAfterRestart ? [threadId("a")] : []);
+          yield* clearQuitResumeRecord(config.quitResumeStatePath);
+        }).pipe(Effect.scoped),
+      );
+    },
+  );
 
   it("admits plain-quit interrupts without recording a continuation", async () => {
     const dispatched: OrchestrationCommand[] = [];

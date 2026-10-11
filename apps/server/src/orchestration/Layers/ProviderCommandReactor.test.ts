@@ -335,6 +335,7 @@ describe("ProviderCommandReactor", () => {
     readonly forkThreadResult?: ProviderForkThreadResult | null;
     readonly startReactor?: boolean;
     readonly interruptTurn?: ProviderServiceShape["interruptTurn"];
+    readonly hasConfirmedShutdown?: NonNullable<ProviderServiceShape["hasConfirmedShutdown"]>;
     readonly commandEventTimeout?: Duration.Duration;
     readonly preTurnBaselineTimeout?: Duration.Duration;
     readonly cacheResponseTimeout?: Duration.Duration;
@@ -731,6 +732,7 @@ describe("ProviderCommandReactor", () => {
         ? { cancelClaudeCompactionDiscovery: input.cancelClaudeCompactionDiscovery }
         : {}),
       closeRuntimeEvents: Effect.void,
+      ...(input?.hasConfirmedShutdown ? { hasConfirmedShutdown: input.hasConfirmedShutdown } : {}),
       streamEvents: Stream.fromPubSub(runtimeEventPubSub),
     };
 
@@ -7823,6 +7825,138 @@ describe("ProviderCommandReactor", () => {
     ).toBe(scenario.reportsFailure);
     expect(harness.sendTurn).not.toHaveBeenCalled();
     expect(harness.interruptTurn).toHaveBeenCalledTimes(scenario.initiallyStopped ? 0 : 1);
+  });
+
+  it.each(["confirmed quit", "unproven quit", "manual interrupt", "missing turn"])(
+    "settles an expired shutdown claim only with owned teardown evidence: %s",
+    async (scenario) => {
+      const hasConfirmedShutdown = vi.fn(() => Effect.succeed(scenario !== "unproven quit"));
+      const harness = await createHarness({ startReactor: false, hasConfirmedShutdown });
+      const threadId = ThreadId.makeUnsafe("thread-1");
+      const turnId = asTurnId("shutdown-receipt-turn");
+      const createdAt = new Date().toISOString();
+      const requested = await Effect.runPromise(
+        harness.engine.dispatch({
+          type: "thread.turn.interrupt",
+          commandId: CommandId.makeUnsafe(
+            scenario === "manual interrupt"
+              ? "manual-shutdown-receipt-interrupt"
+              : "quit-resume-interrupt:receipt:thread-1",
+          ),
+          threadId,
+          ...(scenario === "missing turn" ? {} : { turnId }),
+          createdAt,
+        }),
+      );
+      const key = {
+        consumerName: PROVIDER_COMMAND_REACTOR_CONSUMER,
+        eventSequence: requested.sequence,
+      };
+      await Effect.runPromise(
+        harness.deliveryRepository.claim({
+          ...key,
+          threadId,
+          claimOwner: "previous-process",
+          claimedAt: "2020-01-01T00:00:00.000Z",
+          claimExpiresAt: "2020-01-01T00:01:00.000Z",
+        }),
+      );
+
+      await harness.startReactor();
+
+      const delivery = Option.getOrThrow(
+        await Effect.runPromise(harness.deliveryRepository.getDelivery(key)),
+      );
+      expect(delivery.state).toBe(scenario === "confirmed quit" ? "succeeded" : "uncertain");
+      expect(harness.interruptTurn).not.toHaveBeenCalled();
+      const blockers = await Effect.runPromise(
+        harness.reactor.listBlockingDeliveries({ threadId, limit: 10 }),
+      );
+      expect(blockers).toHaveLength(scenario === "confirmed quit" ? 0 : 1);
+      if (scenario === "confirmed quit" || scenario === "unproven quit") {
+        expect(hasConfirmedShutdown).toHaveBeenCalledWith({
+          threadId,
+          turnId,
+          requestedAt: createdAt,
+        });
+      } else {
+        expect(hasConfirmedShutdown).not.toHaveBeenCalled();
+      }
+    },
+  );
+
+  it("settles a cancelled quit worker after restart from confirmed teardown without waiting its lease", async () => {
+    const entered = Deferred.makeUnsafe<void>();
+    const cancelled = Deferred.makeUnsafe<void>();
+    let teardownConfirmed = false;
+    const harness = await createHarness({
+      interruptTurn: () =>
+        Deferred.succeed(entered, undefined).pipe(
+          Effect.andThen(Effect.never),
+          Effect.onInterrupt(() => Deferred.succeed(cancelled, undefined)),
+        ),
+      hasConfirmedShutdown: () => Effect.succeed(teardownConfirmed),
+    });
+    const threadId = ThreadId.makeUnsafe("thread-1");
+    const turnId = asTurnId("shutdown-restart-turn");
+    const createdAt = new Date().toISOString();
+    harness.setRuntimeSessionTurnState({ threadId, status: "running", activeTurnId: turnId });
+    await harness.persistSessionWithoutLivePublication({ threadId, turnId, updatedAt: createdAt });
+    const requested = await Effect.runPromise(
+      harness.engine.dispatch({
+        type: "thread.turn.interrupt",
+        commandId: CommandId.makeUnsafe("quit-resume-interrupt:restart:thread-1"),
+        threadId,
+        turnId,
+        createdAt,
+      }),
+    );
+    await Effect.runPromise(Deferred.await(entered).pipe(Effect.timeout("1 second")));
+    const key = {
+      consumerName: PROVIDER_COMMAND_REACTOR_CONSUMER,
+      eventSequence: requested.sequence,
+    };
+    const claimed = Option.getOrThrow(
+      await Effect.runPromise(harness.deliveryRepository.getDelivery(key)),
+    );
+    expect(claimed.state).toBe("inflight");
+    expect(Date.parse(claimed.claimExpiresAt!)).toBeGreaterThan(Date.now());
+
+    // ProviderService owns this fact: its separate tests require successful
+    // stopAll and matching lifecycle/turn identity before persisting it.
+    teardownConfirmed = true;
+    harness.setRuntimeSessionTurnState({ threadId, status: "closed" });
+    const fresh = await harness.restartReactor();
+    expect(await Effect.runPromise(Deferred.isDone(cancelled))).toBe(true);
+    await Effect.runPromise(
+      Effect.tryPromise(() => fresh.start()).pipe(Effect.timeout("2 seconds")),
+    );
+    expect(
+      Option.getOrThrow(await Effect.runPromise(harness.deliveryRepository.getDelivery(key))).state,
+    ).toBe("succeeded");
+    expect(harness.interruptTurn).toHaveBeenCalledTimes(1);
+    expect(
+      await Effect.runPromise(fresh.reactor.listBlockingDeliveries({ threadId, limit: 10 })),
+    ).toEqual([]);
+
+    await Effect.runPromise(
+      harness.engine.dispatch({
+        type: "thread.turn.start",
+        commandId: CommandId.makeUnsafe("after-shutdown-receipt"),
+        threadId,
+        runtimeMode: "approval-required",
+        interactionMode: "default",
+        createdAt: new Date().toISOString(),
+        message: {
+          messageId: MessageId.makeUnsafe("after-shutdown-receipt-message"),
+          role: "user",
+          text: "Continue after restart",
+          attachments: [],
+        },
+      }),
+    );
+    await waitFor(() => harness.sendTurn.mock.calls.length === 1);
+    await Effect.runPromise(fresh.reactor.drain);
   });
 
   it("settles an interrupt despite stopped diagnostic admission without quarantining later work", async () => {
