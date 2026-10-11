@@ -70,6 +70,8 @@ A new worktree starts with the source checkout's tracked files, its uncommitted 
 
 Everything else Git ignores, such as build output and `node_modules`, starts empty in the new worktree.
 
+The same split decides what an archived worktree keeps. While an archived worktree sits inside the retention window, it keeps its checkout, its copied files, and its links, and loses everything else Git ignores. Restoring the thread means rebuilding, with the same files a fresh worktree would start from.
+
 ## Working inside the task
 
 Run repository commands from the task’s terminal so they use the correct working directory:
