@@ -115,6 +115,9 @@ async function qualify() {
   const version = JSON.parse(
     readFileSync(join(source, "apps/server/package.json"), "utf8"),
   ).version;
+  // electron-builder's pinned LinuxTargetHelper sanitizes Debian package
+  // versions this way; the embedded application keeps its original SemVer.
+  const debianVersion = version.replace(/-/g, "~");
   const lockfileSha256 = await sha256(join(source, "bun.lock"));
   const canonicalPath = join(source, "scripts/verify-packaged-desktop-startup.ts");
 
@@ -133,6 +136,7 @@ async function qualify() {
       sourceSha,
       driverSha,
       version,
+      debianVersion,
       lockfileSha256,
       sourceTree: run("git", ["rev-parse", "HEAD^{tree}"]).trim(),
       driverTree: run("git", ["-C", driver, "rev-parse", "HEAD^{tree}"]).trim(),
@@ -152,6 +156,8 @@ async function qualify() {
   const provenance = JSON.parse(readFileSync(join(evidence, "provenance.json"), "utf8"));
   assert.equal(provenance.sourceSha, sourceSha);
   assert.equal(provenance.driverSha, driverSha);
+  assert.equal(provenance.version, version);
+  assert.equal(provenance.debianVersion, debianVersion);
   assert.equal(provenance.lockfileSha256, lockfileSha256);
   assert.equal(provenance.canonicalStartupSha256, await sha256(canonicalPath));
   assert.equal(
@@ -179,7 +185,7 @@ async function qualify() {
     );
     save("package-inventory.json", { fields, payloads });
     assert.equal(fields.Package, packageName);
-    assert.equal(fields.Version, version);
+    assert.equal(fields.Version, debianVersion);
     assert.equal(fields.Architecture, "amd64");
     assert.match(fields.Maintainer, /^.+ <[^<>\s]+@[^<>\s]+>$/);
     assert.equal(fields.Homepage, "https://github.com/Emanuele-web04/synara");
@@ -214,7 +220,7 @@ async function qualify() {
     ["--show", "--showformat=${Status}\n${Version}\n${Architecture}\n", packageName],
     { log: "dpkg-installed-status.txt" },
   );
-  assert.equal(status.trim(), `install ok installed\n${version}\namd64`);
+  assert.equal(status.trim(), `install ok installed\n${debianVersion}\namd64`);
   const installedFiles = run("dpkg-query", ["--listfiles", packageName], {
     log: "dpkg-installed-files.txt",
   }).split("\n");
